@@ -1,0 +1,11 @@
+about = "A blocky ironstone chunk, coarse-faceted and darker"
+seed = 5
+[[part]]
+shape = "rock"
+radius = 2.5
+mined = 0.55
+detail = 0
+lumps = 0.35
+squash = 0.95
+paint = "#955032"
+accent = "#d98a4a"

@@ -1,0 +1,23 @@
+# The drive's hum follows the ship's speed (galaxy-gm audio check): cruising at top
+# speed, the effects bus sits well over the quiet hum the ship makes at rest
+# (drive-rest-check.toml), with nothing near clipping. Windows 3 and 4 are seconds 3 to
+# 5, after the turn and the first thrust and well before the ship coasts.
+scenario = "drive-cruise.toml"
+
+[[expect]]
+value = "windows.3.rms_dbfs.sound"
+at_least = -38.0
+at_most = -28.0
+
+[[expect]]
+value = "windows.4.rms_dbfs.sound"
+at_least = -38.0
+at_most = -28.0
+
+[[expect]]
+value = "playback.sample_peak_dbfs"
+at_most = -6.0
+
+[[expect]]
+value = "limited_samples"
+equals = 0

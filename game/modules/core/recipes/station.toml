@@ -1,27 +1,232 @@
-about = "A compact lantern-lit ring station"
-# The ring turns slowly (a full turn a minute) and its lamps breathe; the mast's tip
-# lamp blinks a little quicker. Both are drawn only, so they change no world state.
+about = "Lantern Dock: a round, hand-built harbour ring, lantern-lit, with a greenhouse and a crate-piled dock arm"
+# Round and hand-built (direction doc 1.3, Wharf Cooperative): a turning spoked ring, a
+# three-tier core under a lantern cap, a greenhouse dome, lantern posts round the ring
+# and a string of lamps along the dock arm to the mark. The ring turns slowly (a full
+# turn a minute), its lamps breathe, the mast's tip blinks a little quicker and the
+# lantern posts each keep their own slow beat. All of it is drawn only, so it changes
+# no world state. Everything stays inside the ring's reach except the dock arm out
+# west, so the footprint (and the berths beside it) are as before.
 [[part]]
 shape = "spoked_ring"
 radius = 5
 tube = 0.7
 inner = 1.8
+lamps = 8
 spin = 6
 pulse = 4
 pulse_low = 0.45
 [[part]]
+name = "tiers"
 shape = "tiers"
-radius = 2
-height = 2.8
+radius = 2.1
+height = 3.8
+tiers = 3
+sides = 10
+cap = 0.6
+# A greenhouse dome on the ring's inner deck, glowing leaf-green through its glass.
 [[part]]
+name = "greenhouse"
+shape = "dome"
+radius = 1.25
+ribs = 5
+at = [1.9, -2.3, 0.2]
+glass = "#9fe0a0"
+[[part]]
+name = "greenhouse_glow"
+shape = "sphere"
+radius = 0.75
+half = true
+at = [1.9, -2.3, 0.2]
+paint = "#5cbf5a"
+glow = 0.55
+pulse = 6
+pulse_low = 0.7
+# A water tank beside the core, in the cooperative's green.
+[[part]]
+name = "tank"
+shape = "tanks"
+length = 1.2
+radius = 0.45
+count = 2
+at = [1.6, 2.6, 0.5]
+turn = 30
+paint = "trim"
+trim = "accent"
+# Lantern posts round the ring: tall, each with a glowing head.
+[[part]]
+name = "lantern_posts"
+shape = "beacon"
+height = 1.6
+copies = 4
+angle = 45
+distance = 5.4
+paint = "#3a2d5c"
+accent = "accent"
+pulse = 3.2
+pulse_low = 0.35
+# The dock arm: a truss reaching west under a deck panel, the mark at its end.
+[[part]]
+name = "arm"
+shape = "truss"
+length = 4.6
+width = 0.7
+collar_every = 1.4
+at = [-4.6, 0, 0.25]
+turn = 180
+paint = "trim"
+trim = "accent"
+[[part]]
+name = "deck"
 shape = "panel"
 length = 4
 width = 2
 at = [-5, 0, 0]
 turn = 180
+# A lamp string along the arm: three lamps strung between two posts.
+[[part]]
+name = "string_post"
+shape = "cylinder"
+radius = 0.09
+height = 1.3
+sides = 5
+at = [-5.2, 1.1, 0.2]
+paint = "#3a2d5c"
+[[part]]
+name = "string_post_end"
+shape = "cylinder"
+radius = 0.09
+height = 1.3
+sides = 5
+at = [-8.6, 1.1, 0.2]
+paint = "#3a2d5c"
+[[part]]
+name = "string"
+shape = "strut"
+from = [-5.2, 1.1, 1.45]
+to = [-8.6, 1.1, 1.45]
+thickness = 0.05
+paint = "#3a2d5c"
+[[part]]
+name = "string_lamp_a"
+shape = "sphere"
+radius = 0.22
+rings = 3
+sides = 6
+at = [-6.0, 1.1, 1.3]
+paint = "lights"
+glow = 1.0
+pulse = 2.2
+pulse_low = 0.5
+[[part]]
+name = "string_lamp_b"
+shape = "sphere"
+radius = 0.22
+rings = 3
+sides = 6
+at = [-6.9, 1.1, 1.25]
+paint = "#ff8fa3"
+glow = 1.0
+pulse = 2.9
+pulse_low = 0.5
+[[part]]
+name = "string_lamp_c"
+shape = "sphere"
+radius = 0.22
+rings = 3
+sides = 6
+at = [-7.8, 1.1, 1.3]
+paint = "lights"
+glow = 1.0
+pulse = 2.5
+pulse_low = 0.5
+# A crate pile on the arm, in the warm swatches.
+[[part]]
+name = "crate_a"
+shape = "box"
+size = [0.8, 0.8, 0.7]
+at = [-5.6, -0.9, 0.55]
+paint = "#d9774b"
+[[part]]
+name = "crate_b"
+shape = "box"
+size = [0.7, 0.7, 0.6]
+at = [-6.4, -0.8, 0.5]
+paint = "#f2b43c"
+[[part]]
+name = "crate_c"
+shape = "box"
+size = [0.6, 0.6, 0.5]
+at = [-5.9, -0.85, 1.1]
+paint = "#3fa7a0"
+[[part]]
+name = "barrel"
+shape = "cylinder"
+radius = 0.3
+height = 0.8
+sides = 8
+at = [-7.1, -0.9, 0.2]
+paint = "#c98f4a"
+# The mast, with the cooperative's pennants flying from it.
 [[part]]
 shape = "mast"
-height = 4
+height = 4.5
 at = [0, 2.5, 0]
 pulse = 2.5
 pulse_low = 0.2
+[[part]]
+name = "pennant"
+shape = "fin"
+length = 1.1
+height = 0.6
+thickness = 0.06
+at = [0.2, 2.5, 3.6]
+roll = 90
+paint = "#2f9d86"
+[[part]]
+name = "pennant_low"
+shape = "fin"
+length = 0.9
+height = 0.5
+thickness = 0.06
+at = [0.2, 2.5, 2.9]
+roll = 90
+paint = "#ff8fa3"
+# A banner hung from the core's lower tier, facing the dock arm.
+[[part]]
+name = "banner"
+shape = "box"
+size = [0.06, 1.0, 1.5]
+at = [-2.25, 0, 1.6]
+paint = "#2f9d86"
+[[part]]
+name = "banner_mark"
+shape = "box"
+size = [0.07, 0.45, 0.45]
+at = [-2.28, 0, 1.8]
+paint = "accent"
+glow = 0.4
+# Lantern Dock's mark on its dock arm, face up: a lit gold lantern on a lantern-green
+# disc. The direction doc gives each owner a mark as well as a shape and paint (1.3).
+[[part]]
+name = "mark"
+shape = "cylinder"
+radius = 0.95
+height = 0.08
+sides = 16
+at = [-7, 0, 0.32]
+paint = "trim"
+[[part]]
+name = "mark_lantern"
+shape = "plate"
+outline = [[-0.3, -0.45], [0.3, -0.45], [0.38, -0.3], [0.38, 0.25], [0.25, 0.38], [-0.25, 0.38], [-0.38, 0.25], [-0.38, -0.3]]
+height = 0.1
+at = [-7, -0.05, 0.4]
+paint = "accent"
+glow = 0.5
+[[part]]
+name = "mark_cap"
+shape = "plate"
+outline = [[-0.16, 0.38], [0.16, 0.38], [0.1, 0.58], [-0.1, 0.58]]
+height = 0.1
+at = [-7, -0.05, 0.4]
+paint = "accent"

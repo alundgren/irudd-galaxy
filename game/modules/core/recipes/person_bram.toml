@@ -1,0 +1,8 @@
+about = "Bram Okafor, Lantern Dock's dockmaster: a navy coat and a dockmaster's cap with a brass badge"
+palette = { main = "#2c5a7a", trim = "#2a2a3a", accent = "#24435c", skin = "#7a4a32", hair = "#2a1a1a", hat = "#24435c" }
+[[part]]
+name = "body"
+use = "figure"
+[[part]]
+name = "face"
+use = "head_bram"

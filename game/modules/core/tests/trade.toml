@@ -131,9 +131,9 @@ source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
 [[input]]
 tick = 2483
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2480 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2480 }
 [[input]]
 tick = 2490
 name = "core.buy"
@@ -280,7 +280,8 @@ component = "hold"
 field = "plate"
 equals = 4
 
-# The tenth plate builds the galley: a new building, its cook, and rations for sale.
+# The tenth plate builds the galley: a new building, its cook in its kitchen, and
+# rations for sale.
 [[expect]]
 tick = 2470
 entity = "lantern_galley"
@@ -304,7 +305,7 @@ tick = 2470
 entity = "lantern_cook"
 component = "engine.location"
 field = "place"
-equals = "core.lantern"
+equals = "core.lantern_galley_room"
 [[expect]]
 tick = 2470
 entity = "lantern_cook"
@@ -322,7 +323,7 @@ tick = 2470
 entity = "lantern_master_now"
 component = "engine.talk_line"
 field = "text"
-equals = "The field still holds 30 ore."
+equals = "The field still holds 78 ore."
 
 # In her own room she wears her name sign.
 [[expect]]

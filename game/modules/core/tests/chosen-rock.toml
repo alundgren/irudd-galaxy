@@ -1,0 +1,85 @@
+# A rock picked by name is the player's choice of ware. The same flight as glassite.toml,
+# but the order names glassite1 (a click on it): its five glassite come aboard, and when
+# it is cut down the beam stops there instead of moving on to the next rock, with a line
+# saying how to go on. An order that names no rock still moves on (glassite.toml).
+seed = 7
+ticks = 420
+
+[[input]]
+tick = 1
+name = "left"
+payload = { down = true }
+
+[[input]]
+tick = 6
+name = "left"
+payload = { down = false }
+
+[[input]]
+tick = 10
+name = "ahead"
+payload = { down = true }
+
+[[input]]
+tick = 100
+name = "ahead"
+payload = { down = false }
+
+[[input]]
+tick = 150
+name = "mine"
+payload = { rock = "core.glassite1" }
+
+[[expect]]
+tick = 152
+entity = "ship"
+component = "pilot"
+field = "chosen"
+equals = true
+
+[[expect]]
+tick = 320
+entity = "glassite1"
+component = "ore"
+field = "left"
+equals = 0
+
+[[expect]]
+tick = 420
+entity = "ship"
+component = "hold"
+field = "glassite"
+equals = 5
+
+[[expect]]
+tick = 420
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 0
+
+[[expect]]
+tick = 420
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+
+[[expect]]
+tick = 420
+entity = "ship"
+component = "pilot"
+field = "approach"
+equals = false
+
+[[expect]]
+tick = 420
+facts = "mined"
+equals = 5
+
+[[expect]]
+tick = 420
+entity = "log2"
+component = "entry"
+field = "text"
+equals = "The rig stops with the rock you picked: click another, or Space for the nearest."

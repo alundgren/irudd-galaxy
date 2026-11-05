@@ -1,0 +1,51 @@
+about = "The head of Noor Hale: face, eyes, dark hair and a straw sun hat, one node (person_noor wears it as its face)"
+palette = { main = "#8a5a3a", trim = "#3b3550", accent = "#8fbf7a", skin = "#b9805e", hair = "#2e1e1a", hat = "#e9c46a" }
+[[part]]
+name = "skin"
+shape = "sphere"
+radius = 0.23
+sides = 10
+rings = 5
+at = [0, 0, 1.86]
+paint = "skin"
+[[part]]
+name = "eyes"
+shape = "box"
+size = [0.03, 0.04, 0.055]
+at = [0.215, 0.08, 1.9]
+mirror = true
+paint = "#2a1a2e"
+[[part]]
+name = "hair"
+shape = "sphere"
+radius = 0.25
+half = true
+sides = 10
+rings = 3
+at = [-0.03, 0, 1.86]
+paint = "hair"
+[[part]]
+name = "brim"
+shape = "cylinder"
+radius = 0.36
+height = 0.04
+sides = 12
+at = [-0.02, 0, 2.06]
+paint = "hat"
+[[part]]
+name = "crown"
+shape = "cylinder"
+radius = 0.2
+height = 0.16
+taper = 0.85
+sides = 10
+at = [-0.02, 0, 2.08]
+paint = "hat"
+[[part]]
+name = "band"
+shape = "cylinder"
+radius = 0.205
+height = 0.04
+sides = 10
+at = [-0.02, 0, 2.1]
+paint = "accent"

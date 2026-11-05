@@ -2,16 +2,23 @@
 mod hovers;
 mod icons;
 mod interaction;
+mod motion;
+mod paint;
 mod scrolling;
 mod yielding;
 pub use interaction::{Drag, Presentation};
+pub use motion::Motion;
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use galaxy_api::Registry;
+use galaxy_api::ui::{UiAction, UiCue};
 use galaxy_module::module::Module;
 use galaxy_render::{
-    Align, Overlay, Rect, Text, UiLayer, glam::Vec2, screen_style::ScreenStyle, text::TextMeasure,
+    Align, Overlay, Rect, Text, TextSpan, UiImage, UiLayer, glam::Vec2, screen_style::ScreenStyle,
+    text::TextMeasure, vector::Icon,
 };
 use galaxy_script::{
     ScriptSet,
@@ -28,7 +35,15 @@ pub struct Boxed {
     pub children: Vec<Boxed>,
     pub clip: Option<Rect>,
     pub content_height: f32,
-    pub style: ScreenStyle,
+    pub style: Arc<ScreenStyle>,
+    /// A module image icon and its box, placed like the text.
+    pub icon: Option<IconBox>,
+    /// Each span with a look, one rectangle per line, from the text's origin.
+    pub span_rects: Vec<Vec<Rect>>,
+    /// The whole label's lines, from the text's origin (for an underlined look).
+    pub line_rects: Vec<Rect>,
+    /// The width the words and icon take, for a tag that hugs them.
+    pub content_width: f32,
     /// A drop target's height for its verdicts: the tallest label, or the height kept for
     /// them while a value is held. Zero for other widgets.
     pub verdicts: f32,
@@ -45,10 +60,35 @@ pub struct Screens {
     pub problems: Vec<String>,
     pub presentation: Presentation,
     pub presented: Presentation,
-    icons: BTreeMap<String, String>,
+    icons: icons::Icons,
     pub clock: f32,
     pub anchors: BTreeMap<String, Vec2>,
     pub style: ScreenStyle,
+    /// The player's reduced-motion setting: recorded into the presentation.
+    pub reduced_motion: bool,
+    /// UI sound cues since the game last took them; `None` unless the game listens, so
+    /// staged scenes in check, notes and films make none.
+    cues: RefCell<Option<Vec<UiCue>>>,
+    /// The clickable thing the pointer was over in the last frame, for hover cues.
+    hovering: Option<String>,
+}
+
+/// At most this many cues wait to be taken; later ones are dropped.
+const MAX_CUES: usize = 256;
+
+#[derive(Clone, Debug)]
+pub struct IconBox {
+    pub rect: Rect,
+    pub icon: Arc<Icon>,
+    pub painted: bool,
+}
+
+/// What laying out a tree needs besides the tree.
+struct Kit<'a> {
+    measure: &'a mut TextMeasure,
+    style: &'a Arc<ScreenStyle>,
+    kept: &'a BTreeMap<String, f32>,
+    icons: &'a icons::Icons,
 }
 
 impl Screens {
@@ -88,8 +128,9 @@ impl Screens {
         overlay: &mut Overlay,
     ) {
         self.problems = self.load_problems.clone();
-        self.boxes.clear();
+        let previous = std::mem::take(&mut self.boxes);
         self.anchors = anchors.clone();
+        let style = Arc::new(self.style.clone());
         // While a value is held, each drop target keeps the verdict height it had at
         // pickup, so a note the scripts rewrite moves no target. The drop ends it: the
         // drop's own handler may fill the target and change its verdicts.
@@ -113,7 +154,13 @@ impl Screens {
             if let Some(tree) = &screen.tree {
                 let mut tree = tree.clone();
                 icons::resolve(&mut tree, &self.icons, &mut self.problems);
-                let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style, &kept);
+                let mut kit = Kit {
+                    measure: &mut self.measure,
+                    style: &style,
+                    kept: &kept,
+                    icons: &self.icons,
+                };
+                let mut boxed = layout(&tree, size.x - 40.0, &mut kit);
                 place(
                     &mut boxed,
                     Vec2::splat(20.0),
@@ -125,11 +172,33 @@ impl Screens {
                 screens += 1;
             }
         }
-        for tree in crate::life::widgets(world)
+        let signs = crate::life::widgets(world).into_iter().map(|mut tree| {
+            if !style.sign_look.is_empty() {
+                tree.look = Some(style.sign_look.clone());
+            }
+            tree
+        });
+        let bubbles = crate::talk::widgets(world, &style)
             .into_iter()
-            .chain(crate::talk::widgets(world, &self.style))
-        {
-            let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style, &kept);
+            .map(|mut tree| {
+                if !style.bubble_look.is_empty() {
+                    tree.look = Some(style.bubble_look.clone());
+                }
+                for part in &mut tree.children {
+                    if part.path.ends_with("/title") && !style.bubble_title_look.is_empty() {
+                        part.look = Some(style.bubble_title_look.clone());
+                    }
+                }
+                tree
+            });
+        for tree in signs.chain(bubbles).collect::<Vec<_>>() {
+            let mut kit = Kit {
+                measure: &mut self.measure,
+                style: &style,
+                kept: &kept,
+                icons: &self.icons,
+            };
+            let mut boxed = layout(&tree, size.x - 40.0, &mut kit);
             place(&mut boxed, Vec2::ZERO, size, anchors, &mut self.problems);
             placed.push(boxed);
         }
@@ -143,14 +212,38 @@ impl Screens {
             check(
                 boxed,
                 Rect::new(0.0, 0.0, size.x, size.y),
+                paint::Ink::base(&self.style),
                 &mut self.measure,
                 &mut self.problems,
             );
         }
         self.boxes = shown;
         self.finish_motion();
+        self.update_motion(&previous);
+        let hovered = self.hovered_button();
+        // Panels on their way out draw first, under what is on screen now.
+        for (b, t) in self.leaving(size) {
+            let fx = Fx {
+                alpha: 1.0 - t,
+                dy: t * self.motion_slide(),
+            };
+            draw(
+                &b,
+                overlay,
+                paint::Ink::base(&self.style),
+                fx,
+                &self.painter(None),
+            );
+        }
+        let painter = self.painter(hovered.as_deref());
         for boxed in &self.boxes {
-            draw(boxed, overlay, None, &self.presentation, &self.style);
+            draw(
+                boxed,
+                overlay,
+                paint::Ink::base(&self.style),
+                Fx::NONE,
+                &painter,
+            );
         }
         self.draw_drag(overlay);
         self.presented = self.presentation.clone();
@@ -172,19 +265,50 @@ impl Screens {
         }
     }
 
+    fn motion_slide(&self) -> f32 {
+        if self.presentation.motion.reduced {
+            0.0
+        } else {
+            self.style.motion_slide
+        }
+    }
+
+    fn painter(&self, hovered: Option<&str>) -> Painter<'_> {
+        Painter {
+            screens: self,
+            hovered: hovered.map(str::to_owned),
+        }
+    }
+
+    /// The ready button under the pointer, by path, unless a gesture holds the pointer.
+    fn hovered_button(&self) -> Option<String> {
+        let p = &self.presentation;
+        if p.drag.is_some() || p.settle.is_some() || p.scroll_grab.is_some() {
+            return None;
+        }
+        let w = self.hit(Vec2::from(p.pointer?))?;
+        (w.kind == "button" && w.resting.is_none()).then(|| w.path.clone())
+    }
+
     /// Topmost painted surface wins, including a non-clickable panel covering a button.
     /// A resting button takes the click and records nothing.
     pub fn click(&self, point: Vec2, tick: u64) -> Option<Input> {
         let w = self.hit(point)?;
-        if !matches!(w.kind.as_str(), "button" | "bubble") || w.resting.is_some() {
+        if w.kind == "button" && w.resting.is_some() {
+            self.ui_cue(UiAction::Deny, w);
             return None;
         }
-        w.on.as_ref().map(|name| Input {
+        if !matches!(w.kind.as_str(), "button" | "bubble") {
+            return None;
+        }
+        let input = w.on.as_ref().map(|name| Input {
             tick,
             source: "ui".into(),
             name: name.clone(),
             payload: w.payload.clone(),
-        })
+        })?;
+        self.ui_cue(UiAction::Press, w);
+        Some(input)
     }
 
     /// Resolve bot targets against the current layout, then use ordinary pointer hit testing.
@@ -298,24 +422,94 @@ impl Screens {
     pub fn calls(&self) -> u64 {
         self.functions.iter().map(|s| s.calls).sum()
     }
+
+    /// From now on, UI actions leave cues for [`Screens::take_cues`] (a played session).
+    pub fn listen(&mut self, on: bool) {
+        *self.cues.get_mut() = on.then(Vec::new);
+    }
+
+    pub fn listening(&self) -> bool {
+        self.cues.borrow().is_some()
+    }
+
+    /// The UI sound cues since the last call, in the order they happened.
+    pub fn take_cues(&mut self) -> Vec<UiCue> {
+        self.cues
+            .get_mut()
+            .as_mut()
+            .map(std::mem::take)
+            .unwrap_or_default()
+    }
+
+    /// Puts cues taken with [`Screens::take_cues`] back, ahead of any newer ones.
+    pub(crate) fn requeue(&mut self, mut cues: Vec<UiCue>) {
+        if let Some(waiting) = self.cues.get_mut() {
+            cues.append(waiting);
+            *waiting = cues;
+        }
+    }
+
+    /// Notes a UI action on `w` for the game to play and record.
+    pub(crate) fn ui_cue(&self, action: UiAction, w: &Widget) {
+        self.ui_cue_as(action, &w.kind, w.look.as_deref(), &w.path);
+    }
+
+    pub(crate) fn ui_cue_as(&self, action: UiAction, kind: &str, look: Option<&str>, widget: &str) {
+        if let Some(cues) = self.cues.borrow_mut().as_mut()
+            && cues.len() < MAX_CUES
+        {
+            cues.push(UiCue {
+                tick: 0,
+                time: self.clock,
+                action,
+                kind: kind.to_owned(),
+                look: look.map(str::to_owned),
+                widget: widget.to_owned(),
+            });
+        }
+    }
+
+    /// A UI action on the shown widget at `path`, such as a bot's click on a resting button.
+    pub fn cue_path(&self, action: UiAction, path: &str) {
+        if let Some(b) = self.all().into_iter().find(|b| b.widget.path == path) {
+            self.ui_cue(action, &b.widget);
+        }
+    }
+
+    /// The pointer is over `over` (a clickable widget) this frame: a hover cue when it is
+    /// a different thing from last frame's. A widget with an id stays the same thing when
+    /// its screen moves it to another parent.
+    pub(crate) fn hover_over(&mut self, over: Option<&Widget>) {
+        let key = over.map(motion::key);
+        if key == self.hovering {
+            return;
+        }
+        self.hovering = key;
+        if let Some(w) = over {
+            self.ui_cue(UiAction::Hover, w);
+        }
+    }
 }
 
-/// `kept` maps a drop target's path to the verdict height it keeps while a value is held.
-fn layout(
-    w: &Widget,
-    available: f32,
-    measure: &mut TextMeasure,
-    style: &ScreenStyle,
-    kept: &BTreeMap<String, f32>,
-) -> Boxed {
+/// `kit.kept` maps a drop target's path to the verdict height it keeps while a value is
+/// held.
+fn layout(w: &Widget, available: f32, kit: &mut Kit) -> Boxed {
+    let style = kit.style;
+    let look = style.look(w.look.as_deref());
     let mut padded = w.clone();
-    if !w.explicit_pad
-        && matches!(
+    if !w.explicit_pad {
+        if matches!(
             w.kind.as_str(),
             "panel" | "button" | "bubble" | "drag_source" | "drop_target"
-        )
-    {
-        padded.pad = style.frame_padding;
+        ) {
+            padded.pad = style.frame_padding;
+        }
+        if let Some(pad) = look.and_then(|l| l.pad) {
+            padded.pad = pad;
+        }
+    }
+    if let Some(weight) = look.and_then(|l| l.weight()) {
+        padded.weight = weight;
     }
     if w.kind == "scroll" {
         padded.pad = w.pad.max(12.0);
@@ -337,8 +531,31 @@ fn layout(
     let mut text = None;
     let mut children = Vec::new();
     let mut verdicts = 0.0;
+    let mut icon = None;
+    let mut span_rects = Vec::new();
+    let mut line_rects = Vec::new();
+    let mut content_width = 0.0;
     let height;
-    if leaf(&w.kind) {
+    let vector = w.icon.as_ref().and_then(|id| match kit.icons.get(id) {
+        Some(icons::Asset::Vector { icon, painted }) => Some((icon.clone(), *painted)),
+        _ => None,
+    });
+    if w.kind == "icon"
+        && let Some((art, painted)) = vector.clone()
+    {
+        // An image icon is a square of `size` pixels.
+        icon = Some(IconBox {
+            rect: Rect::new(w.pad, w.pad, w.size, w.size),
+            icon: art,
+            painted,
+        });
+        content_width = w.size;
+        height = w.size + 2.0 * w.pad;
+    } else if leaf(&w.kind) {
+        let side = (w.size * 1.25).round();
+        let top = w.icon_at.as_deref() == Some("top");
+        let beside = vector.is_some() && !top;
+        let wrap = if beside { inner - side - 8.0 } else { inner }.max(1.0);
         let labels = if w.kind == "delta" {
             vec![format!("{:+}", w.delta)]
         } else if w.kind == "drop_target" {
@@ -346,17 +563,33 @@ fn layout(
         } else {
             vec![w.text.clone()]
         };
+        let spans: Vec<TextSpan> = paint::span_ranges(w)
+            .into_iter()
+            .map(|(range, name)| TextSpan {
+                range,
+                color: style.text,
+                weight: style
+                    .look(Some(&name))
+                    .and_then(|l| l.weight())
+                    .unwrap_or(w.weight),
+            })
+            .collect();
         let mut measured: Vec<_> = labels
             .into_iter()
             .map(|label| {
                 let mut t = Text::new(label, Vec2::splat(w.pad), w.size)
-                    .wrap(inner)
+                    .wrap(wrap)
                     .weight(w.weight);
+                t.spans = spans.clone();
                 if w.trailing {
                     t = t.align(Align::Right);
                     t.pos.x = w.pad + inner;
                 }
-                let h = measure.measure(&t, 1.0).y;
+                if vector.is_some() && top {
+                    t = t.align(Align::Center);
+                    t.pos.x = w.pad + inner * 0.5;
+                }
+                let h = kit.measure.measure(&t, 1.0).y;
                 (t, h)
             })
             .collect();
@@ -365,28 +598,69 @@ fn layout(
         if w.kind == "drop_target" {
             // A held value keeps the space reserved at pickup; a verdict that outgrows it
             // is reported as clipped by check.
-            h = kept.get(&w.path).copied().unwrap_or(h);
+            h = kit.kept.get(&w.path).copied().unwrap_or(h);
             verdicts = h;
         }
         let mut y = w.pad;
         for child in &w.children {
-            let mut b = layout(child, inner, measure, style, kept);
+            let mut b = layout(child, inner, kit);
             b.rect.x = w.pad;
             b.rect.y = y;
             y += b.rect.h + w.gap;
             children.push(b);
         }
         t.pos.y = y;
-        height = h + y + w.pad;
+        // How wide the words run: the longest shaped line.
+        let mut whole = t.clone();
+        whole.spans = vec![TextSpan {
+            range: 0..t.text.len(),
+            color: style.text,
+            weight: w.weight,
+        }];
+        let lines = kit
+            .measure
+            .span_rects(&whole, 1.0)
+            .pop()
+            .unwrap_or_default();
+        let words = lines.iter().map(|r| r.x + r.w).fold(0.0, f32::max);
+        if look.is_some_and(|l| l.underline.is_some()) {
+            line_rects = lines;
+        }
+        if !t.spans.is_empty() {
+            span_rects = kit.measure.span_rects(&t, 1.0);
+        }
+        content_width = words;
+        match vector {
+            Some((art, painted)) if top => {
+                icon = Some(IconBox {
+                    rect: Rect::new(w.pad + (inner - side) * 0.5, y, side, side),
+                    icon: art,
+                    painted,
+                });
+                t.pos.y = y + side + 6.0;
+                height = h + side + 6.0 + y + w.pad;
+                content_width = inner;
+            }
+            Some((art, painted)) => {
+                let row = h.max(side);
+                icon = Some(IconBox {
+                    rect: Rect::new(w.pad, y + (row - side) * 0.5, side, side),
+                    icon: art,
+                    painted,
+                });
+                t.pos.x += side + 8.0;
+                t.pos.y = y + (row - h) * 0.5;
+                height = row + y + w.pad;
+                content_width = words + side + 8.0;
+            }
+            None => height = h + y + w.pad,
+        }
         text = Some(t);
     } else if w.kind == "grid" {
         let cell = ((inner - w.gap * (w.columns - 1) as f32) / w.columns as f32).max(1.0);
         let mut y = w.pad;
         for row in w.children.chunks(w.columns) {
-            let mut boxes: Vec<_> = row
-                .iter()
-                .map(|c| layout(c, cell, measure, style, kept))
-                .collect();
+            let mut boxes: Vec<_> = row.iter().map(|c| layout(c, cell, kit)).collect();
             let h = boxes.iter().map(|b| b.rect.h).fold(0.0, f32::max);
             for (i, b) in boxes.iter_mut().enumerate() {
                 b.rect.x = w.pad + i as f32 * (cell + w.gap);
@@ -423,7 +697,7 @@ fn layout(
         let mut cursor = 0.0f32;
         let mut cross = 0.0f32;
         for child in &w.children {
-            let mut b = layout(child, share, measure, style, kept);
+            let mut b = layout(child, share, kit);
             let detached = detached(child);
             let p = if detached {
                 Vec2::ZERO
@@ -455,7 +729,11 @@ fn layout(
         children,
         clip: None,
         content_height: height,
-        style: *style,
+        style: kit.style.clone(),
+        icon,
+        span_rects,
+        line_rects,
+        content_width,
         verdicts,
         hidden: false,
     }
@@ -519,6 +797,10 @@ fn place(
     if let Some(t) = &mut b.text {
         t.pos += pos;
     }
+    if let Some(i) = &mut b.icon {
+        i.rect.x += pos.x;
+        i.rect.y += pos.y;
+    }
     for child in &mut b.children {
         place(child, pos, size, anchors, problems);
     }
@@ -534,10 +816,18 @@ fn overlaps(a: Rect, b: Rect) -> bool {
     a.x + 1.0 < b.x + b.w && b.x + 1.0 < a.x + a.w && a.y + 1.0 < b.y + b.h && b.y + 1.0 < a.y + a.h
 }
 
-fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Vec<String>) {
+fn check(
+    b: &Boxed,
+    viewport: Rect,
+    ink: paint::Ink,
+    measure: &mut TextMeasure,
+    problems: &mut Vec<String>,
+) {
     if anchored(&b.widget.kind) || b.hidden {
         return;
     }
+    let (_, ink) = paint::resolve(b, ink, &b.style);
+    paint::check(b, ink, &b.style, problems);
     let mut problem = |message: &str| problems.push(format!("{}: {message}", b.widget.path));
     if !contains(viewport, b.rect) {
         problem("outside the viewport");
@@ -557,6 +847,14 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
         let size = measure.measure(t, 1.0);
         if !contains(b.rect, text_rect(t, size)) {
             problem("text is clipped by its widget");
+        }
+    }
+    if let Some(i) = &b.icon {
+        if i.rect.w < 16.0 || i.rect.h < 16.0 {
+            problem("icon is smaller than 16 logical pixels");
+        }
+        if !contains(b.rect, i.rect) {
+            problem("icon is clipped by its widget");
         }
     }
     let target = matches!(
@@ -637,7 +935,7 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
                 problems.push(format!("{}: overlaps {}", c.widget.path, other.widget.path));
             }
         }
-        check(c, child_viewport, measure, problems);
+        check(c, child_viewport, ink, measure, problems);
     }
 }
 
@@ -653,54 +951,122 @@ fn painted<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
     }
 }
 
-fn draw(
-    b: &Boxed,
-    overlay: &mut Overlay,
-    backing: Option<Rect>,
-    state: &Presentation,
-    style: &ScreenStyle,
-) {
+/// Motion applied to a widget and everything in it while drawing: presentation only.
+#[derive(Clone, Copy, Debug)]
+struct Fx {
+    alpha: f32,
+    dy: f32,
+}
+impl Fx {
+    const NONE: Fx = Fx {
+        alpha: 1.0,
+        dy: 0.0,
+    };
+}
+
+/// What drawing reads besides the box: the screens' presentation, style and clock.
+struct Painter<'a> {
+    screens: &'a Screens,
+    hovered: Option<String>,
+}
+
+fn shifted(r: Rect, dy: f32) -> Rect {
+    Rect::new(r.x, r.y + dy, r.w, r.h)
+}
+
+/// Where a text's shaped buffer starts: its spans and lines are measured from there.
+fn origin(t: &Text) -> Vec2 {
+    let wrap = t.max_width.unwrap_or(0.0);
+    Vec2::new(
+        t.pos.x
+            - match t.align {
+                Align::Left => 0.0,
+                Align::Center => wrap * 0.5,
+                Align::Right => wrap,
+            },
+        t.pos.y,
+    )
+}
+
+fn draw(b: &Boxed, overlay: &mut Overlay, ink: paint::Ink, fx: Fx, p: &Painter) {
     if b.hidden || b.clip.is_some_and(|r| !overlaps(r, b.rect)) {
         return;
     }
+    let screens = p.screens;
+    let state = &screens.presentation;
+    let style = &screens.style;
+    let motion = !state.motion.reduced;
+    let mut fx = fx;
+    if matches!(b.widget.kind.as_str(), "panel" | "scroll" | "bubble") {
+        let a = screens.arrival(b);
+        fx.alpha *= a;
+        fx.dy += (1.0 - a) * if motion { style.motion_slide } else { 0.0 };
+    }
+    let hovered = p.hovered.as_deref() == Some(b.widget.path.as_str());
+    let pressed = state.motion.pressed.as_deref() == Some(b.widget.path.as_str());
+    let mut dy = fx.dy;
+    if motion && b.widget.kind == "button" && b.widget.resting.is_none() {
+        if pressed {
+            dy += style.press_sink;
+        } else if hovered {
+            dy -= style.hover_lift;
+        }
+    }
+    let rect = shifted(b.rect, dy);
     let mut layer = UiLayer {
-        clip: b.clip,
+        clip: b.clip.map(|c| shifted(c, fx.dy)),
         ..Default::default()
     };
-    let mut backing = backing;
     let lifted = state.lifted(&b.widget);
-    if matches!(
-        b.widget.kind.as_str(),
-        "panel" | "button" | "bubble" | "scroll" | "drag_source" | "drop_target"
-    ) {
-        let mut panel = style.surface(
-            b.rect,
-            if b.widget.kind == "bubble" {
-                style.bubble
-            } else {
-                style.panel
-            },
-        );
-        panel.radius = panel.radius.min(b.widget.pad * 2.0);
-        if b.widget.kind == "button" {
-            panel.fill = style.button;
+    let (surface, mut ink) = paint::resolve(b, ink, style);
+    let look = style.look(b.widget.look.as_deref());
+    let kind = b.widget.kind.as_str();
+    let pad = b.widget.pad;
+    // A tag hugs its words; other surfaces fill their box.
+    let tag_rect = |r: Rect| {
+        let w = (b.content_width + 2.0 * pad).min(r.w);
+        let x = match b.text.as_ref().map(|t| t.align) {
+            Some(Align::Right) => r.x + r.w - w,
+            Some(Align::Center) => r.x + (r.w - w) * 0.5,
+            _ => r.x,
+        };
+        Rect::new(x, r.y, w, r.h)
+    };
+    let mut fill_rect = rect;
+    if let Some(s) = surface {
+        let mut panel = style.surface(if s.tag { tag_rect(rect) } else { rect }, s.fill);
+        fill_rect = panel.rect;
+        if s.flat {
+            panel.radius = 0.0;
+            panel.border_px = 0.0;
+        } else {
+            panel.radius = s.radius.min(pad * 2.0);
+            panel.border = s.border;
+            panel.border_px = s.border_px;
+            panel.shadow = s.shadow > 0.0;
+            panel.shadow_px = s.shadow;
+        }
+        if kind == "button" {
             if b.widget.resting.is_some() {
                 // Resting: its own fill and a dashed frame, with text at full contrast.
                 panel.fill = style.resting_fill();
                 panel.dash = style.resting_dash;
                 panel.border_px = style.border_px.max(1.0);
+                ink.text = style.text;
+            } else if hovered {
+                panel.fill = look
+                    .and_then(|l| l.hover)
+                    .or(style.button_hover)
+                    .unwrap_or(panel.fill);
             }
         }
-        if b.widget.kind == "drag_source" {
-            panel.fill = style.button;
-            if lifted {
-                panel.fill = style.socket;
-                panel.shadow = false;
-                panel.dash = style.socket_dash;
-                panel.border_px = style.border_px;
-            }
+        if kind == "drag_source" && lifted {
+            panel.fill = style.socket;
+            panel.shadow = false;
+            panel.dash = style.socket_dash;
+            panel.border_px = style.border_px;
         }
-        if b.widget.kind == "drop_target"
+        if kind == "drop_target"
             && let Some(drag) = &state.drag
         {
             panel.fill = if b
@@ -713,50 +1079,111 @@ fn draw(
             } else {
                 style.refuse
             };
-        }
-        if b.widget.kind == "drop_target" && state.drag.is_some() {
             panel.border_px = style.hint_border_px;
+            ink.text = style.text;
         }
-        panel.border_px = panel.border_px.min(b.widget.pad);
+        if !s.flat {
+            panel.border_px = panel.border_px.min(pad);
+        }
+        panel.opacity = fx.alpha;
         layer.panels.push(panel);
-        backing = Some(b.rect);
-    } else if b.text.is_some() && backing.is_none_or(|r| !contains(r, b.rect)) {
-        // A flat paper surface covers every glyph, including text with zero padding.
-        let fill = if b.widget.kind == "sign" {
-            style.sign
-        } else {
-            style.paper
-        };
-        let mut panel = style.surface(b.rect, fill);
-        panel.radius = 0.0;
-        panel.border_px = 0.0;
-        panel.shadow = false;
-        layer.panels.push(panel);
+    }
+    let cue = screens.cue(b);
+    if let Some((_, t)) = cue
+        && b.widget.cue.as_deref() == Some("flash")
+    {
+        let mut flash = style.surface(fill_rect, ink.flash);
+        flash.radius = style.radius.min(pad.max(4.0) * 2.0);
+        flash.border_px = 0.0;
+        flash.shadow = false;
+        flash.opacity = (1.0 - t) * fx.alpha;
+        layer.panels.push(flash);
     }
     if let Some(t) = &b.text {
         let mut t = t.clone();
-        t.color = style.text;
-        if b.widget.kind == "delta" {
-            t.color = if b.widget.delta < 0.0 {
-                style.loss
-            } else {
-                style.gain
-            };
+        t.pos.y += dy;
+        let fade = |c: galaxy_render::Color| c.with_alpha(c.a * fx.alpha);
+        t.color = fade(ink.words(&b.widget));
+        if kind == "delta"
+            && let Some((cue, at)) = cue
+            && b.widget.cue.as_deref() == Some("count")
+        {
+            t.text = motion::counted(cue, at);
         }
-        if b.widget.kind == "drop_target" {
+        if kind == "drop_target" {
             t.text = verdict(&b.widget, state.drag.as_ref().map(|d| d.value.as_str()));
+        }
+        let o = origin(&t);
+        let line = |r: &Rect, size: f32| {
+            Rect::new(
+                o.x + r.x,
+                o.y + r.y + r.h * 0.86,
+                r.w,
+                (size * 0.08).max(1.5),
+            )
+        };
+        for ((range, name), rects) in paint::span_ranges(&b.widget).into_iter().zip(&b.span_rects) {
+            let Some(span) = style.looks.get(&name) else {
+                continue;
+            };
+            if let Some(span_text) = t.spans.iter_mut().find(|s| s.range == range) {
+                span_text.color = fade(span.text.unwrap_or(ink.text));
+            }
+            for r in rects {
+                if let Some(fill) = span.fill {
+                    let mut tag =
+                        style.surface(Rect::new(o.x + r.x - 4.0, o.y + r.y, r.w + 8.0, r.h), fill);
+                    tag.radius = span.radius.unwrap_or(style.radius).min(r.h * 0.5);
+                    tag.border_px = 0.0;
+                    tag.shadow = false;
+                    tag.opacity = fx.alpha;
+                    layer.panels.push(tag);
+                }
+                if let Some(u) = span.underline {
+                    let mut rule = style.surface(line(r, t.size), u);
+                    rule.radius = 0.0;
+                    rule.border_px = 0.0;
+                    rule.shadow = false;
+                    rule.opacity = fx.alpha;
+                    layer.panels.push(rule);
+                }
+            }
+        }
+        if let Some(u) = look.and_then(|l| l.underline) {
+            for r in &b.line_rects {
+                let mut rule = style.surface(line(r, t.size), u);
+                rule.radius = 0.0;
+                rule.border_px = 0.0;
+                rule.shadow = false;
+                rule.opacity = fx.alpha;
+                layer.panels.push(rule);
+            }
         }
         if !lifted {
             layer.texts.push(t);
         }
     }
-    if !layer.panels.is_empty() || !layer.texts.is_empty() {
+    if let Some(i) = &b.icon
+        && !lifted
+    {
+        layer.images.push(UiImage {
+            rect: shifted(i.rect, dy),
+            icon: i.icon.clone(),
+            tint: (!i.painted).then_some(ink.text),
+            opacity: fx.alpha,
+        });
+    }
+    if !layer.panels.is_empty() || !layer.texts.is_empty() || !layer.images.is_empty() {
         overlay.widgets.push(layer);
     }
+    let child_fx = Fx {
+        alpha: fx.alpha,
+        dy,
+    };
     for child in &b.children {
-        draw(child, overlay, backing, state, style);
+        draw(child, overlay, ink, child_fx, p);
     }
-    scrolling::draw(b, overlay, state);
+    scrolling::draw(b, overlay, state, fx.alpha, fx.dy);
 }
 
 /// Out of its parent's flow: anchored, aligned or explicitly placed.
@@ -829,6 +1256,9 @@ fn translate(b: &mut Boxed, dy: f32) {
     b.rect.y += dy;
     if let Some(t) = &mut b.text {
         t.pos.y += dy;
+    }
+    if let Some(i) = &mut b.icon {
+        i.rect.y += dy;
     }
     for c in &mut b.children {
         translate(c, dy);

@@ -1,0 +1,70 @@
+about = "A galley stove: an iron body with a glowing fire door, a pipe up the wall, a pot and its steam"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "body"
+shape = "box"
+size = [1.0, 1.6, 0.9]
+at = [0, 0, 0.45]
+paint = "#3a3440"
+[[part]]
+name = "top"
+shape = "box"
+size = [1.05, 1.65, 0.08]
+at = [0, 0, 0.92]
+paint = "#2a2430"
+[[part]]
+name = "door"
+shape = "box"
+size = [0.05, 0.5, 0.36]
+at = [0.5, -0.35, 0.42]
+paint = "lights"
+glow = 1.0
+pulse = 1.7
+pulse_low = 0.45
+[[part]]
+name = "pipe"
+shape = "cylinder"
+radius = 0.11
+height = 2.6
+sides = 8
+at = [-0.35, 0.55, 0.95]
+paint = "#3a3440"
+[[part]]
+name = "pot"
+shape = "cylinder"
+radius = 0.24
+height = 0.3
+sides = 10
+at = [0.05, -0.3, 0.96]
+paint = "accent"
+[[part]]
+name = "kettle"
+shape = "sphere"
+radius = 0.16
+half = true
+sides = 8
+rings = 3
+at = [0.05, 0.4, 0.96]
+paint = "trim"
+[[part]]
+name = "steam"
+shape = "sphere"
+radius = 0.16
+sides = 6
+rings = 3
+at = [0.05, -0.3, 1.5]
+paint = "#f4f0ff"
+glow = 0.6
+pulse = 2.3
+pulse_low = 0.1
+[[part]]
+name = "steam.2"
+shape = "sphere"
+radius = 0.12
+sides = 6
+rings = 3
+at = [0.0, -0.22, 1.82]
+paint = "#f4f0ff"
+glow = 0.6
+pulse = 3.1
+pulse_low = 0.05

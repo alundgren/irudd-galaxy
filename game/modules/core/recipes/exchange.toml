@@ -1,5 +1,4 @@
 about = "An ore exchange booth: a striped awning over a counter, with a lamp and a scale post"
-palette = { main = "#e7c78e", accent = "#cf7c50" }
 [[part]]
 name = "floor"
 shape = "box"

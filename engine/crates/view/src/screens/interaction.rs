@@ -1,5 +1,6 @@
 //! Pointer interaction is presentation state, independent of screen function calls.
 use super::*;
+use galaxy_api::ui::UiAction;
 use galaxy_sim::scenario::Pointer;
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +15,9 @@ pub struct Presentation {
     pub settle: Option<Settle>,
     #[serde(default)]
     pub scroll_grab: Option<scrolling::ScrollGrab>,
+    /// UI motion: what came in when, what is fading out, value cues, the held button.
+    #[serde(default)]
+    pub motion: super::Motion,
 }
 
 impl Default for Presentation {
@@ -25,6 +29,7 @@ impl Default for Presentation {
             drag: None,
             settle: None,
             scroll_grab: None,
+            motion: super::Motion::default(),
         }
     }
 }
@@ -81,14 +86,22 @@ impl Screens {
     /// Losing window focus releases capture without sending a drop event.
     pub fn cancel_pointer(&mut self, tick: u64) {
         self.presentation.pointer = None;
+        self.presentation.motion.pressed = None;
         self.presentation.scroll_grab = None;
         if let Some(drag) = self.presentation.drag.take() {
-            self.presentation.settle = Some(Settle {
-                destination: drag.home,
+            let home = drag.home;
+            self.settle(drag, home, tick);
+        }
+    }
+
+    /// A released token glides to `destination`; with reduced motion it is there at once.
+    fn settle(&mut self, drag: Drag, destination: [f32; 4], tick: u64) {
+        self.presentation.settle = (!(self.reduced_motion || self.presentation.motion.reduced))
+            .then(|| Settle {
                 drag,
+                destination,
                 start: tick.saturating_sub(1) as f32 / 30.0,
             });
-        }
     }
 
     pub fn pointer_down(&mut self, point: Vec2, tick: u64) -> Option<Input> {
@@ -101,6 +114,7 @@ impl Screens {
         let w = self.hit(point)?;
         if w.kind == "drag_source" {
             let b = self.all().into_iter().find(|b| b.widget.path == w.path)?;
+            self.ui_cue(UiAction::Drag, &b.widget);
             self.presentation.drag = Some(Drag {
                 source: w.path.clone(),
                 id: w.id.clone().unwrap_or_default(),
@@ -120,6 +134,9 @@ impl Screens {
             });
             None
         } else if matches!(w.kind.as_str(), "button" | "bubble") {
+            if w.kind == "button" && w.resting.is_none() {
+                self.presentation.motion.pressed = Some(w.path.clone());
+            }
             self.click(point, tick)
         } else {
             None
@@ -135,6 +152,7 @@ impl Screens {
     }
 
     pub fn pointer_up(&mut self, point: Vec2, tick: u64) -> Option<Input> {
+        self.presentation.motion.pressed = None;
         if self.presentation.scroll_grab.is_some() {
             let input = self.scroll_move(point, tick);
             self.presentation.scroll_grab = None;
@@ -162,6 +180,20 @@ impl Screens {
                 .get(&drag.value)
                 .is_some_and(String::is_empty)
         });
+        // A drag's sounds are its source's: a refusing target denies, else it lands.
+        let refused = target.is_some() && accepted.is_none();
+        if let Some(source) = self
+            .all()
+            .into_iter()
+            .find(|b| b.widget.path == drag.source)
+        {
+            let action = if refused {
+                UiAction::Deny
+            } else {
+                UiAction::Drop
+            };
+            self.ui_cue(action, &source.widget);
+        }
         let destination = accepted.map(|b| array(b.rect)).unwrap_or(drag.home);
         let input = accepted.and_then(|b| {
             let mut payload = b.widget.payload.clone();
@@ -173,11 +205,7 @@ impl Screens {
                 payload,
             })
         });
-        self.presentation.settle = Some(Settle {
-            drag,
-            destination,
-            start: tick.saturating_sub(1) as f32 / 30.0,
-        });
+        self.settle(drag, destination, tick);
         input
     }
 

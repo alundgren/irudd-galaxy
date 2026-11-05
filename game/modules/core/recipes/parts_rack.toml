@@ -1,0 +1,50 @@
+about = "A rack of ship parts waiting to be fitted: a lens, pods and thrusters"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "frame"
+shape = "box"
+size = [0.5, 3.0, 0.08]
+at = [0, 0, 0.9]
+paint = "wood"
+[[part]]
+name = "frame.2"
+shape = "box"
+size = [0.5, 3.0, 0.08]
+at = [0, 0, 1.8]
+paint = "wood"
+[[part]]
+name = "posts"
+shape = "box"
+size = [0.5, 0.08, 2.4]
+at = [0, 1.5, 1.2]
+mirror = true
+paint = "wood_dark"
+[[part]]
+name = "lens"
+shape = "sphere"
+radius = 0.3
+sides = 8
+rings = 4
+at = [0, -0.9, 2.15]
+paint = "glass"
+[[part]]
+name = "pods"
+shape = "tanks"
+count = 2
+length = 0.6
+radius = 0.25
+at = [0, 0.4, 1.2]
+paint = "#e0874f"
+[[part]]
+name = "thrusters"
+shape = "nozzle"
+radius = 0.28
+at = [0.2, 0.9, 2.15]
+turn = 180
+paint = "#5a5466"
+[[part]]
+name = "crate"
+shape = "box"
+size = [0.5, 0.6, 0.45]
+at = [0.1, -0.9, 1.17]
+paint = "#a8794a"

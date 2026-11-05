@@ -1,0 +1,81 @@
+about = "A line of pennants hung along a wall"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "line"
+shape = "strut"
+from = [0, -3.6, 0]
+to = [0, 3.6, 0]
+thickness = 0.03
+paint = "wood_dark"
+[[part]]
+name = "flag1"
+shape = "plate"
+outline = [[0.0, -0.25], [0.0, 0.25], [-0.5, 0.0]]
+height = 0.03
+at = [0.02, -3.2, 0]
+pitch = 90
+paint = "#e0874f"
+[[part]]
+name = "flag2"
+shape = "plate"
+outline = [[0.0, -0.25], [0.0, 0.25], [-0.5, 0.0]]
+height = 0.03
+at = [0.02, -2.4, 0]
+pitch = 90
+paint = "#f2c76a"
+[[part]]
+name = "flag3"
+shape = "plate"
+outline = [[0.0, -0.25], [0.0, 0.25], [-0.5, 0.0]]
+height = 0.03
+at = [0.02, -1.6, 0]
+pitch = 90
+paint = "#2f9d86"
+[[part]]
+name = "flag4"
+shape = "plate"
+outline = [[0.0, -0.25], [0.0, 0.25], [-0.5, 0.0]]
+height = 0.03
+at = [0.02, -0.8, 0]
+pitch = 90
+paint = "#e98aa0"
+[[part]]
+name = "flag5"
+shape = "plate"
+outline = [[0.0, -0.25], [0.0, 0.25], [-0.5, 0.0]]
+height = 0.03
+at = [0.02, 0.0, 0]
+pitch = 90
+paint = "#e0874f"
+[[part]]
+name = "flag6"
+shape = "plate"
+outline = [[0.0, -0.25], [0.0, 0.25], [-0.5, 0.0]]
+height = 0.03
+at = [0.02, 0.8, 0]
+pitch = 90
+paint = "#f2c76a"
+[[part]]
+name = "flag7"
+shape = "plate"
+outline = [[0.0, -0.25], [0.0, 0.25], [-0.5, 0.0]]
+height = 0.03
+at = [0.02, 1.6, 0]
+pitch = 90
+paint = "#2f9d86"
+[[part]]
+name = "flag8"
+shape = "plate"
+outline = [[0.0, -0.25], [0.0, 0.25], [-0.5, 0.0]]
+height = 0.03
+at = [0.02, 2.4, 0]
+pitch = 90
+paint = "#e98aa0"
+[[part]]
+name = "flag9"
+shape = "plate"
+outline = [[0.0, -0.25], [0.0, 0.25], [-0.5, 0.0]]
+height = 0.03
+at = [0.02, 3.2, 0]
+pitch = 90
+paint = "#e0874f"

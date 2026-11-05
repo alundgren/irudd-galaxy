@@ -17,6 +17,41 @@ return {
         assert(rules.transfer(0, 0) == 0)
         assert(rules.transfer(0, 1) == 1)
     end,
+    rock_stages = function()
+        -- Four stages over five units: whole until a second unit is mined, then one
+        -- stage a unit, and the last stays once the rock is empty.
+        local stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs"
+        local seen = {}
+        for mined = 0, 5 do
+            table.insert(seen, rules.stage(stages, mined, 5))
+        end
+        assert(table.concat(seen, ",") == "core.glassite,core.glassite,core.glassite_chipped,core.glassite_worn,core.glassite_stubs,core.glassite_stubs")
+        -- Four units: every unit mined breaks something off.
+        assert(rules.stage(stages, 1, 4) == "core.glassite_chipped")
+        assert(rules.stage(stages, 4, 4) == "core.glassite_stubs")
+        -- With an empty model, the emptied rock wears it; until then the stages run as before.
+        local pebbles = "core.glassite_pebbles"
+        assert(rules.stage(stages, 4, 5, pebbles) == "core.glassite_stubs")
+        assert(rules.stage(stages, 5, 5, pebbles) == pebbles)
+        assert(rules.stage(stages, 4, 4, pebbles) == pebbles)
+        assert(rules.stage(stages, 5, 5, "") == "core.glassite_stubs")
+        -- A rock without stages keeps its model; doubled spaces are not stages.
+        assert(rules.stage("", 3, 5) == nil)
+        assert(rules.stage("  core.a   core.b ", 3, 5) == "core.b")
+    end,
+    worn_rocks_regrow_their_stage = function()
+        -- A rock's look follows what is left in it: emptied, it wears its `empty` model;
+        -- grown back to half, it wears its stage again.
+        local glassite = { total = 5, stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs",
+            empty = "core.glassite_pebbles" }
+        local empty = rules.worn(glassite, 0)
+        assert(empty.model == "core.glassite_pebbles" and empty.morph == 1)
+        local regrown = rules.worn(glassite, rules.regrow(0, 5))
+        assert(regrown.model ~= nil and regrown.model ~= "core.glassite_pebbles", tostring(regrown.model))
+        -- A plain rock only changes its morph.
+        local plain = rules.worn({ total = 12, stages = "", empty = "" }, 6)
+        assert(plain.model == nil and plain.morph == 0.5)
+    end,
     prices_follow_stock = function()
         -- Short of target pays more; at target pays base; over target pays less.
         assert(rules.price(ORE) == 13)

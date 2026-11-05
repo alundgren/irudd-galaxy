@@ -9,8 +9,8 @@
 //!   `cause` and `tick` of its last change.
 //! - `facts`: the history, one row per fact: `seq`, `tick`, `kind`, `cause`, `payload`.
 //! - `causes`: every cause: `id`, `tick`, `cause` (JSON).
-//! - `state`: the rest of the sim state as JSON: the random streams and the engine
-//!   services' causes.
+//! - `state`: the rest of the sim state as JSON: the random streams, the engine
+//!   services' causes and, while any bodies touch with contacts recorded, `contacts`.
 //!
 //! Tables rather than one blob, so tools (and later the GM's live reads) can query a save
 //! with plain SQL. Loading rebuilds the world and checks its hash against `meta.hash`, so a
@@ -199,6 +199,11 @@ pub fn write<'a>(
             state
                 .execute(params!["services", json(&world.services)])
                 .map_err(sql)?;
+            if !world.contacts.is_empty() {
+                state
+                    .execute(params!["contacts", json(&world.contacts)])
+                    .map_err(sql)?;
+            }
         }
         tx.commit().map_err(sql)?;
         conn.close().map_err(|(_, e)| sql(e))?;
@@ -291,6 +296,9 @@ pub fn read(path: &Path) -> Result<(SaveInfo, World), String> {
     world.next_event = number(&conn, "next_event")?;
     world.rng = parse(&state("rng")?, "rng")?;
     world.services = parse(&state("services")?, "services")?;
+    if let Ok(contacts) = state("contacts") {
+        world.contacts = parse(&contacts, "contacts")?;
+    }
 
     let mut stmt = conn
         .prepare("SELECT entity, component, fields, cause, tick FROM components")

@@ -1,8 +1,8 @@
 # Going back mid-talk: Back from a room ends the bubble there, so it never rides the
-# glide out over the HUD (tests/back-talk.bot.toml plays it in a window). Ines's offer,
+# cut out (tests/back-talk.bot.toml plays it in a window). Ines's offer,
 # left unanswered, stays on offer and begins again at its first line; Back on that
 # first, ordinary line ends it too; the third time the gift is taken, and the log keeps
-# the one conversation once. Opening the log ends a bubble as well, and starts none.
+# the one conversation once. Inside a room the log stays shut, so it ends no bubble.
 # The route is gift.toml's, up to her offer showing its answers.
 seed = 7
 ticks = 2537
@@ -132,9 +132,9 @@ source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
 [[input]]
 tick = 2483
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2480 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2480 }
 
 # Not offered before her introduction is heard; the story comes first.
 [[expect]]
@@ -241,7 +241,7 @@ field = "rations"
 equals = 0
 [[input]]
 tick = 2496
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 2492 }
 
@@ -252,9 +252,9 @@ name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
 tick = 2503
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2500 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2500 }
 [[input]]
 tick = 2505
 name = "engine.talk_start"
@@ -284,7 +284,7 @@ field = "answered"
 equals = false
 [[input]]
 tick = 2510
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 2506 }
 
@@ -295,9 +295,9 @@ name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
 tick = 2518
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2515 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2515 }
 [[input]]
 tick = 2520
 name = "engine.talk_start"
@@ -343,24 +343,16 @@ component = "entry"
 field = "text"
 equals = "Ines Varga at Lantern Dock: “Thanks again for the plate.” “Will you take a ration, on the house?” You: Take it. “There. It's in your hold.”"
 
-# Back to the whole station, where her everyday line shows; opening the log ends it.
-[[input]]
-tick = 2525
-name = "core.close"
-payload = { down = true }
-[[input]]
-tick = 2529
-name = "engine.camera_settled"
-source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2525 }
+# Her next ask follows (the greenhouse), there in her galley; the log stays shut inside
+# a room, so it never ends her bubble.
 [[input]]
 tick = 2532
 name = "engine.talk_start"
 source = "talk"
-payload = { talk = "core.lantern_cook_talk" }
+payload = { talk = "core.greenhouse_ask" }
 [[expect]]
 tick = 2532
-entity = "lantern_cook_talk"
+entity = "greenhouse_ask"
 component = "engine.talk"
 field = "active"
 equals = true
@@ -373,22 +365,10 @@ tick = 2533
 entity = "ship"
 component = "pilot"
 field = "log_open"
-equals = true
+equals = false
 [[expect]]
 tick = 2533
-entity = "lantern_cook_talk"
+entity = "greenhouse_ask"
 component = "engine.talk"
 field = "active"
-equals = false
-# With the log open a click on her starts nothing.
-[[input]]
-tick = 2535
-name = "engine.talk_start"
-source = "talk"
-payload = { talk = "core.lantern_cook_talk" }
-[[expect]]
-tick = 2535
-entity = "lantern_cook_talk"
-component = "engine.talk"
-field = "active"
-equals = false
+equals = true

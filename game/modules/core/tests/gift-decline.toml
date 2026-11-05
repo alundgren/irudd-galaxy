@@ -129,9 +129,9 @@ source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
 [[input]]
 tick = 2483
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2480 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2480 }
 [[input]]
 tick = 2485
 name = "engine.talk_start"

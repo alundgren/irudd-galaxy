@@ -1,0 +1,8 @@
+about = "A glazier: a mustard work coat, a teal belt and a teal cap"
+palette = { main = "#f2b43c", trim = "#3b3550", accent = "#2f9d86", skin = "#d9a67a", hair = "#4a2a22", hat = "#2f9d86" }
+[[part]]
+name = "body"
+use = "figure"
+[[part]]
+name = "face"
+use = "head_glazier"

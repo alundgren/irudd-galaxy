@@ -1,5 +1,5 @@
 about = "The galley: a warm low house with a chimney, a lit window and a serving hatch under an awning"
-palette = { main = "#f0d9a8", accent = "#b85c3c" }
+palette = { accent = "#d9774b" }
 [[part]]
 name = "floor"
 shape = "box"

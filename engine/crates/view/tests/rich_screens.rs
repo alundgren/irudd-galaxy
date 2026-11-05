@@ -343,6 +343,31 @@ fn lost_focus_returns_the_token_and_releases_the_scroll_thumb() {
 }
 
 #[test]
+fn reduced_motion_puts_a_released_token_home_at_once() {
+    let s = Session::new(vec![module()], 1).unwrap();
+    let mut v = View::detached(s.modules(), 1);
+    v.reduced_motion = true;
+    let home = draw(&mut v, &s).overlay;
+    let p = Vec2::new(1250.0, 680.0);
+    for cancel in [false, true] {
+        v.screens
+            .bot_pointer(&gesture("pickup", "large", 0.0))
+            .unwrap();
+        v.screens.pointer_move(p, 1);
+        if cancel {
+            v.screens.cancel_pointer(1);
+        } else {
+            assert!(v.screens.pointer_up(p, 1).is_none());
+        }
+        assert!(v.screens.presentation.drag.is_none());
+        assert!(v.screens.presentation.settle.is_none(), "cancel: {cancel}");
+        v.screens.presentation.pointer = None;
+        // The very next frame shows the token in its home, as before it was picked up.
+        assert_eq!(draw(&mut v, &s).overlay, home, "cancel: {cancel}");
+    }
+}
+
+#[test]
 fn earlier_screen_recordings_are_refused_clearly() {
     use galaxy_sim::recording::Recording;
     let mut s = Session::new(vec![module()], 1).unwrap();

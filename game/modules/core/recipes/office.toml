@@ -1,5 +1,4 @@
 about = "The dock office: a lit two-storey house with a radio mast and dish"
-palette = { main = "#bcd4cf", accent = "#cf7c50" }
 [[part]]
 name = "floor"
 shape = "box"

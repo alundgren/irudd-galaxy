@@ -1,5 +1,5 @@
-about = "Cinder Kiln up close: fired-clay deck, the kiln and its chimney, berth, crane and rim lamps; the docked view"
-palette = { main = "#cf8765", accent = "#87c6c8", trim = "#435e72" }
+about = "Cinder Kiln up close: brass-rimmed fired-clay deck, the kiln and its chimney, berth, crane and rim lamps; the docked view"
+palette = { main = "#f3ddb0", trim = "#c98f4a", accent = "#8f3040" }
 [[part]]
 name = "deck"
 shape = "cylinder"
@@ -14,7 +14,7 @@ shape = "cylinder"
 radius = 13.2
 height = 0.05
 sides = 16
-paint = "#7a6a5c"
+paint = "#c77a55"
 [[part]]
 name = "rim"
 shape = "spoked_ring"
@@ -121,9 +121,11 @@ name = "camera.office"
 at = [-0.95, -19, 13.5]
 turn = 90
 pitch = -38
+# Left of the berth and drawn back, so the ship sits right of the cradle panel even at
+# 960x540, with Orrin and the cradle frame still in view.
 [[marker]]
 name = "camera.cradle"
-at = [1.5, -23, 10.5]
+at = [-2.5, -26.5, 12.6]
 turn = 90
 pitch = -32
 [[marker]]

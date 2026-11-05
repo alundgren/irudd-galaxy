@@ -1,0 +1,279 @@
+about = "Cinder Kiln's fitting cradle inside: the ship on its cradle under a hoist, Orrin's bench, the parts rack and a window onto space"
+palette = { wall = "#efd6b8", dado = "#8f3040", trim = "#a8794a", floor = "#b0654a", floor_line = "#7a3a2a", beam = "#5a3420", wood = "#7a4a2a", wood_dark = "#4a2a1a", main = "#efd6b8", accent = "#c9a24a", lights = "#ffb35a", glass = "#7fd6e0" }
+[[part]]
+name = "floor"
+shape = "box"
+size = [14.5, 13.0, 0.3]
+at = [0, -2.0, -0.15]
+paint = "floor"
+glow = 0.15
+[[part]]
+name = "apron"
+shape = "box"
+size = [14.5, 0.12, 0.02]
+at = [0, -4.56, 0.01]
+paint = "trim"
+[[part]]
+name = "board1"
+shape = "box"
+size = [14.0, 0.04, 0.02]
+at = [0, -3.214, 0.005]
+paint = "floor_line"
+[[part]]
+name = "board2"
+shape = "box"
+size = [14.0, 0.04, 0.02]
+at = [0, -1.929, 0.005]
+paint = "floor_line"
+[[part]]
+name = "board3"
+shape = "box"
+size = [14.0, 0.04, 0.02]
+at = [0, -0.643, 0.005]
+paint = "floor_line"
+[[part]]
+name = "board4"
+shape = "box"
+size = [14.0, 0.04, 0.02]
+at = [0, 0.643, 0.005]
+paint = "floor_line"
+[[part]]
+name = "board5"
+shape = "box"
+size = [14.0, 0.04, 0.02]
+at = [0, 1.929, 0.005]
+paint = "floor_line"
+[[part]]
+name = "board6"
+shape = "box"
+size = [14.0, 0.04, 0.02]
+at = [0, 3.214, 0.005]
+paint = "floor_line"
+[[part]]
+name = "back_wall"
+shape = "box"
+size = [14.5, 0.25, 4.6]
+at = [0, 4.625, 2.3]
+paint = "wall"
+glow = 0.25
+[[part]]
+name = "back_dado"
+shape = "box"
+size = [14.0, 0.06, 1.0]
+at = [0, 4.47, 0.5]
+paint = "dado"
+glow = 0.15
+[[part]]
+name = "back_rail"
+shape = "box"
+size = [14.0, 0.1, 0.08]
+at = [0, 4.45, 1.02]
+paint = "trim"
+[[part]]
+name = "back_cornice"
+shape = "box"
+size = [14.0, 0.14, 0.16]
+at = [0, 4.43, 4.3]
+paint = "trim"
+[[part]]
+name = "left_wall"
+shape = "box"
+size = [0.25, 13.0, 4.6]
+at = [-7.125, -2.0, 2.3]
+paint = "wall"
+glow = 0.175
+[[part]]
+name = "left_dado"
+shape = "box"
+size = [0.06, 9.0, 1.0]
+at = [-6.97, 0, 0.5]
+paint = "dado"
+glow = 0.1
+[[part]]
+name = "left_rail"
+shape = "box"
+size = [0.1, 9.0, 0.08]
+at = [-6.95, 0, 1.02]
+paint = "trim"
+[[part]]
+name = "right_wall"
+shape = "box"
+size = [0.25, 9.5, 4.6]
+at = [7.125, -3.75, 2.3]
+paint = "wall"
+glow = 0.175
+[[part]]
+name = "right_wall.2"
+shape = "box"
+size = [0.25, 2.3, 4.6]
+at = [7.125, 3.35, 2.3]
+paint = "wall"
+glow = 0.175
+[[part]]
+name = "lintel"
+shape = "box"
+size = [0.25, 1.2, 2.2]
+at = [7.125, 1.6, 3.5]
+paint = "wall"
+glow = 0.175
+[[part]]
+name = "door_frame"
+shape = "box"
+size = [0.35, 1.44, 0.14]
+at = [7.125, 1.6, 2.47]
+paint = "trim"
+[[part]]
+name = "doorway"
+shape = "box"
+size = [0.05, 1.2, 2.4]
+at = [7.45, 1.6, 1.2]
+paint = "#2a1f48"
+[[part]]
+name = "pad"
+shape = "box"
+size = [5.6, 3.8, 0.16]
+at = [-1.6, 0.6, 0.08]
+paint = "#5a5466"
+[[part]]
+name = "rail"
+shape = "box"
+size = [5.8, 0.18, 0.2]
+at = [-1.6, -1.35, 0.1]
+paint = "accent"
+[[part]]
+name = "rail.2"
+shape = "box"
+size = [5.8, 0.18, 0.2]
+at = [-1.6, 2.55, 0.1]
+paint = "accent"
+[[part]]
+name = "rail.3"
+shape = "box"
+size = [0.18, 4.0, 0.2]
+at = [-4.5, 0.6, 0.1]
+paint = "accent"
+[[part]]
+name = "rail.4"
+shape = "box"
+size = [0.18, 4.0, 0.2]
+at = [1.3, 0.6, 0.1]
+paint = "accent"
+[[part]]
+name = "chocks"
+shape = "box"
+size = [0.5, 1.6, 0.4]
+at = [-2.8, 0.6, 0.2]
+paint = "wood_dark"
+[[part]]
+name = "chocks.2"
+shape = "box"
+size = [0.5, 1.6, 0.4]
+at = [-0.4, 0.6, 0.2]
+paint = "wood_dark"
+[[part]]
+name = "hoist"
+shape = "truss"
+length = 7.0
+width = 0.4
+at = [-5.1, 0.8, 4.1]
+paint = "accent"
+[[part]]
+name = "hoist_line"
+shape = "strut"
+from = [-1.0, 0.8, 4.1]
+to = [-1.0, 0.8, 2.6]
+thickness = 0.05
+paint = "beam"
+[[part]]
+name = "hoist_hook"
+shape = "box"
+size = [0.3, 0.3, 0.3]
+at = [-1.0, 0.8, 2.5]
+paint = "accent"
+[[part]]
+name = "window"
+shape = "box"
+size = [5.0, 0.1, 2.2]
+at = [0.6, 4.48, 2.3]
+paint = "#2a1f48"
+[[part]]
+name = "window_frame"
+shape = "box"
+size = [5.3, 0.14, 0.16]
+at = [0.6, 4.44, 3.45]
+paint = "accent"
+[[part]]
+name = "window_frame.2"
+shape = "box"
+size = [5.3, 0.14, 0.16]
+at = [0.6, 4.44, 1.15]
+paint = "accent"
+[[part]]
+name = "window_star"
+shape = "sphere"
+radius = 0.05
+sides = 4
+rings = 2
+at = [-0.8, 4.42, 2.9]
+paint = "lights"
+glow = 1.0
+[[part]]
+name = "window_star.2"
+shape = "sphere"
+radius = 0.04
+sides = 4
+rings = 2
+at = [1.4, 4.42, 2.0]
+paint = "lights"
+glow = 1.0
+pulse = 3.3
+pulse_low = 0.3
+[[part]]
+name = "window_star.3"
+shape = "sphere"
+radius = 0.06
+sides = 4
+rings = 2
+at = [2.4, 4.42, 3.1]
+paint = "lights"
+glow = 1.0
+[[part]]
+name = "bench"
+at = [-5.6, 1.4, 0]
+turn = 0
+use = "bench"
+[[part]]
+name = "rack"
+at = [-4.2, 4.15, 0]
+turn = -90
+use = "parts_rack"
+[[part]]
+name = "lamp"
+at = [-4.4, 1.2, 4.6]
+use = "hanging_lamp"
+[[part]]
+name = "lamp.2"
+at = [-1.6, -0.4, 4.6]
+use = "hanging_lamp"
+[[part]]
+name = "fan"
+at = [6.9, -2.0, 3.0]
+turn = 180
+use = "fan"
+[[marker]]
+name = "camera"
+at = [0.891, -12.5, 8.5]
+turn = 90
+pitch = -27.63
+[[marker]]
+name = "spot.cradle"
+at = [-1.6, 0.6, 0]
+[[marker]]
+name = "spot.bench"
+at = [-4.9, 1.2, 0]
+[[marker]]
+name = "spot.ship"
+at = [-4.2, -1.6, 0]
+[[marker]]
+name = "spot.rack"
+at = [-4.2, 3.0, 0]

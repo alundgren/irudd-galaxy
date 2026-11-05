@@ -1,0 +1,63 @@
+about = "A fitter's workbench with a vice and tools"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "top"
+shape = "box"
+size = [1.0, 2.4, 0.12]
+at = [0, 0, 0.9]
+paint = "wood"
+[[part]]
+name = "legs"
+shape = "box"
+size = [0.9, 0.12, 0.88]
+at = [0, 1.1, 0.44]
+mirror = true
+paint = "wood_dark"
+[[part]]
+name = "shelf"
+shape = "box"
+size = [0.9, 2.2, 0.06]
+at = [0, 0, 0.25]
+paint = "wood_dark"
+[[part]]
+name = "vice"
+shape = "box"
+size = [0.3, 0.3, 0.25]
+at = [0.3, -0.8, 1.08]
+paint = "trim"
+[[part]]
+name = "toolbox"
+shape = "box"
+size = [0.4, 0.7, 0.3]
+at = [0, 0.5, 1.11]
+paint = "accent"
+[[part]]
+name = "rack"
+shape = "box"
+size = [0.06, 2.0, 0.9]
+at = [-0.5, 0, 1.6]
+paint = "wood_dark"
+[[part]]
+name = "tools"
+shape = "box"
+size = [0.08, 0.06, 0.6]
+at = [-0.45, -0.6, 1.6]
+paint = "brass"
+[[part]]
+name = "tools.2"
+shape = "box"
+size = [0.08, 0.06, 0.5]
+at = [-0.45, -0.2, 1.65]
+paint = "brass"
+[[part]]
+name = "tools.3"
+shape = "box"
+size = [0.08, 0.06, 0.7]
+at = [-0.45, 0.2, 1.55]
+paint = "brass"
+[[part]]
+name = "tools.4"
+shape = "box"
+size = [0.08, 0.2, 0.2]
+at = [-0.45, 0.65, 1.7]
+paint = "trim"

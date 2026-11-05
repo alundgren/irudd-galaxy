@@ -8,6 +8,8 @@
 -- each other's labels. The screen decides that every tick, as things move. Pointing at
 -- a trader always names it.
 local labels = require("./labels")
+local kit = require("./kit")
+local salvage = require("./salvage")
 
 local DWELL = 240 -- ticks a trader waits at a mooring (8 seconds)
 
@@ -31,7 +33,7 @@ end
 local function arrived(event, ctx)
     local id = event.payload.entity
     local trader = id and ctx.get(id, "trader")
-    if not trader then return end
+    if not trader or trader.stopped then return end -- taken off its route (salvage.luau)
     if event.payload.mode == "follow" then
         -- The leg's waypoints are flown: dock onto its mooring, facing the station.
         ctx.put(id, "engine.steer", { mode = "dock", target = trader[trader.leg .. "_moor"] })
@@ -43,12 +45,15 @@ end
 local function cadence(ctx)
     for _, id in ctx.query("trader") do
         local trader = ctx.get(id, "trader")
-        if trader.moored and ctx.tick - trader.since >= DWELL then depart(ctx, id, trader) end
+        if trader.moored and not trader.stopped and ctx.tick - trader.since >= DWELL then depart(ctx, id, trader) end
     end
 end
 
 local function screen(ctx, ui)
     if ctx.get("ship", "engine.location").place ~= "core.reach" then return nil end
+    -- While the view still glides out after a launch, the traders it passes may be
+    -- beside or behind it: their labels and hovers wait until it lands.
+    if ctx.get("ship", "pilot").gliding then return nil end
     local ids, list = ctx.query("trader"), {}
     for _, id in ids do
         table.insert(list, { id = id, at = ctx.get(id, "engine.position"), moored = ctx.get(id, "trader").moored })
@@ -58,14 +63,26 @@ local function screen(ctx, ui)
     local children = {}
     for _, id in ids do
         local trader = ctx.get(id, "trader")
-        -- Pointing at a trader names it, label or not.
-        table.insert(children, ui.hover { id = "hover_" .. string.sub(id, 6), anchor = id .. "#label",
-            text = trader.name .. ": " .. trader.about })
+        -- A barge a job has taken off her route says so: adrift, or in tow.
+        local tag, about = salvage.tag(ctx, id)
+        local name = trader.name .. (tag or "")
+        -- Pointing at a trader names it, label or not. The job's barge is a click target
+        -- while a click on her does something: it passes her a line (tow.luau) as Space
+        -- does, adrift or lying off a berth, and casts it off in tow, as 0 does.
+        local on, said = salvage.click(ctx, id)
+        if on then
+            table.insert(children, ui.target { id = "hover_" .. string.sub(id, 6), anchor = id .. "#label",
+                text = trader.name .. ": " .. said, on = on, payload = { barge = id } })
+        else
+            table.insert(children, ui.hover { id = "hover_" .. string.sub(id, 6), anchor = id .. "#label",
+                text = trader.name .. ": " .. (about or trader.about) })
+        end
         if shown[id] then
             -- Above the trader by default; below it when the player's ship is above.
             local at = ctx.get(id, "engine.position")
-            table.insert(children, ui.text { id = "label_" .. string.sub(id, 6), anchor = id .. "#label",
-                y = labels.below(ship, at) and 40 or 0, width = #trader.name * 8 + 14, text = trader.name, size = 16, yield = true })
+            table.insert(children, kit.label(ui, { id = "label_" .. string.sub(id, 6), anchor = id .. "#label",
+                y = labels.below(ship, at) and 40 or 0, width = #name * 8 + 14, text = name, size = kit.SIZE.small,
+                yield = true }))
         end
     end
     return ui.column { id = "traffic", children = children }

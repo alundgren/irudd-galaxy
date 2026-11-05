@@ -1,0 +1,3 @@
+[entities.camera]
+"engine.position" = {}
+"engine.camera" = { view = 60, tilt = 0 }

@@ -21,6 +21,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use galaxy_render::glam::Vec2;
 use galaxy_render::{Color, Panel, Rect, RgbaImage, Scene, Text, defaults};
 use galaxy_view::Moment;
+use winit::keyboard::{Key, KeyCode, ModifiersState, NamedKey, PhysicalKey};
 
 /// The longest note, in characters.
 pub const MAX_NOTE: usize = 2000;
@@ -139,6 +140,23 @@ impl NoteBox {
         }
     }
 
+    /// Adds pasted text: line breaks and tabs become spaces, so pasted lines don't run
+    /// together.
+    pub fn paste(&mut self, pasted: &str) {
+        let flat: String = pasted
+            .replace("\r\n", " ")
+            .chars()
+            .map(|c| {
+                if matches!(c, '\n' | '\r' | '\t') {
+                    ' '
+                } else {
+                    c
+                }
+            })
+            .collect();
+        self.type_text(&flat);
+    }
+
     pub fn backspace(&mut self) {
         self.text.pop();
         self.editor.follow = true;
@@ -203,6 +221,20 @@ impl NoteBox {
     }
 }
 
+/// Whether a key press is the paste chord: Cmd+V on macOS, Ctrl+V elsewhere, or
+/// Shift+Insert. V is matched by its place on the keyboard or by the letter it types, so
+/// every layout pastes. Ctrl+Alt is AltGr on some layouts, which types, not pastes.
+pub fn is_paste(key: &Key, physical: PhysicalKey, modifiers: ModifiersState) -> bool {
+    let chord = if cfg!(target_os = "macos") {
+        modifiers.super_key()
+    } else {
+        modifiers.control_key() && !modifiers.alt_key()
+    };
+    let v = physical == PhysicalKey::Code(KeyCode::KeyV)
+        || matches!(key, Key::Character(c) if c.eq_ignore_ascii_case("v"));
+    (chord && v) || (modifiers.shift_key() && matches!(key, Key::Named(NamedKey::Insert)))
+}
+
 /// The file a note's frame goes in, inside the session folder: `notes/0001.png`.
 pub fn frame_file(number: usize) -> String {
     format!("notes/{number:04}.png")
@@ -249,10 +281,40 @@ mod tests {
                 scale: 1.0,
                 zoom: None,
                 course_age: None,
+                still: false,
                 eye: [0.0; 3],
                 target: [0.0; 3],
             },
         }
+    }
+
+    #[test]
+    fn the_paste_chord_pastes_and_lines_become_spaces() {
+        let chord = if cfg!(target_os = "macos") {
+            ModifiersState::SUPER
+        } else {
+            ModifiersState::CONTROL
+        };
+        let v = Key::Character("v".into());
+        let code = PhysicalKey::Code(KeyCode::KeyV);
+        assert!(is_paste(&v, code, chord));
+        // A layout where that key types another letter still pastes, and so does a
+        // layout that puts V elsewhere.
+        assert!(is_paste(&Key::Character("м".into()), code, chord));
+        assert!(is_paste(&v, PhysicalKey::Code(KeyCode::KeyB), chord));
+        assert!(
+            !is_paste(&v, code, ModifiersState::empty()),
+            "plain v types"
+        );
+        assert!(is_paste(
+            &Key::Named(NamedKey::Insert),
+            PhysicalKey::Code(KeyCode::Insert),
+            ModifiersState::SHIFT
+        ));
+        let mut n = note();
+        n.type_text("seen: ");
+        n.paste("the dock\r\nfeels\tfar\n");
+        assert_eq!(n.text, "seen: the dock feels far ");
     }
 
     #[test]

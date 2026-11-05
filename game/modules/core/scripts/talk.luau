@@ -8,12 +8,15 @@ local signs = require("./signs")
 local trade = require("./trade")
 local rules = require("./rules")
 local fit = require("./fit")
+local places = require("./places")
+local project = require("./project")
+local salvage = require("./salvage")
 
 -- Who is speaking and where: "Tova Reyes at Lantern Dock".
 local function source(ctx, talk)
     local speaker = ctx.get(talk, "engine.talk").speaker
-    local port = ctx.get(ctx.get(speaker, "engine.location").place, "port")
-    return ctx.get(speaker, "keeper").name .. (port and " at " .. port.name or "")
+    local station = places.of(ctx, speaker)
+    return ctx.get(speaker, "keeper").name .. (station and " at " .. ctx.get(station, "port").name or "")
 end
 
 -- A line already kept in the log for this conversation is not logged again.
@@ -38,10 +41,16 @@ end
 -- Signs follow the talk: while someone speaks only they keep their name sign.
 local function sign(ctx, speaker)
     local pilot = ctx.get("ship", "pilot")
-    local here = ctx.get("ship", "engine.location").place
-    if here ~= "" and ctx.get(here, "port") then
-        signs.show(ctx, here, pilot.room, pilot.log_open, speaker)
-    end
+    local station = places.docked(ctx)
+    if station then signs.show(ctx, station, pilot.room, pilot.log_open, speaker) end
+end
+
+-- Every keeper's current line at the station the ship is docked at, as it stands now.
+local function refresh(ctx)
+    local station = places.docked(ctx)
+    if not station then return end
+    local _, build = trade.building(ctx, station)
+    voices.refresh(ctx, station, ctx.get("ship", "hold"), 0, build and build.need - build.given or 0)
 end
 
 return {
@@ -65,6 +74,11 @@ return {
             sign(ctx, open and ctx.get(talk, "engine.talk").speaker or nil)
             if not open then voices.retire(ctx) end
             local quoted = "\u{201C}" .. said.text .. "\u{201D}"
+            -- An offer once said stays pinned in the log until it is answered (log.pinned).
+            local gift = ctx.get(talk, "gift")
+            if gift and not gift.heard then ctx.patch(talk, "gift", { heard = true }) end
+            local offer = ctx.get(talk, "offer")
+            if offer and not offer.heard then ctx.patch(talk, "offer", { heard = true }) end
             local id, entry = heard(ctx, talk)
             if logged(ctx, talk, quoted) then
                 if id and not open then ctx.patch(id, "entry", { open = false }) end
@@ -77,7 +91,8 @@ return {
         -- An answer to a line that offers a choice: the line and the answer join the
         -- conversation's entry. A gift taken goes into the hold with its own receipt;
         -- taken or declined, the offer is over, and once the talk ends the keeper's
-        -- everyday talk returns.
+        -- everyday talk returns. A project's offer taken moves the project on, with its
+        -- receipt; "Not now" leaves it for a later docking (project.chosen).
         ["engine.talk_chosen"] = function(event, ctx)
             local talk, line, choice = event.payload.talk, event.payload.line, event.payload.choice
             local answer = ctx.get(choice, "engine.talk_choice")
@@ -89,8 +104,9 @@ return {
             if gift and not gift.answered then
                 local hold = ctx.get("ship", "hold")
                 local taken = choice == gift.take and fit.hold(ctx) - rules.load(hold) >= gift.units
-                if taken or choice ~= gift.take then
-                    ctx.patch(talk, "gift", { answered = true })
+                local over = taken or choice ~= gift.take
+                ctx.patch(talk, "gift", { answered = over, heard = true })
+                if over then
                     if not open then
                         ctx.patch(talk, "engine.talk", { enabled = false })
                         ctx.patch(gift.instead, "engine.talk", { enabled = true })
@@ -102,6 +118,8 @@ return {
                         .. gift.ware .. ": " .. gift.units .. " into the hold."
                 end
             end
+            if not receipt then receipt = project.chosen(ctx, talk, choice, open, ctx.get("ship", "hold")) end
+            if not receipt then receipt = salvage.chosen(ctx, talk, choice, open) end
             local id, entry = heard(ctx, talk)
             if id then
                 ctx.patch(id, "entry", { text = entry.text .. " " .. said, open = open })
@@ -111,11 +129,31 @@ return {
                 log.say(ctx, source(ctx, talk) .. ": " .. said .. (receipt and " " .. receipt or ""), talk, open)
             end
         end,
+        -- The day moved on: someone may have come into the room you are in, visiting
+        -- (the grower with greens for the galley), and wears their sign there.
+        ["engine.clock_advanced"] = function(_, ctx)
+            local station = places.docked(ctx)
+            if not station then return end
+            local pilot = ctx.get("ship", "pilot")
+            signs.show(ctx, station, pilot.room, pilot.log_open, signs.speaking(ctx))
+            -- The grower and the skipper talk of where they are: at their work or visiting.
+            local _, job = salvage.find(ctx)
+            if job then
+                for _, who in { job.giver, job.skipper } do
+                    local says = places.of(ctx, who) == station and salvage.line(ctx, who, station)
+                    if says then ctx.patch(who .. "_now", "engine.talk_line", { text = says }) end
+                end
+            end
+        end,
+        -- A project moved on (an answer's receipt) or a build finished: the keepers'
+        -- lines follow it. The handler that changed it still read the world before.
+        confirmed = function(_, ctx) refresh(ctx) end,
+        grown = function(_, ctx) refresh(ctx) end,
         docked = function(event, ctx)
             local pilot = ctx.get("ship", "pilot")
             local _, build = trade.building(ctx, event.payload.station)
             voices.refresh(ctx, event.payload.station, ctx.get("ship", "hold"), 0, build and build.need - build.given or 0)
-            signs.show(ctx, event.payload.station, "", pilot.log_open)
+            signs.show(ctx, event.payload.station, pilot.room, pilot.log_open)
         end,
     },
 }

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- The log: an open book of messages, pages either side of the spine, with lines of writing. -->
+  <path fill-rule="evenodd" fill="currentColor" d="M1.5 4.5c3.5-1.6 7-1.4 9.6 0.8V21c-2.6-1.9-6.1-2.1-9.6-0.6zM3.3 7.8l6 0.9v1.2l-6-0.9zM3.3 11l6 0.9v1.2l-6-0.9zM3.3 14.2l6 0.9v1.2l-6-0.9z"/>
+  <path fill-rule="evenodd" fill="currentColor" d="M22.5 4.5c-3.5-1.6-7-1.4-9.6 0.8V21c2.6-1.9 6.1-2.1 9.6-0.6zM20.7 7.8l-6 0.9v1.2l6-0.9zM20.7 11l-6 0.9v1.2l6-0.9zM20.7 14.2l-6 0.9v1.2l6-0.9z"/>
+</svg>

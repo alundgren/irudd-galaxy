@@ -2,7 +2,7 @@
 # one short line at a time; after that she says one line that follows the shift. Each
 # conversation is one log entry naming her and the station, a line heard again is not
 # logged again, and talk never becomes the flight message. Hints retire after use,
-# and name signs step aside for the log and for a room.
+# and name signs show only in their keeper's own room.
 seed = 3
 ticks = 760
 
@@ -40,33 +40,30 @@ tick = 329
 entity = "log1"
 component = "entry"
 field = "text"
-equals = "Hold full: 6 ore aboard. E docks at the nearest station."
+equals = "Hold full: 6 ore aboard."
 
-# Keepers wear name signs on the whole station; the open log hides them.
+# Each keeper wears a name sign in their own room: in the exchange Tova wears hers,
+# and Bram, in his office, none.
+[[input]]
+tick = 530
+name = "core.open"
+[[input]]
+tick = 533
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 530 }
 [[expect]]
 tick = 539
 entity = "lantern_trader"
 component = "engine.life"
 field = "name"
 equals = "Tova Reyes"
-[[input]]
-tick = 540
-name = "core.log"
 [[expect]]
-tick = 541
-entity = "lantern_trader"
-component = "engine.life"
-field = "name"
-equals = ""
-[[input]]
-tick = 545
-name = "core.log"
-[[expect]]
-tick = 546
+tick = 539
 entity = "lantern_master"
 component = "engine.life"
 field = "name"
-equals = "Bram Okafor"
+equals = ""
 
 # The repeat line can't jump ahead of the introduction: the engine refuses it.
 [[input]]
@@ -182,12 +179,20 @@ component = "pilot"
 field = "logged"
 equals = 4
 
-# After a sale her line follows it.
+# Out to the station and in again: while the cut runs no sign is worn; once it
+# lands, only the exchange's keeper wears hers. After a sale her line follows it.
+[[input]]
+tick = 597
+name = "core.close"
+payload = { down = true }
+[[input]]
+tick = 598
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 597 }
 [[input]]
 tick = 600
 name = "core.open"
-# While the view glides to the exchange no sign is worn; once it settles, only the
-# exchange's keeper keeps hers.
 [[expect]]
 tick = 600
 entity = "lantern_trader"
@@ -196,9 +201,9 @@ field = "name"
 equals = ""
 [[input]]
 tick = 601
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 600 }
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 600 }
 [[expect]]
 tick = 601
 entity = "lantern_master"
@@ -237,7 +242,17 @@ component = "entry"
 field = "text"
 equals = "Tova Reyes at Lantern Dock: “Thanks. It's all on the pile already.”"
 
-# Talk to the office keeper and leave mid-introduction: launching ends the talk unseen.
+# Talk to the office keeper in his office and leave mid-introduction: launching ends
+# the talk unseen.
+[[input]]
+tick = 680
+name = "core.open"
+payload = { facility = "core.lantern_office" }
+[[input]]
+tick = 683
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 680 }
 [[input]]
 tick = 690
 name = "engine.talk_start"

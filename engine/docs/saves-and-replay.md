@@ -27,8 +27,9 @@ those fields in full; `--all` prints every field, the facts and causes.
 
 A save is one SQLite file. Tables: `meta` (format, engine, build, seed, tick, hash),
 `modules` (each module the world ran with: ID, version, minimum engine version and the hash
-of its files), `components`, `facts`, `causes`, and `state` (the random streams and the
-engine services' causes). Writing goes to a temporary file that replaces the target when
+of its files), `components`, `facts`, `causes`, and `state` (the random streams, the
+engine services' causes and, only while bodies are in contact with contacts recorded,
+`contacts`: `flight-and-collision.md`). Writing goes to a temporary file that replaces the target when
 complete.
 
 Loading rebuilds the world from the tables and checks it hashes as it did when saved, so
@@ -91,10 +92,12 @@ A recording is one JSON file that holds everything needed to run a session again
 - `events`, in order: inputs (`tick`, `source`, `name`, `payload`), hot-loads (`tick`,
   `module` and its exact new files), notes (`tick`, `text`, the world's `hash` then, and
   from a played session the `camera`, a moment, and the `frame` file that was seen) and
-  zooms (`tick`, and the `view` height the wheel left; one a tick), and widget presentation
-  snapshots (`tick`, `state`: scroll offsets and an active drag). Both are
-  presentation only: a replay of the world skips them, and a film of the session
-  (`galaxy-gm film`, `motion-tools.md`) applies them;
+  zooms (`tick`, and the `view` height the wheel left; one a tick), widget presentation
+  snapshots (`tick`, `state`: scroll offsets and an active drag) and UI sound cues
+  (`ui_sound`: `tick`, screen-clock `time`, `action`, `kind`, `look`, `widget`). All
+  three are presentation only: a replay of the world skips them, a film of the session
+  (`galaxy-gm film`, `motion-tools.md`) applies the first two, and `galaxy-gm audio mix`
+  plays the cues (`audio.md`, "UI sounds");
 - `end`: the last tick and the world's hash there.
 
 It is laid out a record a line: the format, build, seed and end first, then each event on

@@ -6,6 +6,8 @@
 # At the exchange with a full hold, a click on the resting Buy 1 buys nothing.
 # Rooms glide open, so a click after opening or leaving one waits for the glide.
 
+# The flights between are scripted Mine and Dock orders, which fly themselves;
+# hand-mining.inputs flies them by hand.
 [[input]]
 tick = 1
 name = "core.ahead"
@@ -16,13 +18,14 @@ tick = 11
 name = "core.ahead"
 payload = { down = false }
 
-[[click]]
+[[input]]
 tick = 60
-widget = "mine"
+name = "core.mine"
 
-[[click]]
+[[input]]
 tick = 330
-widget = "kiln"
+name = "core.dock"
+payload = { station = "core.kiln" }
 
 [[click]]
 tick = 480
@@ -40,7 +43,7 @@ widget = "part_lens"
 [[pointer]]
 tick = 545
 action = "move"
-widget = "empty_drill"
+widget = "socket_drill"
 
 [[note]]
 tick = 550
@@ -87,7 +90,7 @@ widget = "part_lens"
 [[pointer]]
 tick = 785
 action = "move"
-widget = "empty_drill"
+widget = "socket_drill"
 
 [[note]]
 tick = 790
@@ -110,7 +113,7 @@ widget = "part_thrusters"
 [[pointer]]
 tick = 845
 action = "move"
-widget = "empty_engine"
+widget = "socket_engine"
 
 [[note]]
 tick = 850
@@ -161,17 +164,18 @@ widget = "close"
 tick = 1040
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 1080
-widget = "mine"
+name = "core.mine"
 
 [[note]]
 tick = 1230
 text = "Mining with the lens: two ore a second."
 
-[[click]]
+[[input]]
 tick = 1320
-widget = "kiln"
+name = "core.dock"
+payload = { station = "core.kiln" }
 
 [[click]]
 tick = 1470
@@ -211,17 +215,18 @@ widget = "close"
 tick = 1730
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 1770
-widget = "mine"
+name = "core.mine"
 
 [[note]]
 tick = 1900
 text = "In flight with the pods: the hull carries them, a little slower."
 
-[[click]]
+[[input]]
 tick = 2060
-widget = "kiln"
+name = "core.dock"
+payload = { station = "core.kiln" }
 
 [[click]]
 tick = 2230
@@ -235,7 +240,7 @@ widget = "part_pods"
 [[pointer]]
 tick = 2285
 action = "move"
-widget = "off_drill"
+widget = "on_ship_drill"
 
 [[note]]
 tick = 2290
@@ -244,7 +249,7 @@ text = "Holding the pods with 9 aboard: the tray says it can't take them off bef
 [[pointer]]
 tick = 2300
 action = "drop"
-widget = "off_drill"
+widget = "on_ship_drill"
 
 [[note]]
 tick = 2330

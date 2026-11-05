@@ -13,7 +13,7 @@ shape = "cylinder"
 radius = 13.2
 height = 0.05
 sides = 16
-paint = "#5d7a72"
+paint = "#d2a46c"
 [[part]]
 name = "rim"
 shape = "spoked_ring"
@@ -134,3 +134,12 @@ at = [8, -12, 0]
 [[marker]]
 name = "spot.galley_keeper"
 at = [5.4, -8.8, 0]
+[[marker]]
+name = "spot.glaziers_a"
+at = [-3.6, -6.2, 0]
+[[marker]]
+name = "spot.glaziers_b"
+at = [-4.4, -9.6, 0]
+[[marker]]
+name = "spot.glaziers_c"
+at = [-8.6, -5.6, 0]

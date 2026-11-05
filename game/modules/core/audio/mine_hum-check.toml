@@ -1,0 +1,16 @@
+# The mining hum clip (galaxy-gm audio check): one second that repeats exactly, levelled
+# to -18 LUFS with headroom; it plays once a second while the beam cuts.
+clip = "../sounds/mine_hum.wav"
+
+[[expect]]
+value = "loudness.integrated_lufs"
+at_least = -18.5
+at_most = -17.5
+
+[[expect]]
+value = "loudness.true_peak_dbtp"
+at_most = -6.0
+
+[[expect]]
+value = "defects.clicks"
+equals = 0

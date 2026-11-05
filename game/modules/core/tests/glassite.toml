@@ -1,0 +1,77 @@
+# Glassite's crystals break off as it is mined: the ship turns north-east, flies to
+# glassite1 and mines it out. Its five units come aboard and the emptied rock is left as
+# a few pebbles with warm glowing caps (ore.empty). The order then moves on to glassite2,
+# so the checks are taken at tick 320, after glassite1's last unit and before the next.
+seed = 7
+ticks = 400
+
+[[input]]
+tick = 1
+name = "left"
+payload = { down = true }
+
+[[input]]
+tick = 6
+name = "left"
+payload = { down = false }
+
+[[input]]
+tick = 10
+name = "ahead"
+payload = { down = true }
+
+[[input]]
+tick = 100
+name = "ahead"
+payload = { down = false }
+
+[[input]]
+tick = 150
+name = "mine"
+
+[[expect]]
+tick = 152
+entity = "ship"
+component = "pilot"
+field = "target"
+equals = "core.glassite1"
+
+[[expect]]
+tick = 320
+entity = "ship"
+component = "hold"
+field = "glassite"
+equals = 5
+
+[[expect]]
+tick = 320
+entity = "glassite1"
+component = "ore"
+field = "left"
+equals = 0
+
+[[expect]]
+tick = 320
+entity = "glassite1"
+component = "engine.model"
+field = "model"
+equals = "core.glassite_pebbles"
+
+[[expect]]
+tick = 320
+entity = "glassite1"
+component = "engine.model"
+field = "morph"
+equals = 1.0
+
+[[expect]]
+tick = 320
+entity = "log1"
+component = "entry"
+field = "text"
+equals = "Rock cut down to pebbles. 1 more rock holds glassite."
+
+[[expect]]
+tick = 320
+facts = "mined"
+equals = 5

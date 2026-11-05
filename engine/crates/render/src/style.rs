@@ -23,6 +23,20 @@
 //! cloud_alpha = 0.2
 //! cloud_count = 16
 //! stars = 260
+//! haze = "#3c2b5c"            # the colour far things fade into
+//! atmosphere = 0.6            # how far: a layer at parallax p fades atmosphere * (1 - p)
+//!
+//! [[sky.layers]]              # a backdrop layer, drawn behind the play layer
+//! shape = "dust"              # dust, speck, hatch or model
+//! parallax = 0.1              # 0 fixed on screen, 1 moves with the play layer
+//! tint = "#c2577a"
+//! density = 0.5               # marks per 100 by 100 logical pixels
+//!
+//! [[sky.landmarks]]           # a big shape far away
+//! shape = "disc"              # disc (a planet's limb), wash (a nebula) or model
+//! at = [600.0, 300.0]         # world units from the screen's centre, camera at the origin
+//! parallax = 0.05
+//! size = 900.0
 //!
 //! [course]                  # the followed ship's order: dots and a ring
 //! show = true
@@ -39,10 +53,20 @@
 //! shadow = "#9e84cc"          # multiplies the paint in shadow
 //! highlight = "#fff6ea"       # multiplies the paint in the highlight band
 //! bands = 3                   # tone bands, 2 or 3
+//! halo = 0.6                  # a soft halo round its self-lit paint (lamps, engines)
+//!
+//! [beams.cutter]              # a beam: `engine.beam { look = "<module>.cutter" }`
+//! color = "#7ff0d8"
+//! impact = ["<module>.sparks"] # sprayed where it lands
+//!
+//! [particles.sparks]          # a particle recipe for emitters, bursts and beams
+//! shape = "spark"             # dot, spark, puff or chip
+//! count = 12                  # in a burst; rate is a second from an emitter
 //! ```
 //!
 //! Every key is optional. The scene-wide tables (`ink`, `light`, `sky`, `course`) may
-//! come from one module only; looks are each module's own, named by full ID.
+//! come from one module only; looks, beams and particle recipes are each module's own,
+//! named by full ID.
 
 use std::collections::BTreeMap;
 
@@ -52,6 +76,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::backdrop::BackdropParams;
 use crate::defaults;
+use crate::effects::{BeamStyle, ParticleRecipe};
 use crate::scene::{Lights, Material};
 
 /// A parsed `style.toml`.
@@ -64,6 +89,8 @@ pub struct Style {
     pub course: Option<Course>,
     pub screen: Option<crate::screen_style::ScreenStyle>,
     pub looks: BTreeMap<String, Look>,
+    pub beams: BTreeMap<String, BeamStyle>,
+    pub particles: BTreeMap<String, ParticleRecipe>,
 }
 
 impl Style {
@@ -83,6 +110,14 @@ impl Style {
         }
         for (name, look) in &style.looks {
             look.check().map_err(|e| format!("[looks.{name}] {e}"))?;
+        }
+        for (name, beam) in &style.beams {
+            beam.check().map_err(|e| format!("[beams.{name}] {e}"))?;
+        }
+        for (name, recipe) in &style.particles {
+            recipe
+                .check()
+                .map_err(|e| format!("[particles.{name}] {e}"))?;
         }
         Ok(style)
     }
@@ -298,6 +333,156 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "talk bubble Continue/Done marker size, logical pixels; drawn at weight 400",
     ),
     (
+        "screen",
+        "button_hover",
+        "opaque colour",
+        "button fill under the pointer; unset keeps button; text needs 4.5:1",
+    ),
+    (
+        "screen",
+        "bubble_look",
+        "a look name",
+        "a [screen.looks] look for talk bubbles; empty uses bubble and text",
+    ),
+    (
+        "screen",
+        "bubble_title_look",
+        "a look name",
+        "a look for the bubble's heading (the speaker's name): its colour, weight, underline or tag fill",
+    ),
+    (
+        "screen",
+        "sign_look",
+        "a look name",
+        "a look for life signs; empty uses sign and text",
+    ),
+    (
+        "screen",
+        "motion_in",
+        "0 to 1",
+        "seconds a panel or bubble takes to fade (and slide) in; 0 shows it at once",
+    ),
+    (
+        "screen",
+        "motion_out",
+        "0 to 1",
+        "seconds a closed panel or bubble takes to fade out",
+    ),
+    (
+        "screen",
+        "motion_slide",
+        "0 to 48",
+        "how far panels slide while coming and going, logical pixels; 0 only fades",
+    ),
+    (
+        "screen",
+        "hover_lift",
+        "0 to 6",
+        "how far a button rises under the pointer, logical pixels",
+    ),
+    (
+        "screen",
+        "press_sink",
+        "0 to 6",
+        "how far a pressed button sinks, logical pixels",
+    ),
+    (
+        "screen",
+        "cue_time",
+        "0 to 2",
+        "seconds a value's cue (count or flash) runs; 0 turns cues off",
+    ),
+    (
+        "screen",
+        "flash",
+        "opaque colour",
+        "fill behind a flashing value; text needs 4.5:1",
+    ),
+    (
+        "screen.looks.<name>",
+        "fill",
+        "opaque colour",
+        "surface fill; on a span, a tag behind its words; unset keeps the widget's",
+    ),
+    (
+        "screen.looks.<name>",
+        "text",
+        "opaque colour",
+        "text colour; needs 4.5:1 on fill, hover and flash (3:1 for a mark)",
+    ),
+    (
+        "screen.looks.<name>",
+        "border",
+        "opaque colour",
+        "frame colour",
+    ),
+    (
+        "screen.looks.<name>",
+        "border_px",
+        "0 to 4",
+        "frame width, logical pixels",
+    ),
+    (
+        "screen.looks.<name>",
+        "radius",
+        "0 to 24",
+        "corner rounding, logical pixels",
+    ),
+    (
+        "screen.looks.<name>",
+        "pad",
+        "0 to 32",
+        "default padding of a widget wearing it, logical pixels",
+    ),
+    (
+        "screen.looks.<name>",
+        "shadow",
+        "0 to 16",
+        "soft drop shadow under its surface, logical pixels; 0 has none",
+    ),
+    (
+        "screen.looks.<name>",
+        "hover",
+        "opaque colour",
+        "a button's fill under the pointer",
+    ),
+    (
+        "screen.looks.<name>",
+        "weight",
+        "300 to 700",
+        "font weight of its text",
+    ),
+    (
+        "screen.looks.<name>",
+        "underline",
+        "opaque colour",
+        "a line under its text; 3:1 on what it sits on",
+    ),
+    (
+        "screen.looks.<name>",
+        "gain",
+        "opaque colour",
+        "positive ui.delta values wearing it; unset is its text",
+    ),
+    (
+        "screen.looks.<name>",
+        "loss",
+        "opaque colour",
+        "negative ui.delta values wearing it; unset is its text",
+    ),
+    (
+        "screen.looks.<name>",
+        "flash",
+        "opaque colour",
+        "fill behind a flashing value wearing it; unset is [screen] flash",
+    ),
+    (
+        "screen.looks.<name>",
+        "mark",
+        "true or false",
+        "a span of symbols, not words (an arrow, a dot): 3:1 contrast like a graphic",
+    ),
+    (
         "ink",
         "color",
         "",
@@ -376,6 +561,175 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "1 to 4 star layers, each the logical pixels it scrolls per world unit the camera moves (0 to 20): [0.25, 0.6, 1.2] puts far stars creeping behind near ones; the stars are shared among them",
     ),
     (
+        "sky",
+        "haze",
+        "",
+        "the colour far layers and landmarks fade into; unset, halfway between top and bottom",
+    ),
+    (
+        "sky",
+        "atmosphere",
+        "0 to 1",
+        "how far things fade into the haze: a layer or landmark at parallax p fades atmosphere * (1 - p), times its own fade",
+    ),
+    (
+        "sky",
+        "layers",
+        "[[sky.layers]]",
+        "backdrop layers behind the play layer, up to 8, each its own [[sky.layers]] table",
+    ),
+    (
+        "sky",
+        "landmarks",
+        "[[sky.landmarks]]",
+        "big shapes far away, up to 16, each its own [[sky.landmarks]] table",
+    ),
+    (
+        "[sky.layers]",
+        "shape",
+        "dust, speck, hatch or model",
+        "soft puffs, crisp dots, short ink strokes at angle, or a model scattered at a distance",
+    ),
+    (
+        "[sky.layers]",
+        "parallax",
+        "0 to 1",
+        "how much it moves with the camera: 0 is fixed on screen, 0.1 slides a tenth as far as the play layer, 1 moves with it; it wraps forever",
+    ),
+    (
+        "[sky.layers]",
+        "tint",
+        "",
+        "the marks' colour (a model keeps its own paint)",
+    ),
+    (
+        "[sky.layers]",
+        "alpha",
+        "0 to 1",
+        "the brightest mark's opacity, default 0.5; not for a model layer (models are opaque)",
+    ),
+    (
+        "[sky.layers]",
+        "density",
+        "0 to 16",
+        "marks (or models) per 100 by 100 logical pixels at the camera's own zoom (zooming spreads or packs them); a model layer takes up to 1",
+    ),
+    (
+        "[sky.layers]",
+        "size",
+        "[smallest, largest]",
+        "mark radius in logical pixels (0 to 64; a hatch stroke's length, up to 128), or a model's scale (0 to 100); marks never grow past half their grid cell",
+    ),
+    (
+        "[sky.layers]",
+        "angle",
+        "-360 to 360",
+        "hatch strokes' direction, degrees anticlockwise from screen right",
+    ),
+    (
+        "[sky.layers]",
+        "model",
+        "<module>.<name>",
+        "the model a model layer scatters, each turned at random",
+    ),
+    (
+        "[sky.layers]",
+        "look",
+        "<module>.<name>",
+        "the look its models wear; unset, the default look",
+    ),
+    (
+        "[sky.layers]",
+        "fade",
+        "0 to 2",
+        "times its share of the atmosphere; 0 never fades",
+    ),
+    (
+        "[sky.landmarks]",
+        "shape",
+        "disc, wash or model",
+        "a lit ball in tone bands with an ink rim and hatched shadow (a planet's limb), a soft cloudy streak (a nebula), or a model (a far station)",
+    ),
+    (
+        "[sky.landmarks]",
+        "at",
+        "[x, y]",
+        "world units from the screen's centre with the camera at the world origin; it then slides parallax as far as the camera, so it is centred when the camera is at at / parallax",
+    ),
+    (
+        "[sky.landmarks]",
+        "parallax",
+        "0 to 1",
+        "how much it moves with the camera: 0 is fixed on screen, 1 is in the play layer",
+    ),
+    (
+        "[sky.landmarks]",
+        "size",
+        "0 to 100000",
+        "a disc's radius or a wash's half length, world units",
+    ),
+    ("[sky.landmarks]", "scale", "0 to 100", "a model's scale"),
+    (
+        "[sky.landmarks]",
+        "stretch",
+        "0 to 1",
+        "a wash's width as a share of its length",
+    ),
+    (
+        "[sky.landmarks]",
+        "angle",
+        "-360 to 360",
+        "a wash's direction or a model's turn, degrees anticlockwise",
+    ),
+    (
+        "[sky.landmarks]",
+        "color",
+        "",
+        "a disc's or wash's paint (a model keeps its own)",
+    ),
+    (
+        "[sky.landmarks]",
+        "alpha",
+        "0 to 1",
+        "a disc's or wash's opacity, default 1; not for a model (models are opaque)",
+    ),
+    (
+        "[sky.landmarks]",
+        "shadow",
+        "",
+        "multiplies a disc's paint in its shadow band",
+    ),
+    (
+        "[sky.landmarks]",
+        "outline_px",
+        "0 to 16",
+        "a disc's ink rim, logical pixels (the style's ink colour)",
+    ),
+    (
+        "[sky.landmarks]",
+        "hatch",
+        "0 to 1",
+        "hatching in a disc's shadow or a wash's thick parts",
+    ),
+    (
+        "[sky.landmarks]",
+        "model",
+        "<module>.<name>",
+        "the model a model landmark draws",
+    ),
+    (
+        "[sky.landmarks]",
+        "look",
+        "<module>.<name>",
+        "the look it wears; unset, the default look",
+    ),
+    (
+        "[sky.landmarks]",
+        "fade",
+        "0 to 2",
+        "times its share of the atmosphere; 0 never fades",
+    ),
+    (
         "course",
         "show",
         "true or false",
@@ -422,6 +776,141 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "multiplies the paint in the highlight band",
     ),
     ("looks.<name>", "bands", "2 or 3", "tone bands"),
+    (
+        "looks.<name>",
+        "halo",
+        "0 to 4",
+        "a soft additive halo round each patch of self-lit paint (lamps, windows, engines); 0 is none",
+    ),
+    (
+        "looks.<name>",
+        "halo_size",
+        "0 to 8",
+        "the halo's radius, times the size of the lit patch",
+    ),
+    ("beams.<name>", "color", "", "the beam's colour"),
+    (
+        "beams.<name>",
+        "width",
+        "0 to 8",
+        "width, world units; 0 hides it",
+    ),
+    (
+        "beams.<name>",
+        "glow",
+        "0 to 4",
+        "the soft glow round the beam and the halos at its ends; 0 leaves the hot core",
+    ),
+    (
+        "beams.<name>",
+        "glow_size",
+        "0 to 32",
+        "radius of the halo where it lands, world units; the one at its source is half",
+    ),
+    (
+        "beams.<name>",
+        "flicker",
+        "0 to 1",
+        "how much its brightness flickers",
+    ),
+    (
+        "beams.<name>",
+        "flicker_rate",
+        "0 to 30",
+        "flickers a second",
+    ),
+    (
+        "beams.<name>",
+        "impact",
+        "[recipe IDs]",
+        "particle recipes sprayed where the beam lands, each at its own rate (sparks, chips)",
+    ),
+    (
+        "particles.<name>",
+        "shape",
+        "dot, spark, puff or chip",
+        "a soft dot, a streak along its flight, a cel puff or a turning chip (puff and chip are inked)",
+    ),
+    (
+        "particles.<name>",
+        "blend",
+        "add or paint",
+        "add glows over what is beneath; paint covers it",
+    ),
+    ("particles.<name>", "color", "", "colour at birth"),
+    (
+        "particles.<name>",
+        "end_color",
+        "",
+        "colour at the end of life; it fades out as it gets there",
+    ),
+    (
+        "particles.<name>",
+        "count",
+        "0 to 256",
+        "particles in one burst",
+    ),
+    (
+        "particles.<name>",
+        "rate",
+        "0 to 400",
+        "particles a second from an emitter or a beam's landing",
+    ),
+    ("particles.<name>", "life", "0 to 4", "seconds each lives"),
+    (
+        "particles.<name>",
+        "life_jitter",
+        "0 to 1",
+        "up to this share of a life is cut short at random",
+    ),
+    (
+        "particles.<name>",
+        "speed",
+        "0 to 200",
+        "starting speed, world units a second",
+    ),
+    (
+        "particles.<name>",
+        "speed_jitter",
+        "0 to 1",
+        "up to this share of the speed is taken off at random",
+    ),
+    (
+        "particles.<name>",
+        "direction",
+        "-360 to 360",
+        "degrees from the emitter's facing (180 is behind it); at a beam's landing, from the way back up the beam",
+    ),
+    (
+        "particles.<name>",
+        "spread",
+        "0 to 360",
+        "how wide they fan out round that way, degrees",
+    ),
+    (
+        "particles.<name>",
+        "size",
+        "0 to 16",
+        "diameter at birth, world units",
+    ),
+    (
+        "particles.<name>",
+        "end_size",
+        "0 to 16",
+        "diameter at the end of life, world units",
+    ),
+    (
+        "particles.<name>",
+        "drag",
+        "0 to 20",
+        "share of speed lost a second",
+    ),
+    (
+        "particles.<name>",
+        "inherit",
+        "0 to 1",
+        "share of the emitter's velocity they keep; 0 stays where born (a trail)",
+    ),
 ];
 
 /// Each table's keys with their defaults, as TOML text (`"#2a1a2e"`, `2.0`), from the
@@ -451,15 +940,58 @@ pub fn defaults() -> Vec<(&'static str, Vec<(String, String)>)> {
     vec![
         table("ink", &Ink::default()),
         table("light", &Light::default()),
-        table("sky", &Sky::default()),
+        {
+            // Unset, the haze is halfway between top and bottom: list that.
+            let mut sky = table("sky", &Sky::default());
+            let s = Sky::default();
+            if let Ok(v) = toml::Value::try_from(s.top.lerp(s.bottom, 0.5)) {
+                sky.1.push(("haze".to_owned(), short(&v)));
+            }
+            sky
+        },
+        {
+            // Unset, a layer's marks are at half opacity (models take no alpha).
+            let mut layers = table("[sky.layers]", &SkyLayer::default());
+            layers.1.push(("alpha".to_owned(), "0.5".to_owned()));
+            layers
+        },
+        {
+            // Unset, a disc or wash is opaque (models take no alpha).
+            let mut landmarks = table("[sky.landmarks]", &Landmark::default());
+            landmarks.1.push(("alpha".to_owned(), "1.0".to_owned()));
+            landmarks
+        },
         table("course", &Course::default()),
         table("screen", &{
             // Unset, a resting button uses the panel colour: list that as its default.
             let mut s = crate::screen_style::ScreenStyle::default();
             s.resting = Some(s.panel);
+            s.button_hover = Some(s.button);
             s
         }),
+        table("screen.looks.<name>", &{
+            // Every key, each at the value an unset key falls back to.
+            let s = crate::screen_style::ScreenStyle::default();
+            crate::screen_style::ScreenLook {
+                fill: Some(s.panel),
+                text: Some(s.text),
+                border: Some(s.border),
+                border_px: Some(s.border_px),
+                radius: Some(s.radius),
+                pad: Some(s.frame_padding),
+                shadow: Some(0.0),
+                hover: Some(s.button),
+                weight: Some(500.0),
+                underline: Some(s.border),
+                gain: Some(s.text),
+                loss: Some(s.text),
+                flash: Some(s.flash),
+                mark: false,
+            }
+        }),
         table("looks.<name>", &Look::default()),
+        table("beams.<name>", &BeamStyle::default()),
+        table("particles.<name>", &ParticleRecipe::default()),
     ]
 }
 
@@ -578,6 +1110,14 @@ pub struct Sky {
     pub cloud_count: u32,
     pub stars: u32,
     pub star_layers: Vec<f32>,
+    /// The colour far layers and landmarks fade into; unset, halfway between top and
+    /// bottom ([`Sky::haze`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub haze: Option<Color>,
+    /// How far things fade into the haze: at parallax `p`, `atmosphere * (1 - p)`.
+    pub atmosphere: f32,
+    pub layers: Vec<SkyLayer>,
+    pub landmarks: Vec<Landmark>,
 }
 
 impl Default for Sky {
@@ -591,6 +1131,10 @@ impl Default for Sky {
             cloud_count: b.clouds,
             stars: b.stars,
             star_layers: b.star_layers,
+            haze: None,
+            atmosphere: 0.6,
+            layers: Vec::new(),
+            landmarks: Vec::new(),
         }
     }
 }
@@ -613,7 +1157,59 @@ impl Sky {
                 "star_layers has {p}; each layer scrolls 0 to {MAX_STAR_PARALLAX} logical pixels per world unit"
             ));
         }
+        in_range("atmosphere", self.atmosphere, 0.0, 1.0)?;
+        if self.layers.len() > MAX_SKY_LAYERS {
+            return Err(format!(
+                "has {} layers; a sky has at most {MAX_SKY_LAYERS}",
+                self.layers.len()
+            ));
+        }
+        if self.landmarks.len() > MAX_LANDMARKS {
+            return Err(format!(
+                "has {} landmarks; a sky has at most {MAX_LANDMARKS}",
+                self.landmarks.len()
+            ));
+        }
+        for (i, layer) in self.layers.iter().enumerate() {
+            layer
+                .check()
+                .map_err(|e| format!("layers {}: {e}", i + 1))?;
+        }
+        for (i, landmark) in self.landmarks.iter().enumerate() {
+            landmark
+                .check()
+                .map_err(|e| format!("landmarks {}: {e}", i + 1))?;
+        }
         Ok(())
+    }
+
+    /// The colour far things fade into.
+    pub fn haze(&self) -> Color {
+        self.haze.unwrap_or(self.top.lerp(self.bottom, 0.5))
+    }
+
+    /// How far something at `parallax` with its own `fade` sinks into the haze, 0 to 1.
+    pub fn fade(&self, parallax: f32, fade: f32) -> f32 {
+        (self.atmosphere * (1.0 - parallax) * fade).clamp(0.0, 1.0)
+    }
+
+    /// The models and looks the layers and landmarks name, each with where: `layers 2`.
+    pub fn names(&self) -> Vec<(String, &str, &str)> {
+        let layers = self.layers.iter().enumerate().map(|(i, l)| {
+            (
+                format!("layers {}", i + 1),
+                l.model.as_str(),
+                l.look.as_str(),
+            )
+        });
+        let landmarks = self.landmarks.iter().enumerate().map(|(i, l)| {
+            (
+                format!("landmarks {}", i + 1),
+                l.model.as_str(),
+                l.look.as_str(),
+            )
+        });
+        layers.chain(landmarks).collect()
     }
 
     pub fn params(&self) -> BackdropParams {
@@ -627,6 +1223,202 @@ impl Sky {
             star_layers: self.star_layers.clone(),
             ..BackdropParams::default()
         }
+    }
+}
+
+/// The most `[[sky.layers]]` a sky has.
+pub const MAX_SKY_LAYERS: usize = 8;
+/// The most `[[sky.landmarks]]` a sky has.
+pub const MAX_LANDMARKS: usize = 16;
+
+fn in_range(key: &str, v: f32, lo: f32, hi: f32) -> Result<(), String> {
+    if v.is_finite() && (lo..=hi).contains(&v) {
+        Ok(())
+    } else {
+        Err(format!("{key} is {v}; it is {lo} to {hi}"))
+    }
+}
+
+/// `model` and `look` belong to the model shape only, and it needs a model.
+fn model_keys(shape: &str, model: &str, look: &str) -> Result<(), String> {
+    if shape == "model" && model.is_empty() {
+        return Err("shape = \"model\" needs model = \"<module>.<name>\"".into());
+    }
+    if shape != "model" && !(model.is_empty() && look.is_empty()) {
+        return Err(format!(
+            "model and look are for shape = \"model\", and this one is \"{shape}\""
+        ));
+    }
+    Ok(())
+}
+
+/// Models draw opaque in their own paint, so an `alpha` on one would silently do nothing.
+fn opaque_model(shape: &str, alpha: Option<f32>) -> Result<(), String> {
+    if shape == "model" && alpha.is_some() {
+        return Err(
+            "alpha is for drawn shapes; a model draws opaque in its own paint, so leave it out"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+/// A backdrop layer: marks drawn per pixel on an endless grid, or a model scattered,
+/// sliding with the camera at its parallax ([`crate::far`]).
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SkyLayer {
+    /// `dust`, `speck`, `hatch` or `model`.
+    pub shape: String,
+    pub parallax: f32,
+    pub tint: Color,
+    /// The brightest mark's opacity, unset for 0.5 ([`SkyLayer::alpha`]); marks only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alpha: Option<f32>,
+    /// Marks per 100 by 100 logical pixels at the camera's own zoom.
+    pub density: f32,
+    /// Smallest and largest mark in logical pixels, or a model's scale.
+    pub size: [f32; 2],
+    /// Hatch strokes' direction, degrees anticlockwise from screen right.
+    pub angle: f32,
+    pub model: String,
+    pub look: String,
+    /// Times its share of the atmosphere.
+    pub fade: f32,
+}
+
+impl Default for SkyLayer {
+    fn default() -> Self {
+        Self {
+            shape: "dust".into(),
+            parallax: 0.1,
+            tint: Color::hex(0xfff4dd),
+            alpha: None,
+            density: 0.5,
+            size: [1.0, 2.5],
+            angle: 60.0,
+            model: String::new(),
+            look: String::new(),
+            fade: 1.0,
+        }
+    }
+}
+
+impl SkyLayer {
+    /// The brightest mark's opacity.
+    pub fn alpha(&self) -> f32 {
+        self.alpha.unwrap_or(0.5)
+    }
+
+    fn check(&self) -> Result<(), String> {
+        let shape = self.shape.as_str();
+        if !["dust", "speck", "hatch", "model"].contains(&shape) {
+            return Err(format!(
+                "shape is \"{shape}\"; it is dust, speck, hatch or model"
+            ));
+        }
+        model_keys(shape, &self.model, &self.look)?;
+        opaque_model(shape, self.alpha)?;
+        in_range("parallax", self.parallax, 0.0, 1.0)?;
+        in_range("alpha", self.alpha(), 0.0, 1.0)?;
+        let most = if shape == "model" { 1.0 } else { 16.0 };
+        in_range("density", self.density, 0.0, most)?;
+        in_range("angle", self.angle, -360.0, 360.0)?;
+        in_range("fade", self.fade, 0.0, 2.0)?;
+        let largest = match shape {
+            "model" => 100.0,
+            "hatch" => 128.0,
+            _ => 64.0,
+        };
+        let [lo, hi] = self.size;
+        if !(lo.is_finite() && hi.is_finite() && 0.0 < lo && lo <= hi && hi <= largest) {
+            return Err(format!(
+                "size is [{lo}, {hi}]; it is [smallest, largest], above 0 and up to {largest}"
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// A big shape far away, sliding with the camera at its parallax ([`crate::far`]).
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Landmark {
+    /// `disc`, `wash` or `model`.
+    pub shape: String,
+    /// World units from the screen's centre with the camera at the world origin.
+    pub at: [f32; 2],
+    pub parallax: f32,
+    /// A disc's radius or a wash's half length, world units.
+    pub size: f32,
+    /// A model's scale.
+    pub scale: f32,
+    pub stretch: f32,
+    /// Degrees anticlockwise.
+    pub angle: f32,
+    pub color: Color,
+    /// A disc's or wash's opacity, unset for 1 ([`Landmark::alpha`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alpha: Option<f32>,
+    pub shadow: Color,
+    pub outline_px: f32,
+    pub hatch: f32,
+    pub model: String,
+    pub look: String,
+    pub fade: f32,
+}
+
+impl Default for Landmark {
+    fn default() -> Self {
+        Self {
+            shape: "disc".into(),
+            at: [0.0, 0.0],
+            parallax: 0.05,
+            size: 400.0,
+            scale: 1.0,
+            stretch: 0.4,
+            angle: 0.0,
+            color: Color::hex(0xe8905a),
+            alpha: None,
+            shadow: Color::hex(0x9e84cc),
+            outline_px: 3.0,
+            hatch: 0.4,
+            model: String::new(),
+            look: String::new(),
+            fade: 1.0,
+        }
+    }
+}
+
+impl Landmark {
+    /// A disc's or wash's opacity.
+    pub fn alpha(&self) -> f32 {
+        self.alpha.unwrap_or(1.0)
+    }
+
+    fn check(&self) -> Result<(), String> {
+        let shape = self.shape.as_str();
+        if !["disc", "wash", "model"].contains(&shape) {
+            return Err(format!("shape is \"{shape}\"; it is disc, wash or model"));
+        }
+        model_keys(shape, &self.model, &self.look)?;
+        opaque_model(shape, self.alpha)?;
+        if !self.at.iter().all(|v| v.is_finite() && v.abs() <= 1e6) {
+            return Err(format!(
+                "at is {:?}; it is [x, y] in world units, within a million",
+                self.at
+            ));
+        }
+        in_range("parallax", self.parallax, 0.0, 1.0)?;
+        in_range("size", self.size, 0.0, 100_000.0)?;
+        in_range("scale", self.scale, 0.0, 100.0)?;
+        in_range("stretch", self.stretch, 0.0, 1.0)?;
+        in_range("angle", self.angle, -360.0, 360.0)?;
+        in_range("alpha", self.alpha(), 0.0, 1.0)?;
+        in_range("outline_px", self.outline_px, 0.0, 16.0)?;
+        in_range("hatch", self.hatch, 0.0, 1.0)?;
+        in_range("fade", self.fade, 0.0, 2.0)?;
+        Ok(())
     }
 }
 
@@ -668,6 +1460,10 @@ pub struct Look {
     pub shadow: Color,
     pub highlight: Color,
     pub bands: u32,
+    /// A soft halo round each patch of self-lit paint, 0 for none.
+    pub halo: f32,
+    /// The halo's radius, times the size of the patch it surrounds.
+    pub halo_size: f32,
 }
 
 impl Default for Look {
@@ -679,6 +1475,8 @@ impl Default for Look {
             shadow: m.shadow,
             highlight: m.highlight,
             bands: m.bands,
+            halo: 0.0,
+            halo_size: 2.5,
         }
     }
 }
@@ -693,6 +1491,12 @@ impl Look {
         }
         if !(2..=3).contains(&self.bands) {
             return Err(format!("bands is {}; it is 2 or 3", self.bands));
+        }
+        if !(self.halo.is_finite() && (0.0..=4.0).contains(&self.halo)) {
+            return Err(format!("halo is {}; it is 0 to 4", self.halo));
+        }
+        if !(self.halo_size.is_finite() && (0.0..=8.0).contains(&self.halo_size)) {
+            return Err(format!("halo_size is {}; it is 0 to 8", self.halo_size));
         }
         Ok(())
     }
@@ -832,6 +1636,118 @@ color = \"#3fa7a0\"
         for bad in ["[]", "[1.0, 2.0, 3.0, 4.0, 5.0]", "[-1.0]", "[30.0]"] {
             let e = Style::parse(&format!("[sky]\nstar_layers = {bad}")).unwrap_err();
             assert!(e.contains("[sky] star_layers"), "{bad}: {e}");
+        }
+    }
+
+    #[test]
+    fn sky_layers_and_landmarks_are_read_and_checked() {
+        let s = Style::parse(
+            "[sky]\natmosphere = 0.5\nhaze = \"#3c2b5c\"\n\
+             [[sky.layers]]\nshape = \"hatch\"\nparallax = 0.2\nsize = [6.0, 12.0]\n\
+             [[sky.layers]]\nshape = \"model\"\nmodel = \"m.rock\"\ndensity = 0.05\n\
+             [[sky.landmarks]]\nshape = \"wash\"\nat = [10.0, -20.0]\nstretch = 0.3\n",
+        )
+        .unwrap();
+        let sky = s.sky.unwrap();
+        assert_eq!(sky.layers.len(), 2);
+        assert_eq!(sky.layers[0].size, [6.0, 12.0]);
+        assert_eq!(sky.landmarks[0].at, [10.0, -20.0]);
+        // Unset, marks are at half opacity and a wash is opaque.
+        assert_eq!(sky.layers[0].alpha(), 0.5);
+        assert_eq!(sky.landmarks[0].alpha(), 1.0);
+        assert_eq!(sky.haze(), Color::hex(0x3c2b5c));
+        // Far things fade more, and the play layer not at all.
+        assert_eq!(sky.fade(1.0, 1.0), 0.0);
+        assert!((sky.fade(0.0, 1.0) - 0.5).abs() < 1e-6);
+        assert!((sky.fade(0.2, 0.0)).abs() < 1e-6);
+        assert_eq!(
+            sky.names()
+                .iter()
+                .filter(|n| !n.1.is_empty())
+                .map(|n| (n.0.as_str(), n.1))
+                .collect::<Vec<_>>(),
+            [("layers 2", "m.rock")]
+        );
+        // Unset, the haze is halfway down the gradient.
+        let plain = Sky::default();
+        assert_eq!(plain.haze(), plain.top.lerp(plain.bottom, 0.5));
+        for (bad, says) in [
+            ("[[sky.layers]]\nspeed = 1.0", "unknown field `speed`"),
+            (
+                "[[sky.layers]]\nparallax = 1.5",
+                "layers 1: parallax is 1.5",
+            ),
+            (
+                "[[sky.layers]]\nparallax = -0.1",
+                "layers 1: parallax is -0.1",
+            ),
+            (
+                "[[sky.layers]]\nshape = \"fog\"",
+                "layers 1: shape is \"fog\"",
+            ),
+            ("[[sky.layers]]\nshape = \"model\"", "needs model"),
+            (
+                "[[sky.layers]]\nshape = \"dust\"\nmodel = \"m.rock\"",
+                "model and look are for shape",
+            ),
+            (
+                "[[sky.layers]]\nsize = [3.0, 1.0]",
+                "layers 1: size is [3, 1]",
+            ),
+            (
+                "[[sky.layers]]\nshape = \"model\"\nmodel = \"m.a\"\ndensity = 4.0",
+                "density is 4",
+            ),
+            ("[[sky.landmarks]]\nfoo = 1", "unknown field `foo`"),
+            (
+                "[[sky.landmarks]]\nparallax = 2.0",
+                "landmarks 1: parallax is 2",
+            ),
+            (
+                "[[sky.landmarks]]\nshape = \"ring\"",
+                "landmarks 1: shape is \"ring\"",
+            ),
+            ("[[sky.landmarks]]\nstretch = 1.5", "stretch is 1.5"),
+            // A model draws opaque in its own paint, so an alpha on one is a mistake.
+            (
+                "[[sky.layers]]\nshape = \"model\"\nmodel = \"m.a\"\nalpha = 0.2",
+                "layers 1: alpha is for drawn shapes",
+            ),
+            (
+                "[[sky.landmarks]]\nshape = \"model\"\nmodel = \"m.a\"\nalpha = 0.0",
+                "landmarks 1: alpha is for drawn shapes",
+            ),
+            ("[sky]\natmosphere = 3.0", "atmosphere is 3"),
+        ] {
+            let e = Style::parse(bad).unwrap_err();
+            assert!(e.contains(says), "{bad}: {e}");
+        }
+        let nine = "[[sky.layers]]\n".repeat(9);
+        assert!(Style::parse(&nine).unwrap_err().contains("at most 8"));
+    }
+
+    #[test]
+    fn beams_and_particle_recipes_are_read_and_checked() {
+        let s = Style::parse(
+            "[beams.cutter]\nwidth = 0.8\nimpact = [\"m.sparks\", \"m.chips\"]\n\
+             [particles.puff]\nshape = \"puff\"\nblend = \"paint\"\ncount = 30\n",
+        )
+        .unwrap();
+        assert_eq!(s.beams["cutter"].width, 0.8);
+        assert_eq!(s.beams["cutter"].impact, ["m.sparks", "m.chips"]);
+        let puff = s.particles["puff"];
+        assert_eq!(puff.shape, crate::scene::ParticleShape::Puff);
+        assert_eq!(puff.blend, crate::effects::Blend::Paint);
+        assert_eq!(puff.count, 30);
+        for (bad, key) in [
+            ("[particles.a]\ncount = 9999", "[particles.a] count"),
+            ("[particles.a]\nrate = 1e9", "[particles.a] rate"),
+            ("[particles.a]\nshape = \"smoke\"", "smoke"),
+            ("[beams.a]\nwidth = -1.0", "[beams.a] width"),
+            ("[looks.a]\nhalo = 9.0", "[looks.a] halo"),
+        ] {
+            let e = Style::parse(bad).unwrap_err();
+            assert!(e.contains(key), "{bad}: {e}");
         }
     }
 

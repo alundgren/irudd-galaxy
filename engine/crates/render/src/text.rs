@@ -1,5 +1,5 @@
 //! GPU-independent shaping with the same bundled font and metrics used for drawing.
-use crate::scene::{Align, Text};
+use crate::scene::{Align, Rect, Text};
 use glam::Vec2;
 use glyphon::cosmic_text::{self, PlatformFallback};
 use glyphon::{Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Weight, fontdb};
@@ -15,6 +15,8 @@ pub(crate) struct TextKey {
     weight: u16,
     wrap_bits: Option<u32>,
     align: u8,
+    /// Each span's range, colour bits and weight: they are shaped into the buffer.
+    spans: Vec<(usize, usize, [u8; 4], u16)>,
 }
 
 pub(crate) struct Shaped {
@@ -39,7 +41,40 @@ pub(crate) fn key(t: &Text, scale: f32) -> TextKey {
         weight: t.weight.clamp(300, 700),
         wrap_bits: t.max_width.map(|w| (w * scale).to_bits()),
         align: t.align as u8,
+        spans: t
+            .spans
+            .iter()
+            .map(|s| (s.range.start, s.range.end, s.color.to_srgba8(), s.weight))
+            .collect(),
     }
+}
+
+/// The text split at its span edges: each piece with its colour (None for the text's
+/// own) and weight. Ranges that aren't on character boundaries, overlap or run past the
+/// end are dropped rather than shaped wrongly.
+fn pieces(t: &Text) -> Vec<(&str, Option<[u8; 4]>, u16)> {
+    let mut out = Vec::new();
+    let mut at = 0;
+    for s in &t.spans {
+        let r = s.range.clone();
+        if r.start < at
+            || r.end > t.text.len()
+            || r.start > r.end
+            || !t.text.is_char_boundary(r.start)
+            || !t.text.is_char_boundary(r.end)
+        {
+            continue;
+        }
+        if r.start > at {
+            out.push((&t.text[at..r.start], None, t.weight));
+        }
+        out.push((&t.text[r.clone()], Some(s.color.to_srgba8()), s.weight));
+        at = r.end;
+    }
+    if at < t.text.len() || out.is_empty() {
+        out.push((&t.text[at..], None, t.weight));
+    }
+    out
 }
 
 pub(crate) fn shape(fs: &mut FontSystem, t: &Text, scale: f32) -> Shaped {
@@ -55,7 +90,23 @@ pub(crate) fn shape(fs: &mut FontSystem, t: &Text, scale: f32) -> Shaped {
         Align::Center => cosmic_text::Align::Center,
         Align::Right => cosmic_text::Align::Right,
     });
-    buffer.set_text(&t.text, &attrs, Shaping::Advanced, align);
+    if t.spans.is_empty() {
+        buffer.set_text(&t.text, &attrs, Shaping::Advanced, align);
+    } else {
+        let pieces = pieces(t);
+        buffer.set_rich_text(
+            pieces.iter().map(|(text, color, weight)| {
+                let mut a = attrs.clone().weight(Weight((*weight).clamp(300, 700)));
+                if let Some([r, g, b, alpha]) = color {
+                    a = a.color(cosmic_text::Color::rgba(*r, *g, *b, *alpha));
+                }
+                (*text, a)
+            }),
+            &attrs,
+            Shaping::Advanced,
+            align,
+        );
+    }
     buffer.shape_until_scroll(fs, false);
     let (mut w, mut h) = (0.0f32, 0.0f32);
     for run in buffer.layout_runs() {
@@ -96,6 +147,42 @@ impl TextMeasure {
             self.shaped.insert(k.clone(), s);
         }
         self.shaped[&k].size / scale
+    }
+
+    /// Where each of `text`'s spans lies, one rectangle per line it covers, in logical
+    /// pixels from the shaped buffer's top left (before alignment moves it).
+    pub fn span_rects(&mut self, text: &Text, scale: f32) -> Vec<Vec<Rect>> {
+        let k = key(text, scale);
+        if !self.shaped.contains_key(&k) {
+            let s = shape(&mut self.font_system, text, scale);
+            self.shaped.insert(k.clone(), s);
+        }
+        // Glyph offsets are per line of the text; find where each line starts.
+        let mut starts = vec![0];
+        starts.extend(text.text.match_indices('\n').map(|(i, _)| i + 1));
+        let mut out = vec![Vec::<Rect>::new(); text.spans.len()];
+        for run in self.shaped[&k].buffer.layout_runs() {
+            let base = starts.get(run.line_i).copied().unwrap_or(0);
+            for (i, span) in text.spans.iter().enumerate() {
+                let (mut lo, mut hi) = (f32::INFINITY, f32::NEG_INFINITY);
+                for g in run.glyphs {
+                    let (a, b) = (base + g.start, base + g.end);
+                    if a < span.range.end && b > span.range.start {
+                        lo = lo.min(g.x);
+                        hi = hi.max(g.x + g.w);
+                    }
+                }
+                if lo < hi {
+                    out[i].push(Rect::new(
+                        lo / scale,
+                        run.line_top / scale,
+                        (hi - lo) / scale,
+                        run.line_height / scale,
+                    ));
+                }
+            }
+        }
+        out
     }
 
     /// Characters of `text` the bundled font has no glyph for.

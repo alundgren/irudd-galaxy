@@ -130,9 +130,9 @@ source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
 [[input]]
 tick = 2483
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2480 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2480 }
 
 # Not offered before her introduction is heard; the story comes first.
 [[expect]]
@@ -249,7 +249,8 @@ entity = "log23"
 component = "entry"
 field = "text"
 equals = "Ines Varga at Lantern Dock: \u201CThanks again for the plate.\u201D \u201CWill you take a ration, on the house?\u201D You: Take it. \u201CThere. It's in your hold.\u201D"
-# Clicking her again gets her everyday line, not the offer.
+# Clicking her again gets her next ask (the greenhouse, tests/greenhouse.toml), not the
+# gift again.
 [[input]]
 tick = 2495
 name = "engine.talk_start"
@@ -265,10 +266,10 @@ equals = false
 tick = 2496
 name = "engine.talk_start"
 source = "talk"
-payload = { talk = "core.lantern_cook_talk" }
+payload = { talk = "core.greenhouse_ask" }
 [[expect]]
 tick = 2496
-entity = "lantern_cook_talk"
+entity = "greenhouse_ask"
 component = "engine.talk"
 field = "active"
 equals = true

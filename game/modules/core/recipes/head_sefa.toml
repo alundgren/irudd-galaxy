@@ -1,0 +1,32 @@
+about = "The head of Sefa Lind: face, eyes and scarf, one node (person_sefa wears it as its face)"
+palette = { main = "#8f3040", trim = "#3a2a2e", accent = "#a8794a", skin = "#a86b4a", hair = "#2a1a1a", hat = "#d9a54a" }
+[[part]]
+name = "skin"
+shape = "sphere"
+radius = 0.23
+sides = 10
+rings = 5
+at = [0, 0, 1.86]
+paint = "skin"
+[[part]]
+name = "eyes"
+shape = "box"
+size = [0.03, 0.04, 0.055]
+at = [0.215, 0.08, 1.9]
+mirror = true
+paint = "#2a1a2e"
+[[part]]
+name = "scarf"
+shape = "sphere"
+radius = 0.255
+half = true
+sides = 10
+rings = 3
+at = [-0.04, 0, 1.88]
+paint = "hat"
+[[part]]
+name = "knot"
+shape = "box"
+size = [0.14, 0.1, 0.2]
+at = [-0.26, 0, 1.86]
+paint = "hat"

@@ -154,7 +154,7 @@ pub static COMMANDS: &[Command] = &[
         path: "audio mix",
         synopsis: "<scenario.toml> [--out <new.wav>] [--stems <new-folder>]",
         answers: "Measure source loudness and each bus in the real mix.",
-        about: "Scenario TOML: modules path, ticks (1..108000), optional seed=1 and inputs path, relative to scenario. Event inputs only. Uses the same Scene and Mixer as play, including voice limits, fades and master gain.",
+        about: "Scenario TOML: modules path, ticks (1..108000), optional seed=1 and inputs path, relative to scenario. Event inputs only; or recording='<session>/recording.json' mixes a played session, its UI sound cues on their frames (report ui_sounds), with sounds from modules. Uses the same Scene and Mixer as play, including voice limits, fades and master gain.",
         args: &[
             ("--detail", "include all windows and individual findings"),
             (
@@ -688,7 +688,7 @@ pub static COMMANDS: &[Command] = &[
         synopsis: "[style | components | manifest | inputs | spec | recipe] [--component <name>] \
                    [--modules <dir>]",
         answers: "Which keys and fields exist, with their types, defaults and ranges? For \
-                  style.toml, the engine's components (and a module's own), manifest.toml, \
+                  style.toml, the engine's components (and a module's own), manifest.toml, audio.toml, \
                   inputs files, motion check specs and model recipes (every shape and its \
                   keys).",
         about: "Generated from the engine's own definitions, so it is what this build \
@@ -696,7 +696,7 @@ pub static COMMANDS: &[Command] = &[
         args: &[
             (
                 "[topic]",
-                "style, components, manifest, inputs, spec or recipe",
+                "style, components, manifest, audio, inputs, spec or recipe",
             ),
             (
                 "--component <name>",
@@ -1739,7 +1739,7 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "audio",
         title: "Module sound, music and place ambience",
-        about: "audio.toml declares [sounds.NAME] with file and volume (0..1); WAV, Ogg Vorbis or MP3. [[events]] uses event, sound, bus (sound one-shot or music loop) and fade seconds. [places] maps place IDs to ambience sounds. crossfade defaults to 1 s. Per-sound loop_crossfade defaults to 2 s, disabled for clips shorter than four fades; use 0 for prepared loops. Stop a bus with stop=true and no sound. Cues follow recorded facts; use a separate event for key-down cues. A resumed save replays no earlier cue: an on['engine.resumed'] handler records the music event again. Music replaces music; player location chooses ambience. Audio stays outside world hashes. Binary assets remain on disk; no device means silent play with a note. The mixer owns 32 voices, ramps and resampling. Numeric tools run locally; only judge calls a model.",
+        about: "audio.toml declares [sounds.NAME] with file and volume (0..1); WAV, Ogg Vorbis or MP3. [[events]] uses event, sound, bus (sound one-shot or music loop) and fade seconds. [places] maps place IDs to ambience sounds. crossfade defaults to 1 s. Per-sound loop_crossfade defaults to 2 s, disabled for clips shorter than four fades; use 0 for prepared loops. Stop a bus with stop=true and no sound. channel='beam' on a sound cue loops it on that named channel until a stop=true cue with the same channel fades it; the same sound again keeps playing. vary_pitch and vary_gain give each cue a small random rate and gain, seeded by the fact's tick and entity. [[follow]] makes a channel's loop (or ambience=true) follow a world value: entity with component and field (a list of fields is a vector length) or distance_to, from..to mapped onto gain=[a,b] and pitch=[a,b], with power and ramp. engine.contact { entity, other, speed } is recorded when bodies start touching at least the manifest's contact_speed; cue a bump on it. galaxy-gm fields audio lists every key. Cues follow recorded facts; use a separate event for key-down cues. A resumed save replays no earlier cue: an on['engine.resumed'] handler records the music event again. [ui] gives screens sounds: hover (once per thing entered, at most every hover_gap s), press, open, close, drag, drop and deny (a resting button, a refusing slot), each a sound name or {sound, vary_pitch, vary_gain}; [ui.kinds.<kind>] and [ui.looks.<look>] override per widget kind and style look. The last module by ID with [ui] supplies them. Play reports ui_sounds played/silent per action; audio mix of its recording hears them. Music replaces music; player location chooses ambience. Audio stays outside world hashes. Binary assets remain on disk; no device means silent play with a note. The mixer owns 32 voices, ramps and resampling. Numeric tools run locally; only judge calls a model.",
         tasks: &[
             ("Generate with OpenRouter", "gm music"),
             ("Audio authoring tools", "gm audio"),
@@ -1753,6 +1753,7 @@ pub static TOPICS: &[Topic] = &[
             ("Actual simultaneous bus levels", "gm audio mix"),
             ("Blind description, then semantic fit", "gm audio judge"),
             ("Numeric acceptance", "gm audio check"),
+            ("Every audio.toml key: galaxy-gm fields audio", "gm fields"),
         ],
         recipes: &[Recipe {
             title: "A quiet, smooth background bed",
@@ -2067,8 +2068,16 @@ pub static TOPICS: &[Topic] = &[
                 Its pad must be at least 1, room for its frame. \
                 ui.grid uses columns; ui.scroll needs id and height and clips its children. \
                 ui.delta uses a signed numeric value with gain/loss styling. ui.icon names an \
-                icon in icons.toml [icons], mapping local names to glyph strings. check reports \
-                missing icons and glyphs. ui.drag_source needs id, text and a string value; \
+                icon in icons.toml [icons]: a glyph string, or { svg = 'icons/x.svg' } for a \
+                drawn icon tinted with its text (painted = true keeps the file's colours). \
+                icon also goes on text and buttons, beside the words or above them with \
+                icon_at = 'top'. check reports missing icons, glyphs and bad SVG. look = \
+                '<name>' picks a [screen.looks] entry for a widget's surface and ink; spans = \
+                { 'Paid ', { text = '120', look = 'gain' } } replaces text with parts in their \
+                own looks. cue = 'count' counts a delta up to its new value; cue = 'flash' \
+                flashes a changed text, delta or icon. Panels and bubbles fade or slide in and \
+                out and buttons lift under the pointer, timed by [screen] motion keys; it is \
+                paint only, never recorded, and play --reduced-motion turns it off. ui.drag_source needs id, text and a string value; \
                 ui.drop_target needs id, text, on and accepts = { value = reason }: an empty \
                 reason allows it, a nonempty reason explains rejection, unlisted values are \
                 rejected. notes = { value = text } says under Drop here what an accepted drop \
@@ -2171,7 +2180,13 @@ pub static TOPICS: &[Topic] = &[
         about: "style.toml sets the scene-wide ink, light, sky, course and screen (from one module \
                 only) and named looks a model can wear (`look = \"<module>.<name>\"`). Every \
                 key is optional. [sky] star_layers = [0.25, 0.6, 1.2] lays stars in layers \
-                scrolling at their own rates. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse, resting (a resting button) and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash, resting_dash and hint_border_px; and talk bubble text sizes bubble_title (and bubble_title_weight), bubble_subtitle, bubble_text and bubble_marker. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
+                scrolling at their own rates. Depth: [[sky.layers]] (shape dust, speck, hatch \
+                or model; parallax 0 fixed on screen to 1 with the play layer; tint, alpha, \
+                density per 100x100 px, size, angle, model, look) wrap forever behind the \
+                play layer, and [[sky.landmarks]] (shape disc for a planet's limb, wash for a \
+                nebula, or model; at, parallax, size, scale, stretch, angle, color, shadow, \
+                hatch) hang far away; both fade into [sky] haze by atmosphere * (1 - \
+                parallax), and reduced motion holds them still. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse, resting (a resting button) and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash, resting_dash and hint_border_px; and talk bubble text sizes bubble_title (and bubble_title_weight), bubble_subtitle, bubble_text and bubble_marker. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. [screen.looks.<name>] are named looks (fill, text, border, border_px, radius, pad, shadow, hover, weight, underline, gain, loss, flash, mark = true for a symbol at 3:1) that widgets and spans pick with look; bubble_look, bubble_title_look and sign_look dress talk bubbles and name signs; button_hover fills a hovered button. Motion: motion_in, motion_out (seconds), motion_slide (px), hover_lift, press_sink (px), cue_time (seconds) and flash; all default to 0, off. Every look is checked for contrast like the base table. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Effects, drawn only: a look's halo glows round its self-lit paint; [beams.<name>] (color, width, glow, flicker, impact = [recipes]) styles engine.beam { target, look, x, y, height }, a beam to target's surface; [particles.<name>] (shape dot/spark/puff/chip, blend add/paint, count, rate, life, speed, spread, size, drag) is sprayed by engine.emitter { recipe, x, y, angle, rate, by = thrust | speed } and engine.burst { recipe, tick = ctx.tick }; engine.camera_feel { speed_zoom, lead, shake, shake_tick = ctx.tick } beside engine.camera adds camera feel, which galaxy play --reduced-motion turns off. A scene draws at most 4096 particles. Check a change with galaxy shot (a still) or a film and a \
                 motion tool (for anything that turns or moves).",
         tasks: &[(
             "Which keys and fields exist; which things wear a look",

@@ -142,7 +142,42 @@ each other, and a tick where no hold settled is untouched.
 Nothing traps a pilot: a rock is pushable unless the module fixes it, and a ship pressed
 against a fixed body keeps every direction that leads away from it.
 
+## Contacts
+
+A module that wants to hear bumps sets `contact_speed` in its manifest (units a second;
+with several, the least wins). Then the collide service records `engine.contact` with
+`entity` (the one of the two that moves more, so the ship rather than the rock), `other`
+and `speed` (how fast they were closing when collide first found them overlapping that
+tick) when a pair starts touching at least that fast. It is a fact like any other: an
+`audio.toml` cue plays a bump on it, and a script can handle it.
+
+One contact is one fact. The world keeps the pairs in contact (`World::contacts`, with
+the last tick each touched): a pair stays in contact while it overlaps, or while the gap
+between them is under 2% of the smaller one's reach, and for half a second after it last
+did. A ship pressed against a hub and sliding round its rim for three seconds is one
+contact, and so is a hard hit whose bounce comes straight back (drift: 13.8 units a
+second, then a 2.2 re-touch five ticks later). Backing off and flying in again is a new
+one. A pair that starts touching slower than `contact_speed` is still in contact, so
+pushing on from a gentle touch records nothing.
+
+Without `contact_speed` nothing is kept or recorded and every world is exactly as before
+the fact existed: `contacts` is left out of the world's serialized form, its hash and its
+save while it is empty, so existing golden hashes and old recordings replay unchanged.
+A module that asks for contacts records facts, which change its own worlds' hashes, as
+any recorded fact does. Recordings carry module text, so a recording replays with the
+same `contact_speed` it was made with. `crates/sim/tests/flight.rs` checks one contact per
+press against drift's hub, a second after backing off, none below the speed or without
+the key, identical replay, and a save taken mid-contact that carries on like one run.
+
 ## Alternatives, and why this design
+
+- **Contacts without stored state.** Recording every tick a pair overlaps fast enough
+  needs no memory, but a ship pressed against a rock overlaps a little every tick,
+  closing at its thrust times a tick, and would bump thirty times a second. The pairs in
+  contact are a few strings while touching, and nothing when not.
+- **Contacts always on.** Every world where bodies touch would gain facts, so every
+  recording made before them would diverge on replay. The manifest key makes it opt-in,
+  and recordings carry it.
 
 - **A physics library** (rigid bodies, solvers). It would hide the part worth learning
   and bring float behaviour we don't control across OSes. The game needs pushing, not

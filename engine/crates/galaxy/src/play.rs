@@ -31,13 +31,15 @@ use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalSize, Size};
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
+use winit::keyboard::{Key, KeyCode, ModifiersState, NamedKey, PhysicalKey};
 use winit::window::{CursorIcon, Window, WindowId};
 
 use crate::notes::{self, NoteBox};
 use crate::sim::{Options, bad_modules, load_modules, parse, usage};
 
-/// The window's size, and a shot's, unless `--size` says otherwise.
+/// A shot's size unless `--size` says otherwise, and the play window's normal size: a
+/// window opened without `--size` starts maximized and returns to this size when the
+/// player un-maximizes it.
 const DEFAULT_SIZE: (u32, u32) = (1280, 720);
 /// Ticks `shot` runs when not told: one second.
 const SHOT_TICKS: u64 = 30;
@@ -56,6 +58,7 @@ pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--inputs",
     "--ticks",
     "--no-live",
+    "--reduced-motion",
 ];
 pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--modules",
@@ -65,7 +68,21 @@ pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--size",
     "--out",
     "--crop",
+    "--reduced-motion",
 ];
+
+/// The play window starts maximized, the way games are played, unless `--size` asks for
+/// an exact size (bots, films and measurements rely on getting it). Only the window
+/// changes: the sim never sees its size.
+fn starts_maximized(options: &Options) -> bool {
+    options.size.is_none()
+}
+
+/// The player's one reduced-motion setting, for the camera and screens alike:
+/// `--reduced-motion`, or `GALAXY_REDUCED_MOTION=1` in the environment.
+fn reduced_motion(options: &Options) -> bool {
+    options.reduced_motion || std::env::var("GALAXY_REDUCED_MOTION").is_ok_and(|v| v == "1")
+}
 
 /// A cropped shot is enlarged until its longer side is at least this many pixels.
 const CROP_SIDE: u32 = 512;
@@ -284,6 +301,8 @@ struct App {
     pace: FixedStep,
     keys: BTreeMap<String, Vec<String>>,
     held: BTreeSet<&'static str>,
+    /// The modifier keys held now, for the paste chord in the note box.
+    modifiers: ModifiersState,
     pending: Vec<Input>,
     /// Scripted inputs by tick (`--inputs`): the bot.
     scripted: BTreeMap<u64, Vec<Input>>,
@@ -311,6 +330,8 @@ struct App {
     hot_load_failures: Vec<Value>,
     /// Bot clicks that landed on a resting button: reported with its reason, not clicked.
     resting_clicks: Vec<Value>,
+    /// UI sound cues by action: how many played a sound, and how many had none.
+    ui_sounds: BTreeMap<&'static str, [u64; 2]>,
     /// Every problem the view showed during the session, in the order first seen, so
     /// one a script caused and later cleared still reaches the report.
     problems: Vec<String>,
@@ -414,6 +435,8 @@ impl App {
                 bus: galaxy_audio::Bus::Ambience,
                 fade: 0.25,
             },
+            // The new bank tunes its own loops from its first update.
+            galaxy_audio::Action::ResetTunes,
         ]);
         self.audio_output
             .send(self.audio.update(&self.session.world));
@@ -511,6 +534,17 @@ impl App {
     /// A key while the note box is open.
     fn note_key(&mut self, event: &winit::event::KeyEvent) {
         if event.state != ElementState::Pressed {
+            return;
+        }
+        if notes::is_paste(&event.logical_key, event.physical_key, self.modifiers) {
+            match crate::clipboard::text() {
+                Ok(text) => {
+                    if let Some(n) = &mut self.note {
+                        n.paste(&text);
+                    }
+                }
+                Err(e) => eprintln!("galaxy: can't paste: {e}"),
+            }
             return;
         }
         match &event.logical_key {
@@ -627,6 +661,9 @@ impl App {
                 if galaxy_sim::travel::arrival(&self.session.world, true).is_none()
                     && let Some((widget, reason)) = r.view.screens.bot_resting(&click)
                 {
+                    r.view
+                        .screens
+                        .cue_path(galaxy_api::ui::UiAction::Deny, &widget);
                     eprintln!("galaxy: before tick {tick}: {widget}: resting: {reason}");
                     self.resting_clicks
                         .push(json!({"tick": tick, "widget": widget, "resting": reason}));
@@ -717,6 +754,18 @@ impl App {
         self.session.record_presentation(
             serde_json::to_value(&r.view.screens.presentation).expect("finite screen state"),
         );
+        // UI sounds play as soon as the frame that saw the action, and are recorded.
+        let mut sounds = Vec::new();
+        for cue in r.view.screens.take_cues() {
+            let action = cue.action.name();
+            let played = self.audio.ui(&cue);
+            self.ui_sounds.entry(action).or_default()[usize::from(played.is_none())] += 1;
+            sounds.extend(played);
+            self.session.record_ui_sound(cue);
+        }
+        if !sounds.is_empty() {
+            self.audio_output.send(sounds);
+        }
         for problem in r.view.problems() {
             // Capped, so a problem whose wording changes every frame can't grow it forever.
             if self.problems.len() < 200 && !self.problems.contains(&problem) {
@@ -893,7 +942,8 @@ impl ApplicationHandler for App {
                 Size::Physical(PhysicalSize::new(64, 64))
             } else {
                 Size::Logical(LogicalSize::new(640.0, 360.0))
-            });
+            })
+            .with_maximized(starts_maximized(&self.options));
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Arc::new(w),
             Err(e) => {
@@ -914,11 +964,13 @@ impl ApplicationHandler for App {
                 return;
             }
         };
-        let view = View::new(
+        let mut view = View::new(
             &mut renderer,
             self.session.modules(),
             self.session.world.seed,
         );
+        view.set_reduced_motion(reduced_motion(&self.options));
+        view.screens.listen(true);
         for problem in view.problems() {
             eprintln!("galaxy: {problem}");
             self.problems.push(problem);
@@ -962,6 +1014,7 @@ impl ApplicationHandler for App {
                     r.view.screens.cancel_pointer(self.session.world.tick + 1);
                 }
             }
+            WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers.state(),
             WindowEvent::KeyboardInput { event, .. } => {
                 if self.note.is_some() {
                     self.note_key(&event);
@@ -1277,6 +1330,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         running: None,
         pace: FixedStep::default(),
         held: BTreeSet::new(),
+        modifiers: ModifiersState::empty(),
         pending: Vec::new(),
         scripted: script.inputs,
         scripted_clicks: script.clicks,
@@ -1293,6 +1347,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         dirs,
         hot_load_failures: Vec::new(),
         resting_clicks: Vec::new(),
+        ui_sounds: BTreeMap::new(),
         problems: Vec::new(),
         started: Instant::now(),
         last: Instant::now(),
@@ -1347,6 +1402,9 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "problems": problems,
         "hot_load_failures": app.hot_load_failures,
         "resting_clicks": app.resting_clicks,
+        "ui_sounds": app.ui_sounds.iter().map(|(action, [played, silent])| {
+            (action.to_string(), json!({ "played": played, "silent": silent }))
+        }).collect::<serde_json::Map<_, _>>(),
         "log": app.session.log,
         "session": app.dir.display().to_string(),
         "notes": app.notes,
@@ -1429,6 +1487,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let mut renderer = Renderer::new_headless(w, h)
         .map_err(|e| Failure::runtime(format!("no GPU for the shot: {e}")))?;
     let mut view = View::new(&mut renderer, session.modules(), session.world.seed);
+    view.set_reduced_motion(reduced_motion(&options));
     let ticks = options.ticks.unwrap_or(SHOT_TICKS);
     for _ in 0..ticks {
         view.before_step(&session.world);
@@ -1561,6 +1620,28 @@ fn crop_round(image: &RgbaImage, cx: f32, cy: f32, half: f32) -> (RgbaImage, [u3
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn play_window_starts_maximized_only_without_an_exact_size() {
+        let opts = |args: &[&str]| {
+            let args: Vec<String> = args.iter().map(|a| (*a).to_owned()).collect();
+            parse(&args, PLAY_OPTIONS).unwrap().1
+        };
+        assert!(starts_maximized(&opts(&["--modules", "m"])));
+        assert!(!starts_maximized(&opts(&[
+            "--modules",
+            "m",
+            "--size",
+            "1280x720"
+        ])));
+        assert!(!starts_maximized(&opts(&[
+            "--modules",
+            "m",
+            "--size",
+            "1280x720",
+            "--physical-size"
+        ])));
+    }
 
     #[test]
     fn saved_play_start_preserves_world_and_recording_and_rejects_other_sources() {

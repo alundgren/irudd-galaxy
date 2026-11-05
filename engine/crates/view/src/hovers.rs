@@ -442,12 +442,15 @@ impl View {
         let (alpha, size) = self.talk_frame;
         let shown = crate::rooms::screen_world(world, crate::travel::place(world, alpha));
         let found = self.target_at(&shown, alpha, size, point)?;
-        Some(Input {
+        let input = Input {
             tick,
             source: "ui".into(),
             name: found.widget.on.clone()?,
             payload: found.widget.payload.clone(),
-        })
+        };
+        self.screens
+            .ui_cue(galaxy_api::ui::UiAction::Press, &found.widget);
+        Some(input)
     }
 
     /// A bot `[[click]] widget = "<target id>"`: a point on the target's visible thing,

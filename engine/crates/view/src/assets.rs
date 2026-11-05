@@ -21,6 +21,11 @@ pub struct Assets {
     pub nodes: BTreeMap<String, BTreeMap<String, galaxy_mesh::gltf::NamedNode>>,
     /// Looks by ID (`<module>.<name>`).
     pub looks: BTreeMap<String, Look>,
+    /// Beam styles and particle recipes by ID (`<module>.<name>`).
+    pub beams: BTreeMap<String, galaxy_render::effects::BeamStyle>,
+    pub particles: BTreeMap<String, galaxy_render::effects::ParticleRecipe>,
+    /// Each model's patches of self-lit paint, where a look's halo goes.
+    pub lamps: BTreeMap<String, Vec<crate::effects::Lamp>>,
     pub ink: Ink,
     pub light: Light,
     pub sky: Sky,
@@ -75,6 +80,10 @@ impl Assets {
                     galaxy_mesh::gltf::read_nodes(text).map(|nodes| (mesh, parts, nodes))
                 }) {
                     Ok((mesh, parts, nodes)) => {
+                        let lamps = crate::effects::lamps(&mesh, &parts);
+                        if !lamps.is_empty() {
+                            out.lamps.insert(format!("{id}.{name}"), lamps);
+                        }
                         out.parts.insert(format!("{id}.{name}"), parts);
                         out.nodes.insert(format!("{id}.{name}"), nodes);
                         out.models.insert(format!("{id}.{name}"), mesh);
@@ -114,6 +123,29 @@ impl Assets {
             }
             for (name, look) in style.looks {
                 out.looks.insert(format!("{id}.{name}"), look);
+            }
+            for (name, beam) in style.beams {
+                out.beams.insert(format!("{id}.{name}"), beam);
+            }
+            for (name, recipe) in style.particles {
+                out.particles.insert(format!("{id}.{name}"), recipe);
+            }
+        }
+        // The sky's models and looks must be ones some module has.
+        if let Some(id) = scene_wide.get("sky").and_then(|ids| ids.last()) {
+            for (place, model, look) in out.sky.names() {
+                if !model.is_empty() && !out.models.contains_key(model) {
+                    out.problems.push(format!(
+                        "{id}: {STYLE}: [sky] {place} model `{model}` is no model any module \
+                         has (`<module>.<name>` is models/<name>.gltf in that module)"
+                    ));
+                }
+                if !look.is_empty() && !out.looks.contains_key(look) {
+                    out.problems.push(format!(
+                        "{id}: {STYLE}: [sky] {place} look `{look}` is no look in any \
+                         module's style.toml"
+                    ));
+                }
             }
         }
         out.conflicts = scene_wide
@@ -198,6 +230,34 @@ mod tests {
         assert!(all.contains("aa: models/broken.gltf"), "{all}");
         assert!(all.contains("bb: style.toml: [looks.x]"), "{all}");
         assert_eq!(assets.sky.stars, 3, "bb's style failed, so aa's sky stands");
+    }
+
+    #[test]
+    fn the_sky_names_models_and_looks_some_module_has() {
+        let cube = cube();
+        let a = module(
+            "aa",
+            &[
+                ("models/cube.gltf", &cube),
+                (
+                    "style.toml",
+                    "[looks.far]\nhatch = 0.2\n\
+                     [[sky.layers]]\nshape = \"model\"\nmodel = \"aa.cube\"\nlook = \"aa.far\"\n\
+                     [[sky.landmarks]]\nshape = \"model\"\nmodel = \"aa.gone\"\n\
+                     [[sky.landmarks]]\nshape = \"model\"\nmodel = \"aa.cube\"\nlook = \"aa.nope\"\n",
+                ),
+            ],
+        );
+        let assets = Assets::load([&a]);
+        assert_eq!(
+            assets.problems,
+            [
+                "aa: style.toml: [sky] landmarks 1 model `aa.gone` is no model any module has \
+                 (`<module>.<name>` is models/<name>.gltf in that module)",
+                "aa: style.toml: [sky] landmarks 2 look `aa.nope` is no look in any module's \
+                 style.toml",
+            ]
+        );
     }
 
     #[test]

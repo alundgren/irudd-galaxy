@@ -2,14 +2,13 @@
 -- U, the Launch button and any movement key (W, A, S or D) all leave this way; a
 -- movement key then flies on at once (main.luau), so there is no separate undock step.
 local log = require("./log")
-local teach = require("./teach")
 local signs = require("./signs")
+local places = require("./places")
+local salvage = require("./salvage")
 
--- The station the ship is docked at, or nil: a place with a port is a station's dock.
+-- The station the ship is docked at, on its deck or in one of its rooms, or nil.
 local function docked(ctx)
-    local here = ctx.get("ship", "engine.location").place
-    if here ~= "" and ctx.get(here, "port") then return here end
-    return nil
+    return places.docked(ctx)
 end
 
 -- The heading opposite `angle`, in -pi..pi.
@@ -24,9 +23,15 @@ local function launch(ctx, station)
     ctx.put("ship", "engine.helm", {})
     ctx.put("ship", "engine.steer", {})
     ctx.put("ship", "held", {})
-    ctx.patch("ship", "pilot", { room = "", mining = false, target = "", log_open = false, gliding = false })
+    -- The view glides out (below) and the traders' labels wait until it lands: from a
+    -- room it starts low among them (scripts/traffic.luau).
+    ctx.patch("ship", "pilot", { room = "", mining = false, target = "", log_open = false, gliding = true })
     signs.show(ctx, station, "", false, nil, true) -- worn again once the next visit settles
-    ctx.patch(station, "engine.room", { camera = "" }) -- the next arrival frames the whole station
+    -- Out glides back to the ship's view, as docking glided in, from the deck or from
+    -- a room (whose glides are off otherwise, so going in and out of them cuts:
+    -- scripts/station.luau).
+    local here = ctx.get("ship", "engine.location").place
+    ctx.patch(here, "engine.room", { glide = 1.0 })
     ctx.move("ship", "core.reach", port.departure)
     -- Moored, the ship faces the station; it leaves facing away, so W flies straight
     -- out instead of into the station's hull.
@@ -34,8 +39,9 @@ local function launch(ctx, station)
     ctx.patch("ship", "engine.position", { angle = outward(berth.angle) })
     ctx.put("ship", "engine.body", { mass = 1 })
     ctx.patch("ship", "engine.model", { scale = 1 })
-    local hint = teach.new(ctx.get("ship", "taught"), "mine") and " Space finds the nearest ore." or ""
-    log.add(ctx, "Launched from " .. port.name .. "." .. hint)
+    -- A mended barge sails when you do, her skipper aboard (salvage.luau).
+    local sails = salvage.undocked(ctx, station)
+    log.leave(ctx, "Launched from " .. port.name .. "." .. (sails and " " .. sails or ""))
 end
 
 return { docked = docked, launch = launch }

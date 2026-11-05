@@ -1,0 +1,41 @@
+about = "A round table with two mugs"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "top"
+shape = "cylinder"
+radius = 0.6
+height = 0.07
+sides = 12
+at = [0, 0, 0.78]
+paint = "wood"
+[[part]]
+name = "leg"
+shape = "cylinder"
+radius = 0.08
+height = 0.78
+sides = 6
+paint = "wood_dark"
+[[part]]
+name = "foot"
+shape = "cylinder"
+radius = 0.35
+height = 0.05
+sides = 10
+paint = "wood_dark"
+[[part]]
+name = "mug"
+shape = "cylinder"
+radius = 0.07
+height = 0.14
+sides = 8
+at = [0.2, 0.2, 0.85]
+paint = "paper"
+glow = 0.45
+[[part]]
+name = "mug.2"
+shape = "cylinder"
+radius = 0.07
+height = 0.14
+sides = 8
+at = [-0.15, -0.25, 0.85]
+paint = "accent"

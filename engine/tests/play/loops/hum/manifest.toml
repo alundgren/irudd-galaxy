@@ -1,0 +1,20 @@
+# A generic test module for event-driven loops, loops that follow a world value, cue
+# variation and the contact fact. W thrusts the ship toward a fixed rock (it bumps into
+# it); the engine hum's pitch and gain follow the ship's speed. B holds a beam loop on its
+# own channel: it starts on press and fades out on release. Space plays a ping that varies
+# a little each time. The bay's ambience fades with the ship's distance from the beacon.
+contact_speed = 0.5
+id = "hum"
+version = "0.1.0"
+min_engine_version = "0.7.0"
+scripts = ["scripts/hum.luau"]
+events = ["thrust", "beam", "beam_on", "beam_off", "tap", "ping"]
+writes = [
+    "engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.body",
+    "engine.place", "engine.location", "engine.being", "engine.camera",
+]
+
+[keys]
+w = "thrust"
+b = "beam"
+space = "tap"

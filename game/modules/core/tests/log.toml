@@ -1,0 +1,67 @@
+# The ship log keeps where each entry happened, so its screen can show one line per
+# visit: the full hold out in the reach belongs to the flight, and the docking's own
+# entry, written on the tick the ship arrives, already belongs to the station. Opening
+# the log marks what is in it as seen (the book's "N new" goes), and Lines opens one
+# visit and closes it again.
+seed = 3
+ticks = 600
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+[[expect]]
+tick = 500
+entity = "log2"
+component = "entry"
+field = "text"
+equals = "Docked at Lantern Dock."
+[[expect]]
+tick = 500
+entity = "log2"
+component = "entry"
+field = "at"
+equals = "core.lantern"
+
+[[input]]
+tick = 540
+name = "core.log"
+[[expect]]
+tick = 541
+entity = "ship"
+component = "logbook"
+field = "seen"
+equals = 2
+
+[[input]]
+tick = 550
+name = "core.log_visit"
+payload = { first = 2 }
+[[expect]]
+tick = 551
+entity = "ship"
+component = "logbook"
+field = "visit"
+equals = 2
+[[input]]
+tick = 560
+name = "core.log_visit"
+payload = { first = 2 }
+[[expect]]
+tick = 561
+entity = "ship"
+component = "logbook"
+field = "visit"
+equals = 0

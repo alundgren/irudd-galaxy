@@ -4,6 +4,7 @@
 //! - [`registry`]: component schemas, event kinds and capabilities from the loaded modules;
 //! - [`engine`]: the tick rate, the slow cadence and the engine's own component types;
 //! - [`view`]: what a script reads;
+//! - [`ui`]: UI sound cues, presentation the view hands the game and recordings keep;
 //! - [`rng`] and [`geom`]: seeded randomness and portable maths, so the sim is
 //!   deterministic on every OS.
 //!
@@ -15,6 +16,7 @@ pub mod engine;
 pub mod geom;
 pub mod registry;
 pub mod rng;
+pub mod ui;
 pub mod view;
 
 pub use command::{Actor, Batch, Cause, Command, Fields};

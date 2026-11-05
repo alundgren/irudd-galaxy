@@ -1,0 +1,5 @@
+[entities.state]
+desk = { shelf = false, picked = "", at = "home", drops = 0 }
+[entities.camera]
+"engine.position" = {}
+"engine.camera" = { view = 60 }

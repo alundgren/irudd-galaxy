@@ -1,0 +1,45 @@
+# A bot round every effect, for frame times at 1280x720: fly ahead and turn (the
+# exhaust, the camera widening and looking ahead), mine the nearest rock (the beam,
+# sparks and chips), then dock (the puff and the camera kick). Run for 720 ticks:
+#   galaxy play --modules tests/play/effects --inputs tests/play/effects-inputs.toml \
+#       --ticks 720 --physical-size --size 1280x720
+
+[[input]]
+tick = 5
+name = "effects.thrust_ahead"
+source = "keyboard"
+payload = { down = true }
+
+[[input]]
+tick = 40
+name = "effects.turn_left"
+source = "keyboard"
+payload = { down = true }
+
+[[input]]
+tick = 75
+name = "effects.turn_left"
+source = "keyboard"
+payload = { down = false }
+
+[[input]]
+tick = 110
+name = "effects.thrust_ahead"
+source = "keyboard"
+payload = { down = false }
+
+[[input]]
+tick = 140
+name = "effects.order_mine"
+source = "keyboard"
+payload = { down = true }
+
+[[note]]
+tick = 400
+text = "Mining: the beam on the rock with sparks and chips"
+
+[[input]]
+tick = 430
+name = "effects.order_dock"
+source = "keyboard"
+payload = { down = true }

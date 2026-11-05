@@ -1,10 +1,13 @@
 # The core module: the base game. It is written through the GM (game/AGENTS.md).
 id = "core"
 version = "0.1.0"
-min_engine_version = "0.7.0"
-scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "radio", "radio_lantern", "radio_kiln", "radio_off"]
-writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin"]
+min_engine_version = "0.8.0"
+scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau", "scripts/tow.luau"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit", "bump", "drive_on", "beam_on", "hitch", "hand", "slipped", "hitched"]
+# Bodies that start touching at least this fast (units a second) record engine.contact,
+# which sound.luau turns into a bump on the hull when the ship is one of them.
+contact_speed = 2.0
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin", "engine.beam", "engine.emitter", "engine.burst", "engine.camera_feel"]
 
 [components.pilot]
 credits = "int"
@@ -23,15 +26,44 @@ log_open = "bool"
 # flown well clear, or mined. Quick in-and-out taps are not visits.
 last_dock = "id"
 away = "bool"
-# The docked view is gliding: arriving, or to or from a room's building. Anchored signs
+# The view is moving: gliding in to the station, cutting into or out of a room, or
+# gliding back out to the reach after a launch. Anchored signs and the traders' labels
 # rest until it settles, so they never crowd the moving view.
 gliding = "bool"
+# A part clicked in the fitting cradle, waiting for its socket (or the tray): the click
+# way to fit, beside dragging (scripts/cradle.luau).
+chosen_part = "text"
+# The cutting beam (scripts/cutter.luau). `mining` while it is on `target`; `latched`
+# keeps it on without Space held (a click on the rock, the reach rig, a script's order),
+# and `auto` aims it without the nose. `approach` while the rig flies out to `target`.
+# `cut_from` is the tick the beam last came on or last cut a unit (0 while off), and
+# `cut_work` the work done on `target` before then and not yet come loose, in beam ticks
+# times ore a second, so a unit comes loose for every second of beam time however it is
+# broken up, and a lens fitted between cuts never counts old work twice. `gained`
+# counts this cut's units.
+latched = "bool"
+auto = "bool"
+approach = "bool"
+# The order named this rock (a click on it): the rig stops when it is cut down rather
+# than moving on, so the player's choice of ware holds.
+chosen = "bool"
+cut_from = "int"
+cut_work = "int"
+gained = "int"
+# What the ship is near, for the hint strip: "ring:<station>", "aim", "reach" or "".
+near = "text"
+# Out of the last berth's ring since launching: flying into a ring docks only then.
+cleared = "bool"
 
 # What the hold carries, by ware. Its total is bounded by the hold's capacity.
 [components.hold]
 ore = "int"
+ice = "int"
+glassite = "int"
 plate = "int"
 rations = "int"
+# Only ever carried for someone (a project's cargo): no market trades it.
+panes = "int"
 
 [components.held]
 ahead = "bool"
@@ -39,10 +71,23 @@ back = "bool"
 left = "bool"
 right = "bool"
 boost = "bool"
+mine = "bool"
 
+# The talk line whose click last blipped (scripts/sound.luau), cleared as a talk starts
+# or an answer is chosen, so a repeated click on the same line blips once.
+[components.blipped]
+line = "id"
+
+# A rock: what is left in it, what it held, and the ware it yields (ore, ice or glassite).
+# `stages`, if given, is the models it wears as it is mined, whole first, separated by
+# spaces: each takes an equal share of the rock's life (rules.stage). `empty`, if given, is
+# the model it wears once nothing is left in it.
 [components.ore]
 left = { type = "int", default = 12 }
 total = { type = "int", default = 12 }
+ware = { type = "text", default = "ore" }
+stages = { type = "text", default = "" }
+empty = { type = "text", default = "" }
 
 [components.port]
 name = "text"
@@ -76,6 +121,17 @@ name = "text"
 offer = "text"
 keeper = "id"
 model = "text"
+# The set its room becomes once built.
+room_model = "text"
+# A project's build (scripts/project.luau) waits on the project's earlier steps: until
+# then it takes nothing, isn't posted or pinned, and its room says `wait`. Once under way
+# it wears `site_model` (the scaffold), and its room says `how` it is built.
+waiting = "bool"
+wait = "text"
+how = "text"
+site_model = "text"
+# What its room says once built, when nothing is traded there ("" for a room that trades).
+built = "text"
 
 [components.facility]
 station = "id"
@@ -83,10 +139,13 @@ name = "text"
 keeper = "id"
 offer = "text"
 order = "int"
-# The station camera node that frames this building while its room is open.
-camera = "text"
+# The building's interior: a staged room, a child place of the station, entered with
+# the cut (scripts/station.luau).
+place = "id"
 # A fitting cradle: its room fits parts to the ship (scripts/cradle.luau).
 fits = "bool"
+# Not on the station yet: a project stakes it out when the player takes it on.
+hidden = "bool"
 
 # A part for the ship's fit (scripts/fit.luau): which socket it goes in, what it
 # costs, draws and weighs, and what it adds. `effect` says it in plain words, and
@@ -133,6 +192,9 @@ home_moor = "id"
 leg = "text"
 moored = "bool"
 since = "int"
+# Taken off its route by a job (scripts/salvage.luau): adrift, in tow or moored for good.
+# The traffic script leaves it alone, though it still wears its label.
+stopped = "bool"
 
 # A radio channel (scripts/radio.luau): a station broadcasting from `source` out to
 # `range` world units. Its signal is full within the inner 30% of the range and fades
@@ -171,6 +233,8 @@ playing = "id"
 name = "text"
 # What they say after their introduction when there's nothing else to talk about.
 idle = "text"
+# The figure (a model) of a keeper who arrives later, when what they keep is built.
+figure = "text"
 
 # A keeper's gift, offered once in its own talk (the talk entity carries this):
 # taking it puts `units` of `ware` in the hold, and either answer ends the offer.
@@ -181,6 +245,130 @@ units = "int"
 take = "id"
 instead = "id"
 answered = "bool"
+# The offer has been said to the player: the log pins it until it is answered.
+heard = "bool"
+
+# A job someone gives the player, in steps (scripts/project.luau has them): the giver
+# asks once `after` (her gift) is answered; the maker turns `need` `ware` into `units`
+# `cargo` for the giver, ready on her station's next counted visit after `fired`; carried
+# to the giver, it lets `site`'s build start. The planner (the dockmaster) stakes the
+# plot. `maker_act` is the maker's act whose state says what she is doing for it, back to
+# `maker_state` after. When it is done, `exterior` wears `exterior_model`, the giver's
+# `thanks` go on offer and her everyday line becomes `giver_idle`.
+[components.project]
+giver = "id"
+after = "id"
+maker = "id"
+maker_act = "id"
+maker_state = "text"
+planner = "id"
+ware = "text"
+need = "int"
+cargo = "text"
+units = "int"
+site = "id"
+plot = "text"
+step = "int"
+fired = "int"
+exterior = "id"
+exterior_model = "text"
+thanks = "id"
+giver_idle = "text"
+
+# A project's offer, in a talk (the talk entity carries this): on while the project is
+# at `step` and what it needs holds. `take` is the answer that moves the project on; any
+# other sets the offer aside (`later`) until the next docking. `instead` is the
+# speaker's everyday talk, resting while the offer is on. `heard` once said: the log
+# pins it until it is answered.
+[components.offer]
+project = "id"
+step = "int"
+take = "id"
+instead = "id"
+heard = "bool"
+later = "bool"
+
+# Something that happens at a station for a while (direction doc 3.3): its `cause` (the
+# words logged when it begins and on each docking it lasts), the first-person `line` its
+# `speaker` says meanwhile, and how many dockings at the station it has `left`. It starts
+# when `site` is built, or when a job begins it (a `site` of ""); `props` (entity names)
+# are hung on the station meanwhile, each at its place in `at` ("x,y" on the station's
+# floor, in the same order) and wearing its model in `models` (a lamp string where it
+# names none), and taken down when it ends.
+[components.happening]
+station = "id"
+site = "id"
+speaker = "id"
+line = "text"
+cause = "text"
+props = "text"
+at = "text"
+models = "text"
+left = "int"
+
+# A job to bring in a barge gone adrift (scripts/salvage.luau): the giver asks once `after`
+# (her thanks for the greenhouse) is heard; the barge lies dark at `x`, `y` until the
+# player passes it a line and tows it by hand into a station's berth; the station it is
+# brought to is the choice. Each station that can take it is a `haven`. `at` is the
+# station it is moored off now ("" while adrift or in tow), `haven` the one whose offer
+# was taken, `since` that station's visits when the work began, `slips` how often the
+# line has slipped. `skipper` is the barge's skipper, a keeper who comes aboard.
+[components.salvage]
+giver = "id"
+after = "id"
+skipper = "id"
+barge = "id"
+step = "int"
+x = "number"
+y = "number"
+towing = "bool"
+at = "id"
+haven = "id"
+since = "int"
+slips = "int"
+# Who feeds the station's people, and talks of the giver and the skipper meanwhile.
+cook = "id"
+
+# A station a salvage job's barge may be brought to (scripts/salvage.luau). `kind` says
+# what becomes of it there: "keep" (moored for good at `moor`, its tanks for the giver's
+# beds) or "mend" (mended at `moor`, then off on its route again from `route`, a
+# waypoint, as `about` says). `tow` is where it lies off the berth once brought in;
+# `keeper` offers to take it (`offer`, a talk); `act` is the act of whoever works on it
+# meanwhile, whose state becomes `work`, back to `rest`. The work starts once `need` of
+# `ware` is handed to the keeper (`deliver`, a talk). The skipper comes aboard the
+# station at the act `life`, whose state becomes `settled` once the work is done. Then,
+# kept: `site`, `room` and `exterior` wear `site_model`, `room_model` and
+# `exterior_model`, the site's room tells `told`, `market` wants `target` stock, and
+# `thanks` (a talk) goes on offer; either way `happening` begins.
+[components.haven]
+job = "id"
+station = "id"
+kind = "text"
+tow = "id"
+moor = "id"
+keeper = "id"
+offer = "id"
+act = "id"
+work = "text"
+rest = "text"
+life = "id"
+settled = "text"
+site = "id"
+site_model = "text"
+room = "id"
+room_model = "text"
+told = "text"
+exterior = "id"
+exterior_model = "text"
+market = "id"
+target = "int"
+thanks = "id"
+happening = "id"
+route = "id"
+about = "text"
+ware = "text"
+need = "int"
+deliver = "id"
 
 [components.skiff]
 a = "id"
@@ -192,6 +380,16 @@ text = "text"
 talk = "id"
 # A conversation still being heard: its next lines join this entry.
 open = "bool"
+# The station the ship was at, or "" in flight: the log groups entries into visits.
+at = "id"
+# The ship left the station with this entry: the next one starts a new visit.
+leaves = "bool"
+
+# The ship log's view (scripts/logbook.luau): the visit whose lines are open (its first
+# entry's n, 0 for none) and how many entries had come in when the log was last open.
+[components.logbook]
+visit = "int"
+seen = "int"
 
 # How often the player has used each control; its hint retires after a few uses.
 [components.taught]
@@ -202,6 +400,7 @@ mine = "int"
 dock = "int"
 cancel = "int"
 talk = "int"
+tow = "int"
 
 [keys]
 w = "ahead"

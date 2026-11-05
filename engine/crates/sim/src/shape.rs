@@ -88,6 +88,9 @@ impl Profile {
 #[derive(Clone, Debug, Default)]
 pub struct Shapes {
     pub models: BTreeMap<String, Profile>,
+    /// The least `contact_speed` a module's manifest sets: new contacts at least this
+    /// fast record `engine.contact`. `None` records none.
+    pub contact_speed: Option<f64>,
 }
 
 impl Shapes {
@@ -95,7 +98,11 @@ impl Shapes {
     /// out: things wearing it fall back to a circle (`galaxy-gm check` reports the file).
     pub fn of<'a>(modules: impl IntoIterator<Item = &'a Module>) -> Shapes {
         let mut models = BTreeMap::new();
+        let mut contact_speed: Option<f64> = None;
         for module in modules {
+            if let Some(speed) = module.manifest.contact_speed {
+                contact_speed = Some(contact_speed.map_or(speed, |s| s.min(speed)));
+            }
             for (path, text) in &module.files.0 {
                 let Some(name) = path
                     .strip_prefix("models/")
@@ -108,7 +115,10 @@ impl Shapes {
                 }
             }
         }
-        Shapes { models }
+        Shapes {
+            models,
+            contact_speed,
+        }
     }
 }
 

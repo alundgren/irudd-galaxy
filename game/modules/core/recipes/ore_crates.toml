@@ -1,0 +1,57 @@
+about = "A stack of ore crates, lumps of ironstone on top: the exchange's stock, grown and shrunk with it"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "crate"
+shape = "box"
+size = [0.9, 0.9, 0.8]
+at = [0, 0, 0.4]
+paint = "wood"
+[[part]]
+name = "crate.2"
+shape = "box"
+size = [0.9, 0.9, 0.8]
+at = [0.1, 0.95, 0.4]
+turn = 6
+paint = "wood"
+[[part]]
+name = "crate.3"
+shape = "box"
+size = [0.9, 0.9, 0.8]
+at = [0.05, 0.45, 1.2]
+turn = -8
+paint = "wood"
+[[part]]
+name = "bands"
+shape = "box"
+size = [0.92, 0.92, 0.1]
+at = [0, 0, 0.55]
+paint = "wood_dark"
+[[part]]
+name = "bands.2"
+shape = "box"
+size = [0.92, 0.92, 0.1]
+at = [0.1, 0.95, 0.55]
+turn = 6
+paint = "wood_dark"
+[[part]]
+name = "ore"
+shape = "rock"
+radius = 0.32
+lumps = 0.7
+at = [0.05, 0.3, 1.75]
+paint = "#8a4a32"
+accent = "#e09a50"
+[[part]]
+name = "ore.2"
+shape = "rock"
+radius = 0.26
+at = [0.1, 0.7, 1.7]
+paint = "#7a3e2a"
+accent = "#e09a50"
+[[part]]
+name = "ore.3"
+shape = "rock"
+radius = 0.22
+at = [0.0, 1.45, 0.95]
+paint = "#8a4a32"
+accent = "#e09a50"

@@ -1,7 +1,9 @@
-# One shift by real clicks: mine, dock (the view glides in), hear Bram, point at the
-# exchange (it lifts and outlines) and click it (the view glides to it), hear Tova,
-# sell, go back with Esc, open the office and land its glide with a click, go back
-# with a right-click, open the log and shut it with Esc, launch. 12 notes.
+# One shift by real clicks: mine, dock (the view glides in), point at the exchange (it
+# lifts and outlines) and click it (a cut into the room), hear Tova, sell, go back
+# with Esc, open the office and land its cut with a click, hear Bram at his desk, go
+# back with a right-click, open the log and shut it with Esc, launch. 12 notes.
+# The flights between are scripted Mine and Dock orders, which fly themselves;
+# hand-mining.inputs flies them by hand.
 [[input]]
 tick = 1
 name = "core.ahead"
@@ -10,34 +12,15 @@ payload = { down = true }
 tick = 11
 name = "core.ahead"
 payload = { down = false }
-[[click]]
+[[input]]
 tick = 60
-widget = "mine"
-[[click]]
+name = "core.mine"
+[[input]]
 tick = 330
-widget = "lantern"
+name = "core.dock"
+payload = { station = "core.lantern" }
 
-# Bram introduces himself, one line per click on his bubble.
-[[click]]
-tick = 510
-widget = "speaker.core.lantern_master"
-[[click]]
-tick = 530
-widget = "talk.core.lantern_master_intro"
-[[click]]
-tick = 545
-widget = "talk.core.lantern_master_intro"
-[[click]]
-tick = 560
-widget = "talk.core.lantern_master_intro"
-[[click]]
-tick = 575
-widget = "talk.core.lantern_master_intro"
-[[click]]
-tick = 590
-widget = "talk.core.lantern_master_intro"
-
-# The exchange building itself: hover, then click.
+# The exchange building itself: hover, then click; the cut lands in Tova's room.
 [[pointer]]
 tick = 600
 action = "move"
@@ -46,7 +29,7 @@ widget = "target_exchange"
 tick = 610
 widget = "target_exchange"
 
-# Tova at the exchange: her introduction, then a line about the hold.
+# Tova at her counter: her introduction, then a line about the hold.
 [[click]]
 tick = 645
 widget = "speaker.core.lantern_trader"
@@ -69,8 +52,7 @@ widget = "talk.core.lantern_trader_talk"
 tick = 740
 widget = "sell_ore"
 
-# Back with Esc; the office from the key, its glide landed by a click; back with a
-# right-click.
+# Back with Esc; the office from the key, its cut landed by a click.
 [[key]]
 tick = 765
 key = "escape"
@@ -80,21 +62,40 @@ widget = "key_office"
 [[click]]
 tick = 806
 widget = "point:640,140"
-[[key]]
-tick = 830
-key = "mouse_right"
 
-# The log, shut with Esc; then launch.
+# Bram at his desk introduces himself, one line per click on his bubble.
+[[click]]
+tick = 830
+widget = "speaker.core.lantern_master"
+[[click]]
+tick = 850
+widget = "talk.core.lantern_master_intro"
 [[click]]
 tick = 865
+widget = "talk.core.lantern_master_intro"
+[[click]]
+tick = 880
+widget = "talk.core.lantern_master_intro"
+[[click]]
+tick = 895
+widget = "talk.core.lantern_master_intro"
+[[click]]
+tick = 910
+widget = "talk.core.lantern_master_intro"
+
+# Back with a right-click; the log, shut with Esc; then launch.
+[[key]]
+tick = 930
+key = "mouse_right"
+[[click]]
+tick = 975
 widget = "log_open"
 [[key]]
-tick = 890
+tick = 1000
 key = "escape"
 [[click]]
-tick = 905
+tick = 1015
 widget = "launch"
-
 [[note]]
 tick = 30
 text = "Flying into solid ironstone."
@@ -103,31 +104,31 @@ tick = 300
 text = "Six ore aboard and a visible cut in the rock."
 [[note]]
 tick = 500
-text = "Docked: the station up close, keepers wear name signs."
-[[note]]
-tick = 520
-text = "Bram's first line: his name as a heading, his job quieter, one sentence, a small Continue."
+text = "Docked: the station up close, its buildings are the menu."
 [[note]]
 tick = 603
 text = "Pointing at the exchange: it lifts, gets an outline and the pointer is a hand."
 [[note]]
-tick = 620
-text = "Clicked the exchange: the view glides to it as its room opens."
+tick = 625
+text = "Clicked the exchange: a cut to a title card naming the place, then the room."
 [[note]]
 tick = 652
-text = "Tova introduces herself beside the open exchange."
+text = "Tova introduces herself from behind her counter, in a bubble on her."
 [[note]]
 tick = 715
 text = "Clicked again, Tova talks about the hold instead of repeating."
 [[note]]
 tick = 755
-text = "Sold six ore; the stockpile and credits grew."
+text = "Sold six ore; the crate stack and credits grew, and Tova goes to stack crates."
 [[note]]
-tick = 810
-text = "The office glide landed at once on a click."
+tick = 812
+text = "The office cut landed at once on a click."
 [[note]]
-tick = 875
+tick = 840
+text = "Bram's first line: his name as a heading, his job quieter, one sentence, a small Continue."
+[[note]]
+tick = 985
 text = "The log: newest first, each conversation one entry with speaker and station."
 [[note]]
-tick = 980
+tick = 1090
 text = "Launched back into space."

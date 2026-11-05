@@ -1,0 +1,1010 @@
+# After the greenhouse, Cold Kettle adrift (scripts/salvage.luau, scripts/tow.luau), kept
+# at Lantern Dock, played end to end from a finished greenhouse: greenhouse.toml's route,
+# then Noor's ask in the galley (Accept), out to the barge and a line passed, towed into
+# Lantern Dock's berth and handed to Bram with the office's handover button, 4 plate
+# bought at the Kiln and handed to Bram for her pipes, and two trips out and back: the
+# beds bloom, Hessa lives aboard, the exchange buys more ice, Noor thanks you and Lantern
+# Dock eats together for three dockings. Scripted flight; by hand the tow is slower and
+# swings wide (kettle-choices.toml slips it on the ice).
+seed = 7
+ticks = 8530
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 600
+name = "core.open"
+[[input]]
+tick = 605
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 610
+name = "core.sell"
+[[input]]
+tick = 620
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 640
+name = "core.launch"
+[[input]]
+tick = 650
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 960
+name = "core.open"
+[[input]]
+tick = 970
+name = "core.sell"
+[[input]]
+tick = 980
+name = "core.launch"
+[[input]]
+tick = 985
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 1030
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 1035
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+[[input]]
+tick = 1040
+name = "core.close"
+[[input]]
+tick = 1100
+name = "core.launch"
+[[input]]
+tick = 1110
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1410
+name = "core.open"
+[[input]]
+tick = 1420
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1440
+name = "core.launch"
+[[input]]
+tick = 1450
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 1760
+name = "core.open"
+[[input]]
+tick = 1770
+name = "core.sell"
+[[input]]
+tick = 1790
+name = "core.launch"
+[[input]]
+tick = 1800
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 2100
+name = "core.open"
+[[input]]
+tick = 2110
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 2130
+name = "core.launch"
+[[input]]
+tick = 2140
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2290
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
+[[input]]
+tick = 2450
+name = "core.open"
+[[input]]
+tick = 2460
+name = "core.sell"
+# The galley stands; nothing of the greenhouse shows yet.
+[[input]]
+tick = 2480
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 2483
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2480 }
+
+# Not offered before her introduction is heard; the story comes first.
+[[input]]
+tick = 2485
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_intro" }
+[[input]]
+tick = 2486
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
+[[input]]
+tick = 2487
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
+[[input]]
+tick = 2488
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
+[[input]]
+tick = 2490
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_gift" }
+[[input]]
+tick = 2491
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift1" }
+# Take it.
+[[input]]
+tick = 2492
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift2", choice = "core.lantern_cook_gift_take" }
+[[input]]
+tick = 2493
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift3" }
+[[input]]
+tick = 2494
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.greenhouse_ask" }
+# Her gift answered, Ines asks in place of her everyday line.
+[[input]]
+tick = 2495
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask1" }
+[[input]]
+tick = 2496
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask2" }
+[[input]]
+tick = 2497
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask3" }
+[[input]]
+tick = 2498
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask4", choice = "core.greenhouse_ask_yes" }
+# Accepted: the plot is staked out and the glassite offer waits on 4 glassite.
+[[input]]
+tick = 2499
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask5" }
+[[input]]
+tick = 2502
+name = "core.close"
+[[input]]
+tick = 2505
+name = "core.launch"
+[[input]]
+tick = 2510
+name = "core.mine"
+source = "script"
+payload = { rock = "core.glassite1" }
+[[input]]
+tick = 2795
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 2950
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 2917 }
+[[input]]
+tick = 2960
+name = "core.open"
+[[input]]
+tick = 2961
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 2960 }
+[[input]]
+tick = 2962
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.kiln_trader_intro" }
+[[input]]
+tick = 2963
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro1" }
+[[input]]
+tick = 2964
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro2" }
+[[input]]
+tick = 2965
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro3" }
+[[input]]
+tick = 2966
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.greenhouse_glassite" }
+[[input]]
+tick = 2967
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite1" }
+[[input]]
+tick = 2968
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite2", choice = "core.greenhouse_glassite_yes" }
+# Sefa takes 4 glassite and fires the panes.
+[[input]]
+tick = 2969
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite3" }
+[[input]]
+tick = 2970
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite4" }
+[[input]]
+tick = 2976
+name = "core.sell"
+[[input]]
+tick = 2980
+name = "core.launch"
+[[input]]
+tick = 2985
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 3305
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+# Back at the Kiln after an ore trip: the panes are ready.
+[[input]]
+tick = 3385
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 3351 }
+[[input]]
+tick = 3390
+name = "core.open"
+[[input]]
+tick = 3391
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 3390 }
+[[input]]
+tick = 3395
+name = "core.sell"
+[[input]]
+tick = 3397
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.greenhouse_panes" }
+[[input]]
+tick = 3398
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_panes", line = "core.greenhouse_panes1" }
+[[input]]
+tick = 3399
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.greenhouse_panes", line = "core.greenhouse_panes2", choice = "core.greenhouse_panes_yes" }
+[[input]]
+tick = 3400
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_panes", line = "core.greenhouse_panes3" }
+# Loaded as Ines's: four panes in the hold.
+[[input]]
+tick = 3405
+name = "core.launch"
+[[input]]
+tick = 3410
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 3525
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 3493 }
+[[input]]
+tick = 3530
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 3531
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 3530 }
+[[input]]
+tick = 3533
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.greenhouse_deliver" }
+[[input]]
+tick = 3534
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver1" }
+[[input]]
+tick = 3535
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver2", choice = "core.greenhouse_deliver_yes" }
+[[input]]
+tick = 3536
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver3" }
+[[input]]
+tick = 3537
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver4" }
+# Handed to Ines: the scaffold goes up and two glaziers work by it.
+[[input]]
+tick = 3542
+name = "core.close"
+[[input]]
+tick = 3545
+name = "core.launch"
+[[input]]
+tick = 3550
+name = "core.mine"
+source = "script"
+payload = { rock = "core.ice1" }
+[[input]]
+tick = 3800
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 3920
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 3890 }
+[[input]]
+tick = 3925
+name = "core.open"
+[[input]]
+tick = 3926
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 3925 }
+[[input]]
+tick = 3930
+name = "core.sell"
+# The first load of ice goes to its beds.
+[[input]]
+tick = 3935
+name = "core.launch"
+[[input]]
+tick = 3940
+name = "core.mine"
+source = "script"
+payload = { rock = "core.ice1" }
+[[input]]
+tick = 4200
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 4320
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 4290 }
+[[input]]
+tick = 4325
+name = "core.open"
+[[input]]
+tick = 4326
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 4325 }
+[[input]]
+tick = 4330
+name = "core.sell"
+# The second: it is built.
+[[input]]
+tick = 4335
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 4336
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 4335 }
+[[input]]
+tick = 4338
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_thanks" }
+[[input]]
+tick = 4339
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_thanks", line = "core.lantern_cook_thanks1" }
+[[input]]
+tick = 4340
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_thanks", line = "core.lantern_cook_thanks2" }
+[[input]]
+tick = 4341
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_thanks", line = "core.lantern_cook_thanks3" }
+[[input]]
+tick = 4345
+name = "core.open"
+payload = { facility = "core.lantern_greenhouse" }
+[[input]]
+tick = 4346
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_greenhouse_room", start_tick = 4345 }
+[[input]]
+tick = 4348
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_grower_intro" }
+[[input]]
+tick = 4349
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_grower_intro", line = "core.lantern_grower_intro1" }
+[[input]]
+tick = 4350
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_grower_intro", line = "core.lantern_grower_intro2" }
+[[input]]
+tick = 4351
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_grower_intro", line = "core.lantern_grower_intro3" }
+[[input]]
+tick = 4355
+name = "core.close"
+[[input]]
+tick = 4356
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 4355 }
+[[input]]
+tick = 4357
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 4358
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 4357 }
+[[input]]
+tick = 4359
+name = "core.buy"
+payload = { ware = "rations", units = 1 }
+# A trade moves the day on: Noor brings greens to the galley, clear of Ines.
+[[input]]
+tick = 4362
+name = "core.launch"
+[[input]]
+tick = 4365
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+# Quick taps at the dock are not dockings; three counted ones see the lamp night out.
+[[input]]
+tick = 4600
+name = "core.launch"
+[[input]]
+tick = 4605
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 4900
+name = "core.launch"
+[[input]]
+tick = 4905
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 5150
+name = "core.launch"
+[[input]]
+tick = 5155
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 5450
+name = "core.launch"
+[[input]]
+tick = 5455
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 5700
+name = "core.launch"
+[[input]]
+tick = 5705
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+
+# The greenhouse is built and its lamp night over; Cold Kettle went dark the night it grew.
+[[expect]]
+tick = 5799
+entity = "kettle_job"
+component = "salvage"
+field = "step"
+equals = 1
+[[expect]]
+tick = 5799
+entity = "kettle"
+component = "trader"
+field = "stopped"
+equals = true
+[[expect]]
+tick = 5799
+entity = "kettle"
+component = "engine.model"
+field = "model"
+equals = "core.barge_adrift"
+[[expect]]
+tick = 5799
+entity = "lantern_grower_act"
+component = "engine.act"
+field = "state"
+equals = "watching for Cold Kettle"
+[[expect]]
+tick = 5799
+entity = "kettle_ask"
+component = "engine.talk"
+field = "enabled"
+equals = true
+
+# Noor asks in the galley, with her greens.
+[[input]]
+tick = 5805
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 5808
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 5805 }
+[[input]]
+tick = 5809
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.kettle_ask" }
+[[input]]
+tick = 5810
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kettle_ask", line = "core.kettle_ask1" }
+[[input]]
+tick = 5811
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kettle_ask", line = "core.kettle_ask2" }
+[[input]]
+tick = 5812
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kettle_ask", line = "core.kettle_ask3" }
+[[input]]
+tick = 5813
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.kettle_ask", line = "core.kettle_ask4", choice = "core.kettle_ask_yes" }
+[[input]]
+tick = 5814
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kettle_ask", line = "core.kettle_ask5" }
+[[expect]]
+tick = 5814
+entity = "kettle_job"
+component = "salvage"
+field = "step"
+equals = 2
+
+# Out to her, and a line across: she follows, and the ship flies slower.
+[[input]]
+tick = 5815
+name = "core.launch"
+[[input]]
+tick = 5820
+name = "core.hitch"
+source = "script"
+[[expect]]
+tick = 5999
+entity = "kettle_job"
+component = "salvage"
+field = "towing"
+equals = true
+[[expect]]
+tick = 5999
+facts = "core.hitched"
+equals = 1
+[[expect]]
+tick = 5999
+entity = "ship"
+component = "engine.flight"
+field = "speed"
+equals = 11
+[[expect]]
+tick = 5999
+entity = "kettle"
+component = "engine.beam"
+field = "look"
+equals = "core.tow"
+
+# Towed into the berth, she lies off it, and Bram's offer is the office's gold button.
+[[input]]
+tick = 6005
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[expect]]
+tick = 6399
+entity = "kettle_job"
+component = "salvage"
+field = "step"
+equals = 3
+[[expect]]
+tick = 6399
+entity = "kettle_job"
+component = "salvage"
+field = "at"
+equals = "core.lantern"
+[[expect]]
+tick = 6399
+entity = "kettle_job"
+component = "salvage"
+field = "towing"
+equals = false
+[[expect]]
+tick = 6399
+entity = "ship"
+component = "engine.flight"
+field = "speed"
+equals = 20
+[[expect]]
+tick = 6399
+entity = "kettle"
+component = "engine.position"
+field = "x"
+at_least = -6
+[[expect]]
+tick = 6399
+entity = "kettle"
+component = "engine.position"
+field = "x"
+at_most = -4
+[[expect]]
+tick = 6399
+entity = "kettle_moor_lantern"
+component = "engine.talk"
+field = "enabled"
+equals = true
+[[input]]
+tick = 6405
+name = "core.open"
+payload = { facility = "core.lantern_office" }
+[[input]]
+tick = 6408
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 6405 }
+[[input]]
+tick = 6409
+name = "core.hand"
+source = "ui"
+payload = { talk = "core.kettle_moor_lantern" }
+[[expect]]
+tick = 6411
+entity = "kettle_job"
+component = "salvage"
+field = "step"
+equals = 4
+[[expect]]
+tick = 6411
+entity = "kettle_job"
+component = "salvage"
+field = "haven"
+equals = "core.kettle_haven_lantern"
+[[expect]]
+tick = 6411
+entity = "kettle"
+component = "engine.body"
+field = "fixed"
+equals = true
+[[expect]]
+tick = 6411
+entity = "kettle"
+component = "engine.position"
+field = "x"
+equals = -40
+[[expect]]
+tick = 6411
+entity = "kettle_skipper"
+component = "engine.location"
+field = "place"
+equals = "core.lantern_greenhouse_room"
+[[expect]]
+tick = 6411
+entity = "kettle_plate"
+component = "engine.talk"
+field = "enabled"
+equals = false
+
+# His crew needs plate for her pipes: bought at the Kiln, handed to Bram.
+[[input]]
+tick = 6435
+name = "core.launch"
+[[input]]
+tick = 6440
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 6600
+name = "core.open"
+payload = { facility = "core.kiln_exchange" }
+[[input]]
+tick = 6603
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 6600 }
+[[input]]
+tick = 6604
+name = "core.buy"
+payload = { ware = "plate", units = 4 }
+[[expect]]
+tick = 6604
+entity = "ship"
+component = "hold"
+field = "plate"
+equals = 4
+[[input]]
+tick = 6605
+name = "core.launch"
+[[input]]
+tick = 6610
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[expect]]
+tick = 6899
+entity = "kettle_plate"
+component = "engine.talk"
+field = "enabled"
+equals = true
+[[input]]
+tick = 6905
+name = "core.open"
+payload = { facility = "core.lantern_office" }
+[[input]]
+tick = 6908
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 6905 }
+[[input]]
+tick = 6909
+name = "core.hand"
+source = "ui"
+payload = { talk = "core.kettle_plate" }
+[[expect]]
+tick = 6911
+entity = "kettle_job"
+component = "salvage"
+field = "step"
+equals = 5
+[[expect]]
+tick = 6911
+entity = "ship"
+component = "hold"
+field = "plate"
+equals = 0
+[[expect]]
+tick = 6911
+entity = "lantern_master_act2"
+component = "engine.act"
+field = "state"
+equals = "planning Cold Kettle's pipes"
+[[expect]]
+tick = 6911
+entity = "lantern_master"
+component = "engine.being"
+field = "state"
+equals = "planning Cold Kettle's pipes"
+[[expect]]
+tick = 6911
+entity = "kettle"
+component = "engine.emitter"
+field = "recipe"
+equals = "core.weld"
+
+# Two trips out and back, and the work is done: after the first it is still under way.
+[[input]]
+tick = 6935
+name = "core.launch"
+[[input]]
+tick = 6940
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 7341
+name = "core.launch"
+[[input]]
+tick = 7346
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[expect]]
+tick = 7699
+entity = "kettle_job"
+component = "salvage"
+field = "step"
+equals = 5
+[[expect]]
+tick = 7699
+entity = "lantern_greenhouse"
+component = "engine.model"
+field = "model"
+equals = "core.greenhouse"
+[[input]]
+tick = 7705
+name = "core.launch"
+[[input]]
+tick = 7710
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 8111
+name = "core.launch"
+[[input]]
+tick = 8116
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[expect]]
+tick = 8499
+entity = "kettle_job"
+component = "salvage"
+field = "step"
+equals = 6
+[[expect]]
+tick = 8499
+entity = "lantern_greenhouse"
+component = "engine.model"
+field = "model"
+equals = "core.greenhouse_bloom"
+[[expect]]
+tick = 8499
+entity = "lantern_greenhouse_room"
+component = "engine.model"
+field = "model"
+equals = "core.lantern_greenhouse_room_bloom"
+[[expect]]
+tick = 8499
+entity = "lantern_greenhouse"
+component = "build"
+field = "built"
+equals = "Noor's beds are in bloom, watered from Cold Kettle's tanks. Hessa minds them with her."
+[[expect]]
+tick = 8499
+entity = "lantern_master"
+component = "engine.being"
+field = "state"
+equals = "posting prices"
+[[expect]]
+tick = 8499
+entity = "lantern_grower"
+component = "engine.being"
+field = "state"
+equals = "tending the beds"
+[[expect]]
+tick = 8499
+entity = "lantern_exterior"
+component = "engine.model"
+field = "model"
+equals = "core.station_bloom"
+[[expect]]
+tick = 8499
+entity = "lantern_ice"
+component = "market"
+field = "target"
+equals = 45
+[[expect]]
+tick = 8499
+entity = "lantern_grower_thanks"
+component = "engine.talk"
+field = "enabled"
+equals = true
+[[expect]]
+tick = 8499
+entity = "lantern_supper"
+component = "happening"
+field = "left"
+equals = 3
+[[expect]]
+tick = 8499
+entity = "kettle"
+component = "engine.model"
+field = "model"
+equals = "core.barge"
+[[expect]]
+tick = 8499
+entity = "kettle_skipper_act"
+component = "engine.act"
+field = "state"
+equals = "minding the tanks"
+# Her day keeps her a room apart from Noor's, so no room crowds three signs.
+[[expect]]
+tick = 8499
+entity = "kettle_skipper"
+component = "engine.location"
+field = "place"
+equals = "core.lantern_galley_room"
+[[expect]]
+tick = 8499
+entity = "lantern_grower"
+component = "engine.location"
+field = "place"
+equals = "core.lantern_greenhouse_room"

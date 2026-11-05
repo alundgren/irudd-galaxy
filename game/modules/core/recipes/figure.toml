@@ -1,0 +1,72 @@
+about = "A person's body, used by each person: legs, boots, a coat, an apron and arms; feet at the origin, facing +x. The head and hat are the person's own parts, so the face stays its own node"
+# Slots a person repaints: main is the coat, trim the trousers, accent the apron or
+# belt, skin the hands and boots the boots.
+palette = { skin = "#d9a67a", boots = "#3a2a2e" }
+[[part]]
+name = "boots"
+shape = "box"
+size = [0.34, 0.22, 0.14]
+at = [0.04, 0.13, 0.07]
+mirror = true
+paint = "boots"
+[[part]]
+name = "legs"
+shape = "box"
+size = [0.22, 0.2, 0.74]
+at = [0, 0.13, 0.5]
+mirror = true
+paint = "trim"
+[[part]]
+name = "coat"
+shape = "cylinder"
+radius = 0.34
+height = 0.78
+taper = 0.82
+sides = 8
+at = [0, 0, 0.78]
+paint = "main"
+[[part]]
+name = "shoulders"
+shape = "box"
+size = [0.4, 0.66, 0.14]
+at = [0, 0, 1.52]
+paint = "main"
+[[part]]
+name = "belt"
+shape = "cylinder"
+radius = 0.345
+height = 0.1
+sides = 8
+at = [0, 0, 0.98]
+paint = "accent"
+[[part]]
+name = "apron"
+shape = "box"
+size = [0.06, 0.42, 0.62]
+at = [0.3, 0, 0.98]
+paint = "accent"
+[[part]]
+name = "arms"
+shape = "box"
+size = [0.17, 0.16, 0.66]
+at = [0.02, 0.4, 1.2]
+roll = 6
+mirror = true
+paint = "main"
+[[part]]
+name = "hands"
+shape = "sphere"
+radius = 0.09
+sides = 6
+rings = 3
+at = [0.04, 0.42, 0.84]
+mirror = true
+paint = "skin"
+[[part]]
+name = "neck"
+shape = "cylinder"
+radius = 0.1
+height = 0.04
+sides = 6
+at = [0, 0, 1.58]
+paint = "skin"

@@ -1,6 +1,6 @@
 //! Render the exact presentation mixer offline, driven by an ordinary scripted session.
 use crate::sim::{bad_modules, load_modules, parse, usage};
-use galaxy_audio::{Action, Bank, Mixer, Scene};
+use galaxy_audio::{Action, Bank, Heard, Mixer, Scene};
 use galaxy_module::{Failure, cli::Output};
 use galaxy_sim::{Session, scenario::InputsFile};
 use serde_json::json;
@@ -25,10 +25,15 @@ impl Cues {
             world,
             world.facts[self.next_fact..]
                 .iter()
-                .map(|f| f.kind.as_str()),
+                .map(|f| Heard::fact(&f.kind, f.tick, &f.payload)),
         );
         self.next_fact = world.facts.len();
         actions
+    }
+
+    /// The sound a UI cue plays, if the modules give it one.
+    pub(crate) fn ui(&mut self, cue: &galaxy_api::ui::UiCue) -> Option<Action> {
+        self.scene.ui(cue).map(|(action, _)| action)
     }
 }
 
