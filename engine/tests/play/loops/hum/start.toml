@@ -1,0 +1,24 @@
+# The ship faces +x with a fixed rock 17 units ahead, surface to surface. The beacon sits
+# where the ship starts. The listener is a being in the bay, which has an ambience.
+[entities.ship]
+"engine.position" = { x = 0.0, y = 0.0 }
+"engine.motion" = {}
+"engine.flight" = {}
+"engine.helm" = {}
+"engine.body" = { radius = 1.0, mass = 1.0 }
+"engine.camera" = { view = 40.0 }
+
+[entities.rock]
+"engine.position" = { x = 20.0, y = 0.0 }
+"engine.body" = { radius = 2.0, fixed = true }
+
+[entities.beacon]
+"engine.position" = { x = 0.0, y = 0.0 }
+
+[entities.bay]
+"engine.place" = { width = 8, depth = 8 }
+
+[entities.listener]
+"engine.being" = { player = true }
+"engine.location" = { place = "hum.bay" }
+"engine.position" = {}

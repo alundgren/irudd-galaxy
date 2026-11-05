@@ -1,16 +1,19 @@
 # The core's look, from the direction doc (game/docs/direction.md, 1.1, 1.2, 1.5 and 9).
 
-# Calm dusky plum space, never near-black, so the warm ink reads against it; sparse warm
-# stars and a few soft clouds of rose, amber, teal and violet haze.
+# Calm dusky plum space, never near-black, so the warm ink reads against it; warm stars,
+# most of them tiny, and soft layered clouds of rose, amber, teal and violet haze.
 [sky]
 top = "#4e3672"
 bottom = "#2a1f48"
-stars = 180
-# Far stars creep behind near ones as the ship flies: a little depth, kept faint.
-star_layers = [0.25, 0.6, 1.1]
-clouds = ["#c2577a", "#e8905a", "#2f8f8a", "#6b4aa0"]
-cloud_count = 9
-cloud_alpha = 0.2
+stars = 300
+# Four layers: the farthest stars barely creep, the nearest slide past, so the backdrop
+# has depth as the ship flies without ever looking busy.
+star_layers = [0.12, 0.35, 0.75, 1.3]
+# Violet listed twice, so the broad haze is mostly violet with rose, amber and teal
+# patches over it.
+clouds = ["#c2577a", "#6b4aa0", "#e8905a", "#2f8f8a", "#6b4aa0"]
+cloud_count = 16
+cloud_alpha = 0.24
 
 # Warm dark plum ink, not black: a silhouette round every model, and inner lines on sharp
 # creases and colour borders, so gentle rock facets stay bare.
@@ -33,10 +36,13 @@ band_fade_degrees = 30
 sun_direction = [-0.62, 0.48, 0.52]
 
 # Ink weight by the size of the thing: stations heaviest, then ships, rocks, props.
+# Lamps, windows and engines are self-lit paint; a halo makes them glow and pool light.
 [looks.station]
 outline_px = 4.5
 hatch = 0.3
 shadow = "#9e85cc"
+halo = 1.1
+halo_size = 2.2
 
 [looks.ship]
 outline_px = 3.5
@@ -67,7 +73,7 @@ glow = 1.4
 glow_size = 1.6
 flicker = 0.2
 flicker_rate = 6.0
-impact = ["core.sparks", "core.chips_near", "core.dust"]
+impact = ["core.sparks", "core.chips_near", "core.cut_dust"]
 
 [beams.cutter]
 color = "#ffb36b"
@@ -76,7 +82,7 @@ glow = 1.4
 glow_size = 1.6
 flicker = 0.2
 flicker_rate = 6.0
-impact = ["core.sparks", "core.chips", "core.dust"]
+impact = ["core.sparks", "core.chips", "core.cut_dust"]
 
 [beams.cutter_far]
 color = "#ffb36b"
@@ -85,7 +91,7 @@ glow = 1.4
 glow_size = 1.6
 flicker = 0.2
 flicker_rate = 6.0
-impact = ["core.sparks", "core.chips_far", "core.dust"]
+impact = ["core.sparks", "core.chips_far", "core.cut_dust"]
 
 # The reach rig: a longer, steadier teal beam that pulls its chips the whole way in.
 [beams.reach]
@@ -95,7 +101,7 @@ glow = 1.2
 glow_size = 1.8
 flicker = 0.1
 flicker_rate = 2.0
-impact = ["core.sparks", "core.reach_chips", "core.dust"]
+impact = ["core.sparks", "core.reach_chips", "core.cut_dust"]
 
 # Where the beam bites: bright short streaks thrown off the cut.
 [particles.sparks]
@@ -242,7 +248,7 @@ end_size = 0.4
 drag = 0.0
 
 # A little rock dust hanging round the cut.
-[particles.dust]
+[particles.cut_dust]
 shape = "puff"
 blend = "paint"
 color = "#c98f4a"
@@ -298,20 +304,6 @@ size = 0.5
 end_size = 0.3
 drag = 1.6
 
-# Exhaust: warm puffs from the engines while the ship thrusts, left behind as a trail.
-[particles.exhaust]
-shape = "puff"
-blend = "paint"
-color = "#ffcf6b"
-end_color = "#c2577a"
-rate = 30.0
-life = 0.5
-speed = 5.0
-spread = 18.0
-size = 0.35
-end_size = 0.7
-drag = 2.0
-
 # Docking: a puff of cream vapour as the clamps take the ship, and again as it moors.
 [particles.puff]
 shape = "puff"
@@ -326,30 +318,143 @@ size = 0.6
 end_size = 1.1
 drag = 2.5
 
+# Ice: pale mint-cream with blue-violet shadow faces (direction doc 1.4), less hatched
+# than ironstone so it reads smooth.
+[looks.ice]
+outline_px = 3.0
+hatch = 0.55
+shadow = "#8f8ee0"
+
+# Glassite: its crystals are self-lit and glow a little.
+[looks.glassite]
+outline_px = 3.0
+hatch = 0.8
+shadow = "#b7a0f0"
+halo = 0.7
+halo_size = 1.6
+
 [looks.prop]
 outline_px = 2.5
 hatch = 0.15
 shadow = "#9e85cc"
 
+# Lane buoys: props whose lamps glow, so the lane reads from afar.
+[looks.buoy]
+outline_px = 2.5
+hatch = 0.15
+shadow = "#9e85cc"
+halo = 1.4
+halo_size = 2.6
+
+# Pebbles and grit: thin ink, so a drift reads as texture, not a field of rocks.
+[looks.debris]
+outline_px = 1.5
+hatch = 0.4
+shadow = "#c8aef5"
+
+# Far things (a planet, a far lighthouse): faint ink, two bands, a shadow close to the
+# sky's own violet, so they sit back in the haze.
+[looks.far]
+outline_px = 1.5
+bands = 2
+hatch = 0.0
+shadow = "#6a5a9e"
+halo = 1.6
+halo_size = 3.0
+
+# Engine trails: warm sparks that stay where they are born, so a moving hull draws a
+# short fading line behind it.
+[particles.exhaust]
+shape = "dot"
+blend = "add"
+color = "#ffcf6b"
+end_color = "#ee7a5a"
+size = 0.55
+end_size = 0.15
+life = 0.7
+rate = 30.0
+speed = 2.0
+spread = 18.0
+direction = 180.0
+drag = 3.0
+
+# A trader's smaller, cooler trail.
+[particles.wake]
+shape = "dot"
+blend = "add"
+color = "#cff3ee"
+end_color = "#6b4aa0"
+size = 0.45
+end_size = 0.1
+life = 0.9
+rate = 18.0
+speed = 1.5
+spread = 15.0
+direction = 180.0
+drag = 3.0
+
+# Steam: slow cream cel puffs that swell and drift off a chimney or vent.
+[particles.steam]
+shape = "puff"
+blend = "paint"
+color = "#fff4dd"
+end_color = "#b9a6d9"
+size = 0.5
+end_size = 1.8
+life = 3.5
+life_jitter = 0.3
+rate = 3.0
+speed = 1.4
+speed_jitter = 0.4
+spread = 40.0
+drag = 0.6
+
+# Dust: a few faint warm motes drifting over the rock drifts.
+[particles.dust]
+shape = "dot"
+blend = "add"
+color = "#ffe9a8"
+end_color = "#6b4aa0"
+size = 0.16
+end_size = 0.08
+life = 4.0
+life_jitter = 0.5
+rate = 2.5
+speed = 1.2
+speed_jitter = 0.8
+spread = 360.0
+drag = 0.2
+
 [screen]
-# The slice's screen family, light surfaces with pure black text throughout:
-# parchment panels with an ink border for rooms, status, the log and the radio; cream
-# paper for what just happened and the hint strip; mustard for anything you can press or
-# pick up; white bubbles for speech; lantern-gold name signs on people.
+# The core's screen kit (direction doc 1.5, 4 and 9). Each kind of thing has its own
+# look, so a glance tells status from place from speech from receipt:
+#   status and hints are dark ink with lantern gold; places and trade are parchment;
+#   speech is a white bubble with an amber name tag; receipts are dark tickets with a
+#   gold CONFIRMED tag; anything you can press is mustard.
+# Text is pure black on light and pure white on dark. State colours (direction doc 9)
+# only ever mark a shape beside black or white words: blue for a gain, vermilion for a
+# loss or a warning, orange for hover, sky blue for a socket that takes the part.
+# The looks are named below; scripts pick them through scripts/kit.luau (see README).
 paper = "#fff4dd"
 panel = "#f7e8c8"
 button = "#f2b43c"
+button_hover = "#ffcf6b"
 bubble = "#ffffff"
 sign = "#ffcf6b"
 text = "#000000"
 border = "#2a1a2e"
 border_px = 2
 radius = 12
-# Amounts are text, so pure black like all text (direction doc 1.5 and 9); a gain or a
-# loss shows by its sign and its word (Paid, Spent). A blue or vermilion mark beside a
-# black amount needs a style the engine doesn't have yet (engine request 5).
+# A resting button: the parchment with a dashed ink frame, never greyed out.
+resting = "#f7e8c8"
+# Amounts are text, so pure black like all text; a gain or a loss shows by its sign,
+# its word and a blue or vermilion mark beside it (kit.amount).
 gain = "#000000"
 loss = "#000000"
+# Talk bubbles: white with an ink frame, the speaker's name on an amber tag.
+bubble_look = "bubble"
+bubble_title_look = "name_tag"
+sign_look = "sign"
 # A building under the pointer lifts and takes the orange hover outline.
 highlight = "#e69f00"
 highlight_px = 5
@@ -363,3 +468,230 @@ refuse = "#f4a27c"
 track = "#efdcb4"
 handle = "#9a6a3a"
 handle_active = "#7a4e2a"
+# Motion: short and calm. Panels fade in over a sixth of a second with a small rise and
+# fade out a little quicker; a button lifts a pixel and a half under the pointer and
+# sinks as much when pressed; a changed amount flashes pale gold for half a second.
+motion_in = 0.16
+motion_out = 0.12
+motion_slide = 8
+hover_lift = 1.5
+press_sink = 1.5
+cue_time = 0.5
+flash = "#ffe9a6"
+
+# Status: the HUD chip, top right. Dark ink, lantern-gold border.
+[screen.looks.chip]
+fill = "#2a1a2e"
+text = "#ffffff"
+border = "#f2b43c"
+border_px = 2
+radius = 12
+pad = 12
+shadow = 4
+flash = "#5a4466"
+
+# A key hint: a dark ink pill with a thin gold frame, quieter than the chip.
+[screen.looks.pill]
+fill = "#2a1a2e"
+text = "#ffffff"
+border = "#c9963a"
+border_px = 1
+radius = 22
+pad = 10
+
+# A place: the room panel, parchment with an ink frame and a soft shadow.
+[screen.looks.place]
+fill = "#f7e8c8"
+text = "#000000"
+border = "#2a1a2e"
+border_px = 2
+radius = 14
+pad = 16
+shadow = 6
+
+# A place's heading: large and heavy.
+[screen.looks.heading]
+text = "#000000"
+weight = 700
+
+# The trade table: a lighter sheet inside the place panel, one row per ware.
+[screen.looks.table]
+fill = "#fff4dd"
+text = "#000000"
+border = "#c9a878"
+border_px = 1
+radius = 8
+pad = 8
+
+# A table's column heads: small, heavy and ruled.
+[screen.looks.column]
+text = "#000000"
+weight = 700
+underline = "#2a1a2e"
+
+# A receipt: a dark ticket for what was given and got.
+[screen.looks.ticket]
+fill = "#2a1a2e"
+text = "#ffffff"
+border = "#2a1a2e"
+border_px = 0
+radius = 6
+pad = 10
+flash = "#5a4466"
+
+# The tag on a receipt: gold, black capitals.
+[screen.looks.confirmed]
+border_px = 0
+fill = "#f2b43c"
+text = "#000000"
+weight = 700
+radius = 4
+pad = 4
+
+# A notice: a place changed. Sky blue tag, so it never reads as a receipt.
+[screen.looks.notice]
+border_px = 0
+fill = "#8fcdef"
+text = "#000000"
+weight = 700
+radius = 4
+pad = 4
+
+# The log button's "N new": blue, white words (direction doc 9).
+[screen.looks.new]
+border_px = 0
+fill = "#0072b2"
+text = "#ffffff"
+weight = 700
+radius = 4
+pad = 4
+
+# A kind word on a log line (JOB, OFFER, VISIT, FLIGHT): ink capitals on a cream tag.
+[screen.looks.kind]
+border_px = 0
+fill = "#efdcb4"
+text = "#000000"
+weight = 700
+radius = 4
+pad = 4
+
+# Speech: a white bubble with an ink frame.
+[screen.looks.bubble]
+fill = "#ffffff"
+text = "#000000"
+border = "#2a1a2e"
+border_px = 2
+radius = 14
+shadow = 4
+
+# The speaker's name: an amber tag over the bubble, black and heavy.
+[screen.looks.name_tag]
+border_px = 0
+fill = "#f2b43c"
+text = "#000000"
+weight = 700
+radius = 6
+pad = 4
+
+# A name in running text: heavy, with an amber rule under it.
+[screen.looks.name]
+text = "#000000"
+weight = 700
+underline = "#b07800"
+
+# A quieter word beside a name (a role, a place).
+[screen.looks.quiet]
+text = "#000000"
+weight = 400
+
+# A keeper's name sign: lantern gold with an ink frame.
+[screen.looks.sign]
+fill = "#ffcf6b"
+text = "#000000"
+border = "#2a1a2e"
+border_px = 2
+radius = 8
+
+# A world label (a trader or station name in flight): a small dark tag.
+[screen.looks.label]
+border_px = 0
+fill = "#2a1a2e"
+text = "#ffffff"
+weight = 600
+radius = 6
+pad = 4
+
+# Buttons. Primary is the base mustard (no look needed). Secondary is parchment with an
+# ink frame, for "Back", "Close", paging and quiet choices. Resting is the base resting
+# button (resting = "<reason>" on a button).
+[screen.looks.primary]
+fill = "#f2b43c"
+text = "#000000"
+border = "#2a1a2e"
+border_px = 2
+radius = 10
+hover = "#ffcf6b"
+
+[screen.looks.secondary]
+fill = "#fff4dd"
+text = "#000000"
+border = "#2a1a2e"
+border_px = 2
+radius = 10
+hover = "#f7e8c8"
+
+# A dark button on a dark surface (the radio's controls).
+[screen.looks.dark_button]
+fill = "#3d2c44"
+text = "#ffffff"
+border = "#c9963a"
+border_px = 1
+radius = 10
+hover = "#5a4466"
+
+# The radio: a slim dark strip, quieter than the status chip.
+[screen.looks.radio]
+fill = "#2a1a2e"
+text = "#ffffff"
+border = "#5a4466"
+border_px = 1
+radius = 12
+pad = 8
+shadow = 3
+flash = "#5a4466"
+
+# A warning: pale vermilion with a vermilion frame and black words.
+[screen.looks.warning]
+fill = "#fde3d3"
+text = "#000000"
+border = "#d55e00"
+border_px = 2
+radius = 8
+pad = 8
+
+# Gain and loss marks: a shape in blue or vermilion beside a black amount.
+[screen.looks.gain]
+text = "#0072b2"
+mark = true
+
+[screen.looks.loss]
+text = "#d55e00"
+mark = true
+
+# On a dark surface the same marks in lighter tints, still 3:1.
+[screen.looks.gain_dark]
+text = "#56b4e9"
+mark = true
+
+[screen.looks.loss_dark]
+text = "#ff8a4c"
+mark = true
+
+# Signal bars on the radio: lit gold, unlit dim.
+[screen.looks.lit]
+text = "#f2b43c"
+mark = true
+
+[screen.looks.unlit]
+text = "#7a6683"
+mark = true

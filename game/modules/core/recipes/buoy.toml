@@ -1,0 +1,18 @@
+about = "A lane buoy: a short brass post on a float, its lamp blinking slowly"
+[[part]]
+name = "float"
+shape = "cylinder"
+radius = 0.55
+height = 0.35
+sides = 8
+taper = 0.7
+paint = "#c98f4a"
+[[part]]
+name = "post"
+shape = "beacon"
+height = 1.4
+at = [0, 0, 0.3]
+paint = "#3a2d5c"
+accent = "#e7b15a"
+pulse = 2.4
+pulse_low = 0.15

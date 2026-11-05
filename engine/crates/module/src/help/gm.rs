@@ -688,7 +688,7 @@ pub static COMMANDS: &[Command] = &[
         synopsis: "[style | components | manifest | inputs | spec | recipe] [--component <name>] \
                    [--modules <dir>]",
         answers: "Which keys and fields exist, with their types, defaults and ranges? For \
-                  style.toml, the engine's components (and a module's own), manifest.toml, \
+                  style.toml, the engine's components (and a module's own), manifest.toml, audio.toml, \
                   inputs files, motion check specs and model recipes (every shape and its \
                   keys).",
         about: "Generated from the engine's own definitions, so it is what this build \
@@ -696,7 +696,7 @@ pub static COMMANDS: &[Command] = &[
         args: &[
             (
                 "[topic]",
-                "style, components, manifest, inputs, spec or recipe",
+                "style, components, manifest, audio, inputs, spec or recipe",
             ),
             (
                 "--component <name>",
@@ -1739,7 +1739,7 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "audio",
         title: "Module sound, music and place ambience",
-        about: "audio.toml declares [sounds.NAME] with file and volume (0..1); WAV, Ogg Vorbis or MP3. [[events]] uses event, sound, bus (sound one-shot or music loop) and fade seconds. [places] maps place IDs to ambience sounds. crossfade defaults to 1 s. Per-sound loop_crossfade defaults to 2 s, disabled for clips shorter than four fades; use 0 for prepared loops. Stop a bus with stop=true and no sound. Cues follow recorded facts; use a separate event for key-down cues. A resumed save replays no earlier cue: an on['engine.resumed'] handler records the music event again. Music replaces music; player location chooses ambience. Audio stays outside world hashes. Binary assets remain on disk; no device means silent play with a note. The mixer owns 32 voices, ramps and resampling. Numeric tools run locally; only judge calls a model.",
+        about: "audio.toml declares [sounds.NAME] with file and volume (0..1); WAV, Ogg Vorbis or MP3. [[events]] uses event, sound, bus (sound one-shot or music loop) and fade seconds. [places] maps place IDs to ambience sounds. crossfade defaults to 1 s. Per-sound loop_crossfade defaults to 2 s, disabled for clips shorter than four fades; use 0 for prepared loops. Stop a bus with stop=true and no sound. channel='beam' on a sound cue loops it on that named channel until a stop=true cue with the same channel fades it; the same sound again keeps playing. vary_pitch and vary_gain give each cue a small random rate and gain, seeded by the fact's tick and entity. [[follow]] makes a channel's loop (or ambience=true) follow a world value: entity with component and field (a list of fields is a vector length) or distance_to, from..to mapped onto gain=[a,b] and pitch=[a,b], with power and ramp. engine.contact { entity, other, speed } is recorded when bodies start touching at least the manifest's contact_speed; cue a bump on it. galaxy-gm fields audio lists every key. Cues follow recorded facts; use a separate event for key-down cues. A resumed save replays no earlier cue: an on['engine.resumed'] handler records the music event again. Music replaces music; player location chooses ambience. Audio stays outside world hashes. Binary assets remain on disk; no device means silent play with a note. The mixer owns 32 voices, ramps and resampling. Numeric tools run locally; only judge calls a model.",
         tasks: &[
             ("Generate with OpenRouter", "gm music"),
             ("Audio authoring tools", "gm audio"),
@@ -1753,6 +1753,7 @@ pub static TOPICS: &[Topic] = &[
             ("Actual simultaneous bus levels", "gm audio mix"),
             ("Blind description, then semantic fit", "gm audio judge"),
             ("Numeric acceptance", "gm audio check"),
+            ("Every audio.toml key: galaxy-gm fields audio", "gm fields"),
         ],
         recipes: &[Recipe {
             title: "A quiet, smooth background bed",

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- The radio: a set with a speaker grille, a dial and an aerial. -->
+  <path fill-rule="evenodd" fill="currentColor" d="M2 8h20v13H2zM8 10.5a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM8 12.5a2 2 0 1 1 0 4a2 2 0 1 1 0-4zM14.5 11v2h5v-2zM14.5 15v3.5h5V15z"/>
+  <path fill="currentColor" d="M6 6.6L18.6 1.8l0.7 1.8L10.8 7H6z"/>
+</svg>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Dock: an arrow coming down into an open berth. -->
+  <path fill="currentColor" d="M2 11h3v7.5h14V11h3v10.5H2z"/>
+  <path fill="currentColor" d="M10.5 1.5h3v8h3.5L12 15.5 7 9.5h3.5z"/>
+</svg>

@@ -50,7 +50,38 @@ event = "music_stopped"
 bus = "music"
 stop = true                    # omit sound when stopping a bus
 fade = 0.5
+[[events]]
+event = "beam_on"
+sound = "hum"
+channel = "beam"               # loop on this named channel of the sound bus
+fade = 0.3
+[[events]]
+event = "beam_off"
+channel = "beam"
+stop = true                    # fades only that channel
+fade = 0.3
+[[events]]
+event = "chip"
+sound = "ping"
+vary_pitch = 0.05              # rate 1 +/- 0.05, 0..0.5
+vary_gain = 0.2                # gain 0.8..1, 0..1
+
+[[follow]]                     # a channel's loop, or ambience = true
+channel = "beam"
+entity = "ship"                # local or full entity ID
+component = "engine.motion"
+field = ["vx", "vy"]           # one field, or a vector's length
+# distance_to = "beacon"       # instead of component and field
+from = 0.0
+to = 14.0                      # from above to runs the curve backwards
+gain = [0.4, 1.0]              # 0..1, times the cue's volume
+pitch = [0.8, 1.6]             # 0.25..4
+power = 1.0                    # curve shape, 0.1..10
+ramp = 0.1                     # seconds each change glides, 0..10
 ```
+
+`galaxy-gm fields audio` lists every key with its range and default, from the table the
+parser is tested against.
 
 Any new matching fact triggers a cue, including input facts and script-recorded facts.
 Scripts can use the existing `ctx.record("pressed", {})`. Keyboard bindings produce
@@ -58,7 +89,38 @@ both down and up facts: a handler can record a separate sound event only on down
 the test module does. Every event kind must already be declared in a loaded manifest
 or by the engine. Multiple mappings may react to the same event, in module and table
 order. A music cue crossfades from the previous music, even when retriggering the same
-clip. Sound cues overlap. Stop fades all voices on that bus.
+clip. Sound cues overlap. Stop fades all voices on that bus, channel loops included.
+
+**Channel loops.** A sound cue with `channel` loops its sound on that channel of the sound
+bus (so it is in the effects stem and follows the sound bus volume) until a `stop = true`
+cue on the same channel fades it out. A held action therefore sounds from its start and
+end facts, not from a repeating clip: a mining beam starts with the beam. The same sound
+cued again on a playing channel keeps playing and only moves toward the new volume;
+another sound crossfades over the cue's fade. Channel names are local to the module, and
+all modules together have at most 32. Like music, a channel loop doesn't come back on its
+own after a resume or a hot-load: the module records its start event again.
+
+**Variation.** `vary_pitch` and `vary_gain` give each cue its own rate (1 ± `vary_pitch`)
+and gain (1 - `vary_gain` up to 1, so never louder than declared). The draw is a hash of
+the fact's tick, its payload's `entity`, the event kind and the cue's place in the table:
+the same fact sounds the same in live play, `galaxy audio` and `audio mix`, on every OS,
+and the simulation's random streams are never touched.
+
+**Following a world value.** Each `[[follow]]` reads one number after every tick: a
+field of a component on an entity, the length of a vector of fields, or the distance
+between two entities' `engine.position`. Its place between `from` and `to` (clamped,
+then raised to `power`) picks gain and rate linearly between the pairs. Several curves on
+one loop multiply. The audio scene sends a change only when the result moved, and the
+mixer glides there over `ramp` seconds, so a value scripts set once a second still sounds
+smooth. `field = "vx"` reads the signed value; a list, even `["vx"]`, reads its length.
+`check` rejects a component or field the loaded modules don't declare, or one that isn't
+a number, since a typo would leave the loop silently at `from`. While the game runs, a
+missing entity or a field with no value counts as `from`. Ambience follows apply to
+whichever ambience is playing, through crossfades.
+
+**Contacts.** The collide service records `engine.contact` (`entity`, `other`, `speed`)
+when two bodies start touching (`flight-and-collision.md`). A module asks for it with
+`contact_speed` in its manifest and cues a bump on it like any fact.
 
 The marked `engine.being.player` selects an `engine.location.place`. That exact place
 picks an ambience; parents are not searched. Places with no mapping, or worlds with
@@ -90,6 +152,13 @@ to whole cycles, and starting the next pass early would put them out of phase. A
 loop cut to whole bars sets `loop_crossfade = 0` to keep its beat. The crossfade is a
 second read of the same frames and a multiply, so the callback still allocates nothing.
 
+A voice's rate is the clip's rate over the output rate, times its own cue variation and,
+for channel loops and ambience, the rate its follow curve set. `Action::Tune` sets a gain
+and rate ramp per channel (and one for the ambience) that every voice there multiplies
+in; the ramps are a fixed array of 33 pairs, so tuning allocates nothing in the callback.
+`Action::ResetTunes` puts them back to 1 when a hot-load brings a new bank, whose curves
+tune again from its first update.
+
 Ramps advance once per output sample, reaching their target in the requested number
 of frames. New voices and stopped voices have at least a 5 ms edge ramp, and effects
 fade over their final 5 ms. Crossfades are linear: old and new gains sum to one for
@@ -98,7 +167,8 @@ equal-volume clips. Rapid changes keep outgoing fades running to completion.
 The master starts at 0.7 and the three bus gains at 1. `Action::Volume` adjusts a bus
 or the master, with a ramp. Gains and decoded clip volume multiply. At most 32 voices
 exist: a new voice steals the oldest effect first, otherwise the quietest loop. There
-is no spatialization, priority language or virtual voice subsystem. A final clamp
+is no spatialization, priority language or virtual voice subsystem. Channel loops count as
+loops for stealing. A final clamp
 protects output [-1, 1]; offline `limited_samples` reveals mixes that hit it. Authors
 should lower clip volumes until that count is zero rather than rely on the clamp.
 
@@ -156,6 +226,20 @@ loop; S fades it out over half a second. Buttons do the same. The scripted run p
 at seconds 1 and 4, changes ambience at seconds 2 and 8, starts music at second 5,
 and stops it at second 7. The first second fades the initial ambience in.
 
+`engine/tests/play/loops/hum` shows the newer cues: W thrusts a ship into a fixed rock;
+the 110 Hz engine hum loops on its own channel from the start with pitch 0.8 at rest and
+1.6 at top speed, B holds a 330 Hz beam on a second channel, Space plays an 880 Hz ping
+that varies ±10% in rate, the bump plays on `engine.contact`, and the bay's ambience
+fades with the ship's distance from its start. `engine/tests/play/loops-inputs.toml` holds
+the beam from 1 to 6 s, pings three times and thrusts at 7 s. `galaxy-gm audio mix` of
+that run with `--stems` measured the beam's effects-stem level at -22.1 dBFS in every
+half second from 1.0 to 6.0 s and gone after the 0.3 s fade, the hum at 88 Hz at rest and
+176 Hz at speed, three pings at 1.066, 1.032 and 1.041 times 880 Hz at levels 2.5 dB
+apart, one contact at the rock, and the ambience 10.7 dB down 17 units out (gain 0.29 of
+0.25..1), with no limited samples. `crates/audio/tests/loops.rs` checks the same from the
+rendered PCM and that the world's hash is the same with and without `audio.toml`. Its
+sounds are made by `python engine/tests/play/loops/hum/generate.py`.
+
 `galaxy audio` creates a new stereo 48 kHz 16-bit PCM WAV and reports peak, RMS,
 limited samples, voice counts and world hash. It never opens a window or device.
 Its options and limits are in `galaxy audio --help`.
@@ -188,6 +272,13 @@ facts would need no module code, but a cue chosen from world state rather than f
 fact can't be read back; the `engine.resumed` event lets the module that chose the music
 choose it again. A separate script sound command would require new presentation command and
 replay plumbing; an event table reuses facts already present and works headless.
+A loop that restarts a short clip on each repeating fact relies on the fact's cadence
+and starts with the first result rather than the action; a channel started and stopped
+by facts sounds exactly as long as the action. Following values in Luau would mean
+per-frame script work or once-a-second steps; reading a field in the audio scene after
+each tick and gliding in the mixer costs nothing in the sim. Variation drawn from the
+world's random streams would change world hashes whenever a sound is added; a hash of
+the fact keeps sound presentation-only and still repeatable.
 An ambience field on a world component would put presentation choices into saves and
 hashes; a place-ID table keeps them in module presentation data. Predecoding is simple
 and keeps I/O off the callback; streaming large music is unnecessary for this prototype.

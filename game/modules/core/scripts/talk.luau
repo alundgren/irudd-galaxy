@@ -65,6 +65,9 @@ return {
             sign(ctx, open and ctx.get(talk, "engine.talk").speaker or nil)
             if not open then voices.retire(ctx) end
             local quoted = "\u{201C}" .. said.text .. "\u{201D}"
+            -- An offer once said stays pinned in the log until it is answered (log.pinned).
+            local gift = ctx.get(talk, "gift")
+            if gift and not gift.heard then ctx.patch(talk, "gift", { heard = true }) end
             local id, entry = heard(ctx, talk)
             if logged(ctx, talk, quoted) then
                 if id and not open then ctx.patch(id, "entry", { open = false }) end
@@ -89,8 +92,9 @@ return {
             if gift and not gift.answered then
                 local hold = ctx.get("ship", "hold")
                 local taken = choice == gift.take and fit.hold(ctx) - rules.load(hold) >= gift.units
-                if taken or choice ~= gift.take then
-                    ctx.patch(talk, "gift", { answered = true })
+                local over = taken or choice ~= gift.take
+                ctx.patch(talk, "gift", { answered = over, heard = true })
+                if over then
                     if not open then
                         ctx.patch(talk, "engine.talk", { enabled = false })
                         ctx.patch(gift.instead, "engine.talk", { enabled = true })

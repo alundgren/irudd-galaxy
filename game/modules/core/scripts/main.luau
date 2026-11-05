@@ -255,12 +255,16 @@ local function cut(ctx, pilot)
     if amount <= 0 then return end
     local load = rules.load(hold) + amount
     local left = ore.left - amount
-    ctx.patch("ship", "hold", { ore = hold.ore + amount })
+    -- Each rock yields its own ware: ore, ice or glassite.
+    local ware = ore.ware ~= "" and ore.ware or "ore"
+    ctx.patch("ship", "hold", { [ware] = (hold[ware] or 0) + amount })
     ctx.patch(rock, "ore", { left = left })
-    ctx.patch(rock, "engine.model", { morph = (ore.total - left) / ore.total })
+    -- The rock shrinks as it is mined; one with stages also changes model as it goes,
+    -- so its crystals break off, and one left empty wears its `empty` model (rules.stage).
+    ctx.patch(rock, "engine.model", rules.worn(ore, left))
     ctx.record("mined", { rock = rock, units = amount })
     ctx.patch("ship", "pilot", { cut_work = rest, cut_from = ctx.tick, gained = pilot.gained + amount, away = true,
-        message = "+" .. amount .. " ore · hold " .. load .. " of " .. capacity })
+        message = "+" .. amount .. " " .. ware .. " · hold " .. load .. " of " .. capacity })
     if left > 0 then
         -- The unit itself: a fistful of stone breaks off the cut and flies to the ship.
         local lx, ly, back = cutter.landing(ctx, rock)
@@ -284,14 +288,21 @@ local function cut(ctx, pilot)
         local lines = {}
         local others = {}
         if left <= 0 then
+            -- The count is of rocks holding this rock's ware; the rig moves on to any.
+            local alike = 0
             for _, id in cutter.rocks(ctx) do
-                if id ~= rock then table.insert(others, id) end
+                if id ~= rock then
+                    table.insert(others, id)
+                    local o = ctx.get(id, "ore")
+                    if (o.ware ~= "" and o.ware or "ore") == ware then alike += 1 end
+                end
             end
-            table.insert(lines, "Rock cut down to pebbles. " .. (#others > 0 and #others .. " more " .. (#others == 1 and "rock holds" or "rocks hold") .. " ore."
-                or "That was the field's last ore for now; fresh stone drifts in while you're docked."))
+            table.insert(lines, "Rock cut down to pebbles. " .. (alike > 0 and alike .. " more " .. (alike == 1 and "rock holds" or "rocks hold") .. " " .. ware .. "."
+                or "That was the field's last " .. ware .. " for now; fresh stone drifts in while you're docked."))
         end
         if full then
-            local now = { ore = hold.ore + amount, plate = hold.plate, rations = hold.rations }
+            local now = table.clone(hold)
+            now[ware] = (now[ware] or 0) + amount
             -- The `hold_full` fact itself is sound.luau's, from the `mined` that filled it.
             table.insert(lines, "Hold full: " .. rules.list(now) .. " aboard.")
         end
@@ -357,7 +368,7 @@ return {
                     if ore.left <= 0 then
                         local left = rules.regrow(ore.left, ore.total)
                         ctx.patch(id, "ore", { left = left })
-                        ctx.patch(id, "engine.model", { morph = (ore.total - left) / ore.total })
+                        ctx.patch(id, "engine.model", rules.worn(ore, left))
                     end
                 end
             end

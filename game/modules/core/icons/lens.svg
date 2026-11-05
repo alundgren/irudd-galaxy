@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- The cutting lens: a ring of glass on a mount, with a glint. -->
+  <path fill-rule="evenodd" fill="currentColor" d="M12 1.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17zM12 4.3a5.7 5.7 0 1 0 0 11.4a5.7 5.7 0 1 0 0-11.4z"/>
+  <path fill="currentColor" d="M9.3 6.6l2.2 0.6-2.6 4-1.7-0.8zM9 18h6l1.5 4.5h-9z"/>
+</svg>

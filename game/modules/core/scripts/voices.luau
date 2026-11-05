@@ -6,11 +6,12 @@ local fit = require("./fit")
 
 local voices = {}
 
--- Ore still in the field's rocks.
+-- Ore still in the field's ironstone (ice and glassite are other wares).
 function voices.field(ctx)
     local left = 0
     for _, id in ctx.query("ore") do
-        left += ctx.get(id, "ore").left
+        local rock = ctx.get(id, "ore")
+        if rock.ware == "ore" or rock.ware == "" then left += rock.left end
     end
     return left
 end

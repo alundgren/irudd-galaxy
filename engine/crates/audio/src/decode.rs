@@ -47,6 +47,10 @@ impl Clip {
         };
         self
     }
+    /// Whether both share one decoded buffer: the same sound of the same bank.
+    pub(crate) fn same_frames(&self, other: &Clip) -> bool {
+        Arc::ptr_eq(&self.frames, &other.frames)
+    }
     pub fn loop_crossfade_frames(&self) -> usize {
         self.seam
     }

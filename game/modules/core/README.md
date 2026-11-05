@@ -2,18 +2,19 @@
 
 Every change here follows [the direction doc](../../docs/direction.md); compare your screenshots with its reference images.
 
-Fly a small tug, cut ironstone from three solid rocks, dock at either of two
-stations and sell it, then trade between them: Cinder Kiln turns ore into plate,
+Fly a small tug, cut ironstone, ice and rare glassite from the rocks of the reach, dock
+at either of two stations and sell it, then trade between them: Cinder Kiln turns ore into plate,
 and Lantern Dock wants plate to build a galley. Once the galley is built, its
 cook sells rations that the Kiln's crews buy. The hold takes six units of any
 mix. At the Kiln's fitting cradle, Orrin fits parts bought with what you earn: a
 lens that mines faster, pods for a bigger hold and thrusters for a higher top
-speed, within the hull's power and mass. Two traders fly their own routes between
-the stations while you work, and in flight the radio plays each station's channel
+speed, within the hull's power and mass. Five traders fly their own routes across
+the reach while you work, and in flight the radio plays each station's channel
 over the tug's quiet hum. Out in the reach the rocks turn slowly, the stations' rings
-turn and their lamps breathe, and the stars drift in layers as you fly. The field is
-small (36 ore), and a rock cut down to pebbles grows back to half on your next counted
-visit to a station; there is no timed objective.
+turn and their lamps breathe, steam drifts off the stacks, and the stars drift in layers
+as you fly. The field holds 84 ore, 100 ice and 9 glassite, and a rock cut down to
+pebbles grows back to half on your next counted visit to a station; there is no timed
+objective.
 
 You fly, aim, cut and dock by hand: fly up to a rock, point the nose at it and hold
 Space, and the cutter's beam bites, chips fly back up it, and each unit lands in the hold
@@ -22,10 +23,11 @@ take you in. Two controls are earned at the cradle and change what a press does:
 docking jets fly you into a berth from anywhere, and the reach rig flies out to a rock and
 cuts it from sixteen units off, aiming itself. The hand controls never go away.
 
-Use installed engine/GM 0.8.0 or newer: it has the engine's effects (beams, particles,
-halos and camera feel), which no 0.7.0 release has. This version was verified with
-`0.8.0-aa24600ae2cd-dev`; an older engine is refused with how to install a newer one. No
-engine build is needed.
+Use installed engine/GM 0.8.0 or newer: the screen kit needs its named looks, rich
+text spans, drawn icons and UI motion, and the world needs the effects (beams,
+`engine.emitter`, `[particles.*]`, halos and camera feel), which no 0.7.0 release has.
+This version was verified with `0.8.0-aa24600ae2cd-dev`; an older engine is refused with
+how to install a newer one. No engine build is needed.
 
 ```sh
 galaxy play --modules game/modules
@@ -127,10 +129,21 @@ every mining spot stays where it is; a rock only turns slowly in place. A script
 engine's finished `hold` keeps it there while the rock is cut smaller and turns; the reach
 rig holds nine units off instead.
 
-Two traders work the reach (`scripts/traffic.luau`): Little Mercy, a hauler, runs
-along the south between moorings off Lantern Dock's and Cinder Kiln's far sides, and
-Quiet Lamp, a lamp launch, flies the long way round the north of the field between
-the stations' outer sides. Each flies its leg's waypoints without stopping, docks
+Five traders work the reach (`scripts/traffic.luau`), each its own hull and livery:
+
+- Little Mercy, a hauler, runs along the south between moorings off Lantern Dock's and
+  Cinder Kiln's far sides.
+- Quiet Lamp, a lamp launch, flies the long way round the north of the field between the
+  stations' outer sides.
+- Tern, a courier, runs the buoyed lane straight across the reach (x = 5, north to
+  south), crossing the player's runs between the berths and the ore. It rests at the
+  north buoys first and sets off about half a minute in.
+- Cold Kettle, an ice barge, hauls slowly from the ice camp beyond the west drift to a
+  mooring off Lantern Dock's south-west.
+- Pell's Luck, a prospector's tug, runs from the glassite out north-east to a mooring off
+  Cinder Kiln's far east side.
+
+ Each flies its leg's waypoints without stopping, docks
 onto its mooring facing the station, waits there eight seconds and flies back.
 Their routes and moorings keep clear of the rocks and the player's berths, so they
 never block a mining spot or a berth. They don't trade: markets move only on the
@@ -152,14 +165,68 @@ third of a second after the turn ends. The mining approach parks 0.004 units fro
 rock's surface and stays within 0.05 of it for the whole hold (12.9 seconds, six cuts,
 the rock turning), ending 0.004 away.
 
+## The field and the sky
+
+The reach is laid out in drifts (`start.toml`), each its own material with its own
+silhouette and colour, in several sizes (`engine.model` scale; a bigger rock holds more):
+
+- **The ore drift** round the middle: rust-brown ironstone in three shapes (`rock`, the
+  long `rock_lump` and the blocky `rock_chunk`), seven rocks of 8 to 18 ore. rock1 stays
+  the nearest rock to the start and to both berths, so the first Space finds ore.
+- **The ice drift** out west past Lantern Dock: eight pale mint-cream floes (`ice`, the
+  tall `ice_shard`) with blue-violet shadow faces (`looks.ice`), 8 to 20 ice each.
+- **Glassite**, far out north-east: two dark violet rocks bristling with glowing lilac
+  crystals, 5 and 4 units. As a rock is mined its crystals break off and wear to stumps:
+  `ore.stages` names its four models (`glassite`, `glassite_chipped`, `glassite_worn`,
+  `glassite_stubs`), each taking an equal share of the rock's units, while the rock part
+  they all share keeps shrinking through `engine.model` morph. Once it is empty it becomes
+  `ore.empty`, `glassite_pebbles`: a few dark pebbles with warm glowing caps.
+- Pebbles and ice splinters (`debris`, `debris_ice`) and faint drifting dust
+  (`[particles.dust]` from three `engine.emitter` points) round the drifts: drawn only,
+  never solid, never mined.
+- Lane buoys (`buoy`) blink along the courier's lane and at its moorings.
+- Far off, past where the ship can fly: a ringed planet sunk well below the field (its
+  model sits 60 units down, so it draws behind everything) to the north-west, and a
+  lighthouse on the reach's eastern edge. Both wear `looks.far`: faint ink, two bands and
+  a shadow close to the sky's violet, so they sit back in the haze.
+
+Each rock yields its own ware (`ware` on the `ore` component; ore by default), and Space
+mines the nearest rock with anything left. Ice and glassite are wares like ore: Lantern
+Dock buys ice, Cinder Kiln buys glassite (below). The office and the dockmaster count
+ore only.
+
+The sky (`[sky]` in `style.toml`) has 300 stars, mostly tiny, in four parallax layers,
+and 16 soft clouds, mostly violet with rose, amber and teal patches.
+
+The stations read as harbours, each in its owner's shape language:
+
+- **Lantern Dock** (`recipes/station.toml`) is round and hand-built: a turning spoked
+  ring with eight lamps, a three-tier core under a lantern cap, a greenhouse dome
+  glowing leaf-green, a green water tank, four lantern posts round the ring, a mast with
+  pennants, a banner on the core, and a dock arm with a lamp string, a crate pile and a
+  barrel. A little steam rises off its kettle cap.
+- **Cinder Kiln** (`recipes/kiln_station.toml`) is square and ordered: a still brass quay
+  frame, four deep-red kilns whose mouths glow round a tall chimney that breathes steam,
+  a fan turning on the stack, corner lamp posts with red banners, a tank farm, and a
+  dock arm with a toll gate and crates in neat rows.
+
+Both are drawn at 1.35 times their model's size. Their collision outlines stay clear of
+the berths and the traders' moorings: Lantern Dock reaches 7.3 units to the front and
+sides and 12.4 back along its dock arm, Cinder Kiln 5.6 and 12.2.
+
+Lamps, windows and engines glow (`halo` on the station, ship, buoy, glassite and far
+looks). Every ship leaves a short trail while it flies (`engine.emitter` with
+`[particles.exhaust]` on the player's ship, `[particles.wake]` on the traders), and
+steam (`[particles.steam]`) is cream cel puffs that swell and drift off.
+
 ## The reach moves on its own
 
 With nothing pressed the reach is never quite still, and everything that moves on its
 own is slow and quiet beside what you can act on:
 
-- **Rocks** turn where they float (`engine.spin` in `start.toml`: 3, -4 and 2.5 degrees
-  a second) and never drift, so every mining spot stays put. Their solid outline turns
-  with them, and the engine's `hold` keeps a parked ship on the turning surface.
+- **Rocks** turn where they float (`engine.spin` in `start.toml`: 1.5 to 6 degrees a
+  second, either way) and never drift, so every mining spot stays put. Their solid outline
+  turns with them, and the engine's `hold` keeps a parked ship on the turning surface.
 - **Stations' rings** turn about their hubs (`spin` on the ring part in
   `recipes/station.toml` and `recipes/kiln_station.toml`: Lantern Dock 6 degrees a second
   one way, Cinder Kiln 5 the other), and the ring's lamps breathe between full and 45%
@@ -167,7 +234,10 @@ own is slow and quiet beside what you can act on:
   or 3 seconds (`pulse`, `pulse_low`). Both are drawn only: they change no world state,
   so saves and replays are untouched. The station up close, which is the menu, stays
   still.
-- **Stars** lie in three layers (`star_layers` in `style.toml`): far ones creep behind
+- **Stations** move in their parts: Lantern Dock's lantern posts, lamp string and
+  greenhouse each pulse on their own beat; Cinder Kiln's fan turns, its kiln mouths glow
+  and its corner lamps and toll-gate lamp pulse; steam drifts off both.
+- **Stars** lie in four layers (`star_layers` in `style.toml`): far ones creep behind
   near ones as the ship flies.
 
 Measured on films with nothing pressed (`galaxy film`, then the motion tools): rock1
@@ -181,9 +251,11 @@ and 1.05-1.15 pixels per world unit, the three layers.
 
 Each station broadcasts a channel (`channel` lines in `start.toml`): Lantern Dock
 radio and Cinder Kiln radio, each reaching 80 units, with full signal within the inner
-30% of that. In flight the radio sits at the bottom right: the channel's name, its
-signal as bars and a word that always agree (`|··  Faint`, `||·  Fair`, `|||  Strong`),
-the station's line on a ticker, and Prev, Off (On when off) and Next · R. Prev and Next
+30% of that. In flight the radio is a slim dark strip at the top left, out of the
+work area round the ship: the radio icon and the channel's station, its signal as
+gold bars and a word that always agree (one lit bar `Faint`, two `Fair`, three
+`Strong`), Prev, Off (On when off) and Next · R beside them, and the station's line
+on a ticker under them, which flashes softly when it changes. Prev and Next
 step through the channels in range and then Off; their look never changes. Docked, the
 radio hides and its music fades out under the station's own sound. Reopen a save
 taken in flight and the tuned channel's track fades in again on its own.
@@ -297,8 +369,8 @@ bubble always shows whose words it holds. Station names and room names never sha
 
 ## Trade, prices and the galley
 
-Lantern Dock buys ore and plate; Cinder Kiln buys ore and rations and sells
-plate; the galley, once built, sells rations (`market` lines in `start.toml`).
+Lantern Dock buys ore, ice and plate; Cinder Kiln buys ore, glassite and rations
+and sells plate; the galley, once built, sells rations (`market` lines in `start.toml`).
 Every line has a base price, a target stock and a rate. The price of each unit
 is the base raised while stock is short of target and lowered while it is over,
 by half the shortfall, within 70% to 130% of base (`scripts/rules.luau`). A
@@ -399,32 +471,90 @@ is full the offer waits, unanswered, and she says her everyday line instead.
 
 Each conversation you hear is one ship log entry that names the speaker and the
 station, with the lines quoted in order and any answer you gave (`You: Take it.`),
-even when something else is logged while you are still listening. A line already in the log isn't logged again. The log says it lists newest first.
+even when something else is logged while you are still listening. A line already in the log isn't logged again.
+
+The ship log (`scripts/log.luau` keeps the entries, `scripts/logbook.luau` draws it)
+is a small book button at the bottom left (`Log`, with a blue `N new` tag when
+something came in since you last looked); L or the book opens it at the top left.
+Pinned at the top is what is still waiting: an offer you heard and haven't answered
+(`OFFER`, under who made it and where, with its answers) and what a station you have
+docked at is building from your deliveries (`WANTED`: `3 of 10 plate in`). Pins
+outlast the 60 entries the log keeps: a heard offer is marked on its gift (`heard`),
+and a building's station counts its visits. Below, newest first, is one row per
+visit: `VISIT` (or `HERE` for the one going on now) with the station and Lines, then
+one short line of who you heard and what happened, each thing in its first few words
+and what doesn't fit counted (`Ines Varga · sold 6 ore +2 more`, at most 38
+characters). Every docking is a visit of its own, even back at the same station with
+nothing logged in between: the launch's entry ends the visit (`leaves` on `entry`).
+What happened in flight between two dockings is a `FLIGHT` line. Lines opens a visit
+to show its entries in full and in order, and Hide closes it. Each entry remembers
+where the ship was (`at` on `entry`), and the docking's own entry already belongs to
+the station it docks at. The open log is 380 pixels wide, so at 960x540 it ends short
+of the ship mid-window, moored or flying.
 
 ## Screens
 
-The screens follow the direction doc's screen language (`style.toml`), all with pure
-black text on light surfaces: parchment panels with a warm ink border and rounded
-corners for rooms, the status chip, the station plate, the log, the radio and the hint
-strip; mustard for anything you can press or pick up (signs, the key, Sell,
-Back, Launch, the log button, the part cards); the panel with a dashed frame for a
-button that rests; white bubbles for speech; lantern-gold name signs on the people who
-speak; and cream paper for loose labels. Status sits top right with credits first, the
-small log button (`Log · L`) bottom left, the station plate top left when docked
-(the station's name, `Unclaimed`, as no faction holds a core station yet, and `Docked
-here`), the radio bottom right in flight, and one strip at the bottom in flight: the
-latest message and the one key that fits where the ship is. The status chip shows the
-units the beam has brought in this cut (`+2`) beside the hold. In flight each
-station wears its name under it while it is in view, a `yield` label like the
-traders'. A trading room is a table with the columns Ware, Price each, Stock and Hold,
-each good's verbs under its row. Each log entry carries its kind as a word (`TALK`,
-`SHIP`), and each receipt a `CONFIRMED` tag. Amounts are black like all text; a gain
-or a loss shows by its sign and its word (`Paid`, `Spent`). The engine's screen style
-has one panel surface and one text colour, so the dark status chip and hint strip of
-the direction wait on the engine, and so do a book icon for the log button, an amber
-name mark on bubbles and a blue or vermilion mark beside an amount. Prices and stock are plain text, never
-buttons, and so are the fitting room's labels (`Empty`, `On the ship`, the sockets'
-names).
+The screens follow the direction doc's screen language through one kit: the looks in
+`style.toml` (`[screen]` and `[screen.looks.*]`), the drawn icons in `icons.toml` and
+`icons/`, and `scripts/kit.luau`, which every script uses to build a surface of a
+kind. Each kind of thing has its own look, so a glance tells them apart:
+
+| Kind | Look | Kit call |
+| --- | --- | --- |
+| Status (the HUD chip) | dark ink, lantern-gold border, white text | `kit.chip(ui, w)` |
+| A key hint | dark ink pill, thin gold frame | `kit.pill(ui, w)` |
+| A place (a room panel, the open log) | parchment, ink frame, soft shadow | `kit.place(ui, w)` |
+| A place's title | large and heavy | `kit.heading(ui, w)` |
+| The trade table | a lighter sheet in the place, ruled column heads | `kit.sheet(ui, w)`, `kit.heads(ui, { { "Ware", 160 }, ... })` |
+| A receipt | dark ticket with a gold `CONFIRMED` tag (or a sky-blue `NOTICE`) | `kit.ticket(ui, w, tag)` |
+| Speech | white bubble with an ink frame, the name on an amber tag | the engine's bubbles get it from `bubble_look`; `kit.bubble(ui, w)` for a panel |
+| A kind word (`JOB`, `OFFER`, `VISIT`) | ink capitals on a flat cream tag | `kit.tag(ui, word, w)` |
+| Buttons | primary mustard; secondary parchment; dark on the radio; resting dashed with its reason | `kit.button(ui, w, "primary" / "secondary" / "dark")`, `resting = "<reason>"` |
+| A warning | pale vermilion, vermilion frame, warning icon | `kit.warning(ui, w)` |
+| A gain or a loss | a black amount with a blue `+` or vermilion `-` mark (lighter tints on dark) | `spans = kit.amount(64, "cr")`, `kit.amount(n, unit, true)` on dark |
+| A name and a role | the name heavy with an amber rule, the role quieter | `spans = kit.name("Tova Reyes", "Exchange keeper")` |
+| A world label | a small dark tag | `kit.label(ui, w)` |
+
+Each builder takes the screen's `ui` and a widget table, sets the kind's look and
+returns the widget, so every other widget property still works; `kit.LOOK` names the
+looks and `kit.SIZE` the text sizes (title 28, heading 20, body 18, small 16). Icons:
+`book`, `credits` (a painted coin), `hold`, `ore`, `plate`, `rations`, `power`, `mass`,
+`dock`, `radio`, `back`, `prev`, `next`, `switch`, the parts `lens`, `pods`,
+`thrusters` and `controls`, and `warning`, `up`, `down`, `check`, `ship`, `station`,
+`pin`. All but the coin take the ink of what they sit in. `kit.ware(ware)` and
+`kit.part(socket)` give a ware's or a socket's part's icon; `kit.icon(ui, name, w)`
+draws one alone. Colours never appear in Luau: a new kind of surface is a new look in
+`style.toml`.
+
+Text is pure black on light and pure white on dark; the state colours of the direction
+doc only mark a shape beside the words. Motion is short and calm (`style.toml`):
+panels fade in over 0.16 s with an 8-pixel rise and out over 0.12 s, a button lifts
+1.5 pixels under the pointer and sinks as much when pressed, and a changed number or
+line (`cue = "flash"`) flashes pale gold, or a lighter plum on dark, for half a second.
+`galaxy play --reduced-motion` settles all of it at once.
+
+Where things sit: the status chip top right (credits with the coin beside the hold
+with the crate, then a row of each ware aboard with its icon; `scripts/chip.luau`
+gives every piece its own width, so all five wares fit and the chip stays two rows
+tall). While the beam cuts, the hold's count reads short (`4/6`, the crate says what it
+is) and the units this cut has brought in sit beside it (`+2`). The log's book sits
+bottom left, the radio top left in flight, the station plate top left when docked (the
+station's name, `Unclaimed`, as no faction holds a core station yet, and `Docked here`),
+and one strip at the bottom in flight: the latest message and the one key that fits
+where the ship is. Rocks and stations are click targets: under the pointer a rock lifts
+and outlines and says what a click does and how much of its ware is left, and a station
+shows its posted prices. In flight each station wears its name under it while it is in
+view, a `yield` label like the traders'. A trading room is a table with the columns Ware, Price each,
+Stock and Hold, each good's verbs under its row, and each receipt a `CONFIRMED` tag.
+Prices and stock are plain text, never buttons, and so are the fitting room's labels
+(`Empty`, `On the ship`, the sockets' names). The rooms, the trade table, the hint
+strip, the station key and the talk around them still wear the base looks; they move
+onto the kit's looks in a later change.
+
+Measured on films of the headless trade route (`tests/trade.inputs`, 145 flight
+frames at each size, probes only): at 1280x720 and at 960x540 the ship is never
+under the radio, the status chip or the log's book (closest 293 and 146 pixels, from
+the radio), and neither is the rock being mined.
 
 ## The look
 
@@ -458,8 +588,8 @@ conversations. Messages report what happened, not how fast it happens.
 
 Each piece of a screen sits against a window edge with a 24-pixel margin
 (`scripts/layout.luau`), so the HUD holds at any window size and display scale:
-the design size is 1280x720 logical pixels, and everything also fits 1024x576
-(1280x720 on a display scaled to 125%). The room cameras frame each keeper so
+the design size is 1280x720 logical pixels, and everything also fits 960x540 (and
+1024x576, 1280x720 on a display scaled to 125%). The room cameras frame each keeper so
 their bubble clears the room's panel at both sizes.
 
 ## Design rules
@@ -573,7 +703,12 @@ can't be paid for, in the wrong socket or short of power doing nothing; the lens
 bought and fitted with one receipt and Orrin's line, taken off (the flight staying
 the locked preset) and fitted again for nothing; the next hold mined two a second; the
 pods making the hold 9, the ship 18 and 162° and its model the podded hull; the pods refused coming off with nine aboard,
-then taken off once sold). Play records
+then taken off once sold). `log-pins.toml` leaves Ines's offer unanswered, then makes
+32 quick launch-and-redock trips: the offer stays marked heard after its entry has
+been dropped, and each launch ends a visit. `tests/log.luau` checks visits (a return
+to the same station with nothing logged between is a new one), the short visit line,
+pins outlasting dropped entries and the open log's width at 960x540, and
+`tests/chip.luau` that every row of the chip fits with all three wares aboard. Play records
 `engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
 give them by hand where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
@@ -715,7 +850,6 @@ key has no news ribbons because nothing at a station changes on its own yet.
 The radio is the thinnest one too: two stations, one track each (an 18- and a
 21-second loop), three lines each, no lane beacons, no static at the edges and no
 news. Its ticker swaps to the next line without a fade, the engine hum doesn't yet
-follow thrust, and the radio shares the status panel's look; each waits on the
-engine. Ines's ration is the only offer so far, and
+follow thrust; each waits on the engine. Ines's ration is the only offer so far, and
 the only thing anyone gives. Further art and pacing changes wait for a human
 playtest.

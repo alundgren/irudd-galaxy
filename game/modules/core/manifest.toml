@@ -2,8 +2,8 @@
 id = "core"
 version = "0.1.0"
 min_engine_version = "0.8.0"
-scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "panel_open", "panel_close", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line"]
+scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "panel_open", "panel_close", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit"]
 writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin", "engine.beam", "engine.emitter", "engine.burst", "engine.camera_feel"]
 
 [components.pilot]
@@ -48,6 +48,8 @@ cleared = "bool"
 # What the hold carries, by ware. Its total is bounded by the hold's capacity.
 [components.hold]
 ore = "int"
+ice = "int"
+glassite = "int"
 plate = "int"
 rations = "int"
 
@@ -64,9 +66,16 @@ mine = "bool"
 [components.blipped]
 line = "id"
 
+# A rock: what is left in it, what it held, and the ware it yields (ore, ice or glassite).
+# `stages`, if given, is the models it wears as it is mined, whole first, separated by
+# spaces: each takes an equal share of the rock's life (rules.stage). `empty`, if given, is
+# the model it wears once nothing is left in it.
 [components.ore]
 left = { type = "int", default = 12 }
 total = { type = "int", default = 12 }
+ware = { type = "text", default = "ore" }
+stages = { type = "text", default = "" }
+empty = { type = "text", default = "" }
 
 [components.port]
 name = "text"
@@ -205,6 +214,8 @@ units = "int"
 take = "id"
 instead = "id"
 answered = "bool"
+# The offer has been said to the player: the log pins it until it is answered.
+heard = "bool"
 
 [components.skiff]
 a = "id"
@@ -216,6 +227,16 @@ text = "text"
 talk = "id"
 # A conversation still being heard: its next lines join this entry.
 open = "bool"
+# The station the ship was at, or "" in flight: the log groups entries into visits.
+at = "id"
+# The ship left the station with this entry: the next one starts a new visit.
+leaves = "bool"
+
+# The ship log's view (scripts/logbook.luau): the visit whose lines are open (its first
+# entry's n, 0 for none) and how many entries had come in when the log was last open.
+[components.logbook]
+visit = "int"
+seen = "int"
 
 # How often the player has used each control; its hint retires after a few uses.
 [components.taught]
