@@ -1,0 +1,20 @@
+# The fit run (galaxy-gm audio check): even with parts bought, fitted and taken off a few
+# ticks apart, the effects stack without reaching the clamp.
+scenario = "fit.toml"
+
+[[expect]]
+value = "buses.sound.integrated_lufs"
+at_least = -30.0
+at_most = -22.0
+
+[[expect]]
+value = "buses.sound.momentary_max_lufs"
+at_most = -16.0
+
+[[expect]]
+value = "playback.sample_peak_dbfs"
+at_most = -3.0
+
+[[expect]]
+value = "limited_samples"
+equals = 0

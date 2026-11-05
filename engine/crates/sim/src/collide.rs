@@ -7,14 +7,15 @@
 //! with a little bounce, so a ship slides along a rock instead of sticking to it, and a
 //! rock it flies into drifts off. Things that don't fly lose `drag` of their speed per
 //! second, so a pushed rock comes to rest. A few passes settle a pile-up; nothing takes
-//! damage.
+//! damage. When a module sets `contact_speed`, a pair that starts touching at least that
+//! fast records `engine.contact`, once until the two come apart.
 
 use std::collections::BTreeMap;
 
-use galaxy_api::engine::{BODY, FLIGHT, MODEL, MOTION, POSITION, TICK_SECONDS};
+use galaxy_api::engine::{BODY, CONTACT, FLIGHT, MODEL, MOTION, POSITION, TICK_SECONDS};
 use serde_json::{Map, Value};
 
-use crate::shape::{Outline, Shapes, overlap};
+use crate::shape::{Outline, Shapes, gap, overlap};
 use crate::world::World;
 
 /// Passes over the pairs each tick.
@@ -25,6 +26,12 @@ const BOUNCE: f64 = 0.2;
 const REST: f64 = 0.01;
 /// A body with radius 0 and no model it can be measured by.
 const FALLBACK_RADIUS: f64 = 0.5;
+/// Two bodies still count as touching while the gap between them is under this share of
+/// the smaller one's reach, so a pair resting together or sliding along each other is one
+/// contact, not a new one each time a push leaves them a hair apart.
+const CONTACT_GAP: f64 = 0.02;
+/// Ticks a pair that came apart still counts as in contact: half a second.
+const CONTACT_HOLD: u64 = 15;
 
 fn number(f: &Map<String, Value>, k: &str) -> f64 {
     f.get(k)
@@ -145,8 +152,10 @@ fn bodies(world: &World, shapes: &Shapes) -> Vec<Body> {
 
 /// Pushes overlapping pairs with a stirred body in them apart, over [`PASSES`] passes; a
 /// body that is pushed is stirred from then on. With `bounce`, their velocities also lose
-/// what was carrying them into each other.
-fn push_apart(bodies: &mut [Body], bounce: bool) {
+/// what was carrying them into each other. Returns each pair that overlapped (by index,
+/// lower first) with its closing speed when first found.
+fn push_apart(bodies: &mut [Body], bounce: bool) -> BTreeMap<(usize, usize), f64> {
+    let mut touched = BTreeMap::new();
     for _ in 0..PASSES {
         // Sweep along x: only bodies whose spans on x meet can touch.
         let mut order: Vec<usize> = (0..bodies.len()).collect();
@@ -176,6 +185,9 @@ fn push_apart(bodies: &mut [Body], bounce: bool) {
                 };
                 let (ia, ib) = (a.inverse_mass / total, b.inverse_mass / total);
                 let closing = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+                touched
+                    .entry((i.min(j), i.max(j)))
+                    .or_insert((-closing).max(0.0));
                 let impulse = if bounce && closing < 0.0 {
                     -(1.0 + BOUNCE) * closing
                 } else {
@@ -204,6 +216,79 @@ fn push_apart(bodies: &mut [Body], bounce: bool) {
             break;
         }
     }
+    touched
+}
+
+/// Records `engine.contact` for each pair that overlapped this tick, closed at least
+/// `least` fast, and isn't already in contact; then keeps the pairs in contact, each with
+/// the last tick it touched. A pair stays in contact while it overlaps or nearly touches,
+/// and for [`CONTACT_HOLD`] ticks after it last did, so a bounce that comes straight back
+/// is one bump.
+fn contacts(
+    world: &mut World,
+    bodies: &[Body],
+    touched: &BTreeMap<(usize, usize), f64>,
+    least: f64,
+) {
+    let tick = world.tick;
+    let name = |i: usize, j: usize| {
+        let (a, b) = (&bodies[i].entity, &bodies[j].entity);
+        if a < b {
+            (a.clone(), b.clone())
+        } else {
+            (b.clone(), a.clone())
+        }
+    };
+    let before: BTreeMap<(String, String), u64> = std::mem::take(&mut world.contacts)
+        .into_iter()
+        .map(|(a, b, t)| ((a, b), t))
+        .collect();
+    let index: BTreeMap<&str, usize> = bodies
+        .iter()
+        .enumerate()
+        .map(|(i, b)| (b.entity.as_str(), i))
+        .collect();
+    let mut now: BTreeMap<(String, String), u64> = BTreeMap::new();
+    for (pair, &last) in &before {
+        let (Some(&i), Some(&j)) = (index.get(pair.0.as_str()), index.get(pair.1.as_str())) else {
+            continue;
+        };
+        let (a, b) = (&bodies[i], &bodies[j]);
+        if a.place != b.place {
+            continue;
+        }
+        if gap(&a.outline, (a.x, a.y), &b.outline, (b.x, b.y)) <= CONTACT_GAP * a.bound.min(b.bound)
+        {
+            now.insert(pair.clone(), tick);
+        } else if tick.saturating_sub(last) < CONTACT_HOLD {
+            now.insert(pair.clone(), last);
+        }
+    }
+    let mut new: Vec<(String, String, f64)> = Vec::new();
+    for (&(i, j), &speed) in touched {
+        let pair = name(i, j);
+        if speed >= least && !before.contains_key(&pair) {
+            // The one that moves more is the entity: the ship, not the rock it hit.
+            let (a, b) = (&bodies[i], &bodies[j]);
+            let first = a.inverse_mass > b.inverse_mass
+                || (a.inverse_mass == b.inverse_mass && a.entity < b.entity);
+            let (p, q) = if first { (a, b) } else { (b, a) };
+            new.push((p.entity.clone(), q.entity.clone(), speed));
+        }
+        now.insert(pair, tick);
+    }
+    new.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
+    if !new.is_empty() {
+        let cause = world.service_cause("collide");
+        for (entity, other, speed) in new {
+            let mut payload = Map::new();
+            payload.insert("entity".into(), Value::from(entity));
+            payload.insert("other".into(), Value::from(other));
+            payload.insert("speed".into(), Value::from(speed));
+            world.record(cause, CONTACT, payload);
+        }
+    }
+    world.contacts = now.into_iter().map(|((a, b), t)| (a, b, t)).collect();
 }
 
 /// Writes back the bodies that moved or changed speed since `before`.
@@ -236,10 +321,15 @@ fn state(bodies: &[Body]) -> Vec<(f64, f64, f64, f64)> {
 pub fn collide(world: &mut World, shapes: &Shapes) {
     let mut bodies = bodies(world, shapes);
     if bodies.is_empty() {
+        world.contacts.clear();
         return;
     }
     let before = state(&bodies);
-    push_apart(&mut bodies, true);
+    let touched = push_apart(&mut bodies, true);
+    match shapes.contact_speed {
+        Some(least) => contacts(world, &bodies, &touched, least),
+        None => world.contacts.clear(),
+    }
     for b in &mut bodies {
         if b.drag > 0.0 && b.inverse_mass > 0.0 {
             let keep = libm::exp(-b.drag * TICK_SECONDS);

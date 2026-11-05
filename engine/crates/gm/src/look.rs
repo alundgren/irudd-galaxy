@@ -104,6 +104,7 @@ pub fn run(path: &Path, opts: &Opts) -> Result<Output, Failure> {
                 Zoom::Steps(s) => view.zoom(&replay.session.world, s),
                 Zoom::View(v) => view.eye.view = Some(v),
                 Zoom::Presentation(p) => view.screens.presentation = *p,
+                Zoom::Still(still) => view.eye.still = still,
             }
         }
         if replay.session.world.tick == tick {
@@ -126,7 +127,7 @@ pub fn run(path: &Path, opts: &Opts) -> Result<Output, Failure> {
         size = Vec2::new(m.width as f32, m.height as f32) / m.scale;
         view.note_scene(&replay.session.world, m);
         // look must use the exact style as well as the boxes reconstructed for this note.
-        view.screens.style = m.screen_style.unwrap_or(view.screens.style);
+        view.screens.style = m.screen_style.clone().unwrap_or(view.screens.style.clone());
         m.alpha
     } else {
         view.scene(&replay.session.world, 1.0, size, tick as f32 / 30.0);

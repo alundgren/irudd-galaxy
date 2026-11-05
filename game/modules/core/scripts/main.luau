@@ -161,10 +161,18 @@ return {
             end
             return
         end
-        ctx.patch("ship", "hold", { ore = hold.ore + amount })
-        ctx.patch("ship", "pilot", { message = "+" .. amount .. " ore aboard.", away = true })
+        -- Each rock yields its own ware: ore, ice or glassite.
+        local ware = ore.ware ~= "" and ore.ware or "ore"
+        ctx.patch("ship", "hold", { [ware] = (hold[ware] or 0) + amount })
+        ctx.patch("ship", "pilot", { message = "+" .. amount .. " " .. ware .. " aboard.", away = true })
         ctx.patch(pilot.target, "ore", { left = ore.left - amount })
-        ctx.patch(pilot.target, "engine.model", { morph = (ore.total - ore.left + amount) / ore.total })
+        -- The rock shrinks as it is mined; one with stages also changes model as it goes,
+        -- so its crystals break off, and one left empty wears its `empty` model (rules.stage).
+        local mined = ore.total - ore.left + amount
+        local look = { morph = mined / ore.total }
+        local stage = rules.stage(ore.stages or "", mined, ore.total, ore.empty)
+        if stage then look.model = stage end
+        ctx.patch(pilot.target, "engine.model", look)
         ctx.record("mined", { rock = pilot.target, units = amount })
     end,
 }

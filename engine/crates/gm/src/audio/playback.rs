@@ -105,6 +105,7 @@ pub(super) fn seam(clip: &Clip, volume: f32) -> Value {
         bus: Bus::Music,
         volume,
         fade: 0.0,
+        pitch: 1.0,
     });
     // Retain only boundary neighborhoods, so even long recordings need bounded memory.
     let radius = rate as usize / 10;

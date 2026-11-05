@@ -1,5 +1,6 @@
 # The mix in flight (galaxy-gm audio check): the radio's music near -26 LUFS, the engine
-# hum and hush at least ten LU under it, and nothing near clipping.
+# hum and hush at least ten LU under it, the effects (radio static, the mine order,
+# mining, thrust) under the music, and nothing near clipping.
 scenario = "flight.toml"
 
 [[expect]]
@@ -15,3 +16,12 @@ at_most = -36.0
 [[expect]]
 value = "playback.sample_peak_dbfs"
 at_most = -6.0
+
+[[expect]]
+value = "buses.sound.integrated_lufs"
+at_least = -32.0
+at_most = -26.0
+
+[[expect]]
+value = "limited_samples"
+equals = 0

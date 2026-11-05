@@ -1,0 +1,26 @@
+# Mining a hold full (galaxy-gm audio check): the radio stays near -26 LUFS, the beam
+# hum, chips, chime, refusal, thrust and boost sit under it and stay audible, and
+# nothing reaches the clamp.
+scenario = "mining.toml"
+
+[[expect]]
+value = "buses.music.integrated_lufs"
+at_least = -27.0
+at_most = -25.0
+
+[[expect]]
+value = "buses.sound.integrated_lufs"
+at_least = -32.0
+at_most = -26.0
+
+[[expect]]
+value = "buses.sound.momentary_max_lufs"
+at_most = -19.0
+
+[[expect]]
+value = "playback.sample_peak_dbfs"
+at_most = -6.0
+
+[[expect]]
+value = "limited_samples"
+equals = 0

@@ -4,6 +4,7 @@
 //! Exit codes and error kinds: `engine/docs/exit-codes.md`.
 
 mod audio;
+mod clipboard;
 mod film;
 mod notes;
 mod play;

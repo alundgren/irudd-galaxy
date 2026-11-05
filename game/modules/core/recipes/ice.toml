@@ -1,0 +1,11 @@
+about = "Pale mint-cream ice: smooth wide facets, blue-violet on its shadow side"
+seed = 23
+[[part]]
+shape = "rock"
+radius = 2.5
+mined = 0.55
+detail = 1
+lumps = 0.25
+squash = 1.0
+paint = "#dff2e6"
+accent = "#a9e4e6"

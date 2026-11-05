@@ -69,6 +69,12 @@ pub const FILE_KEYS: &[(&str, &str, &str, &str)] = &[
         "other modules' component types its scripts may write (`galaxy-gm fields components`)",
     ),
     (
+        "",
+        "contact_speed",
+        "0.5",
+        "records engine.contact (entity, other, speed) when two bodies start touching at least this fast, in units a second; off when no loaded module sets it, the least one wins",
+    ),
+    (
         "components.<name>",
         "<field>",
         "\"bool\"",
@@ -100,6 +106,9 @@ pub struct Manifest {
     /// Keys it listens to, by key name ([`KEYS`]), each with the local event kind the
     /// engine records when the key goes down (`down = true`) or up (`down = false`).
     pub keys: BTreeMap<String, String>,
+    /// The least closing speed at which a new contact records `engine.contact`; `None`
+    /// leaves contacts unrecorded, as before the fact existed.
+    pub contact_speed: Option<f64>,
 }
 
 /// Key names a module may bind. They name the key's place on the keyboard, not the
@@ -294,6 +303,8 @@ struct Raw {
     components: BTreeMap<String, BTreeMap<String, toml::Value>>,
     #[serde(default)]
     keys: BTreeMap<String, String>,
+    #[serde(default)]
+    contact_speed: Option<f64>,
 }
 
 /// The module folder a path names: the folder itself, or the folder of a `manifest.toml`.
@@ -440,6 +451,12 @@ pub fn parse(dir: &Path, text: &str) -> Result<Manifest, Failure> {
             ));
         }
     }
+    if raw.contact_speed.is_some_and(|s| !s.is_finite() || s < 0.0) {
+        return Err(invalid(
+            dir,
+            "contact_speed must be a speed of 0 or more, in units a second",
+        ));
+    }
     let mut components = BTreeMap::new();
     for (name, fields) in raw.components {
         if !ids::valid_field(&name) {
@@ -483,6 +500,7 @@ pub fn parse(dir: &Path, text: &str) -> Result<Manifest, Failure> {
         writes: raw.writes,
         components,
         keys: raw.keys,
+        contact_speed: raw.contact_speed,
     })
 }
 

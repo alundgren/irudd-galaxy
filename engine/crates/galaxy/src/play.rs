@@ -31,7 +31,7 @@ use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalSize, Size};
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
+use winit::keyboard::{Key, KeyCode, ModifiersState, NamedKey, PhysicalKey};
 use winit::window::{CursorIcon, Window, WindowId};
 
 use crate::notes::{self, NoteBox};
@@ -56,6 +56,7 @@ pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--inputs",
     "--ticks",
     "--no-live",
+    "--reduced-motion",
 ];
 pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--modules",
@@ -65,7 +66,14 @@ pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--size",
     "--out",
     "--crop",
+    "--reduced-motion",
 ];
+
+/// The player's one reduced-motion setting, for the camera and screens alike:
+/// `--reduced-motion`, or `GALAXY_REDUCED_MOTION=1` in the environment.
+fn reduced_motion(options: &Options) -> bool {
+    options.reduced_motion || std::env::var("GALAXY_REDUCED_MOTION").is_ok_and(|v| v == "1")
+}
 
 /// A cropped shot is enlarged until its longer side is at least this many pixels.
 const CROP_SIDE: u32 = 512;
@@ -284,6 +292,8 @@ struct App {
     pace: FixedStep,
     keys: BTreeMap<String, Vec<String>>,
     held: BTreeSet<&'static str>,
+    /// The modifier keys held now, for the paste chord in the note box.
+    modifiers: ModifiersState,
     pending: Vec<Input>,
     /// Scripted inputs by tick (`--inputs`): the bot.
     scripted: BTreeMap<u64, Vec<Input>>,
@@ -414,6 +424,8 @@ impl App {
                 bus: galaxy_audio::Bus::Ambience,
                 fade: 0.25,
             },
+            // The new bank tunes its own loops from its first update.
+            galaxy_audio::Action::ResetTunes,
         ]);
         self.audio_output
             .send(self.audio.update(&self.session.world));
@@ -511,6 +523,17 @@ impl App {
     /// A key while the note box is open.
     fn note_key(&mut self, event: &winit::event::KeyEvent) {
         if event.state != ElementState::Pressed {
+            return;
+        }
+        if notes::is_paste(&event.logical_key, event.physical_key, self.modifiers) {
+            match crate::clipboard::text() {
+                Ok(text) => {
+                    if let Some(n) = &mut self.note {
+                        n.paste(&text);
+                    }
+                }
+                Err(e) => eprintln!("galaxy: can't paste: {e}"),
+            }
             return;
         }
         match &event.logical_key {
@@ -914,11 +937,12 @@ impl ApplicationHandler for App {
                 return;
             }
         };
-        let view = View::new(
+        let mut view = View::new(
             &mut renderer,
             self.session.modules(),
             self.session.world.seed,
         );
+        view.set_reduced_motion(reduced_motion(&self.options));
         for problem in view.problems() {
             eprintln!("galaxy: {problem}");
             self.problems.push(problem);
@@ -962,6 +986,7 @@ impl ApplicationHandler for App {
                     r.view.screens.cancel_pointer(self.session.world.tick + 1);
                 }
             }
+            WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers.state(),
             WindowEvent::KeyboardInput { event, .. } => {
                 if self.note.is_some() {
                     self.note_key(&event);
@@ -1277,6 +1302,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         running: None,
         pace: FixedStep::default(),
         held: BTreeSet::new(),
+        modifiers: ModifiersState::empty(),
         pending: Vec::new(),
         scripted: script.inputs,
         scripted_clicks: script.clicks,
@@ -1429,6 +1455,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let mut renderer = Renderer::new_headless(w, h)
         .map_err(|e| Failure::runtime(format!("no GPU for the shot: {e}")))?;
     let mut view = View::new(&mut renderer, session.modules(), session.world.seed);
+    view.set_reduced_motion(reduced_motion(&options));
     let ticks = options.ticks.unwrap_or(SHOT_TICKS);
     for _ in 0..ticks {
         view.before_step(&session.world);

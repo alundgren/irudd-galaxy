@@ -18,6 +18,8 @@
 "engine.steer" = {}
 "engine.body" = { mass = 1 }
 "engine.model" = { model = "core.ship", look = "core.ship" }
+# A warm trail while the engines push.
+"engine.emitter" = { recipe = "core.exhaust", x = -1.7, by = "thrust" }
 "engine.camera" = { view = 64, min_view = 24, max_view = 100, tilt = 30 }
 pilot = { message = "A quiet shift. Mine six ore, then choose a buyer." }
 hold = {}
@@ -27,7 +29,12 @@ fit = { hull_speed = 20.0 }
 # The radio finds the strongest station on its first second out (scripts/radio.luau).
 radio = {}
 
-# Each rock turns slowly where it floats, never drifting, so every mining spot stays put.
+# The field: rocks turn slowly where they float, never drifting, so every mining spot
+# stays put. Space mines the nearest rock with anything left, whatever it holds.
+#
+# The ore drift, round the middle of the reach: rust-brown ironstone in three shapes and
+# several sizes. A bigger rock holds more. rock1 stays the nearest rock to the start and
+# to both berths, so the first press of Space always finds ore.
 [entities.rock1]
 "engine.spin" = { rate = 3 }
 "engine.location" = { place = "core.reach" }
@@ -52,13 +59,263 @@ ore = {}
 "engine.model" = { model = "core.rock", look = "core.rock" }
 ore = {}
 
+[entities.rock4]
+"engine.spin" = { rate = -6 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 27, y = 9 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock_chunk", look = "core.rock", scale = 0.85 }
+ore = { left = 10, total = 10 }
+
+[entities.rock5]
+"engine.spin" = { rate = 1.5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 24, y = 24 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock_lump", look = "core.rock", scale = 1.4 }
+ore = { left = 18, total = 18 }
+
+[entities.rock6]
+"engine.spin" = { rate = -2 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -9, y = 34 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock_chunk", look = "core.rock", scale = 1.0 }
+ore = {}
+
+[entities.rock7]
+"engine.spin" = { rate = 5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 35, y = 13 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.7 }
+ore = { left = 8, total = 8 }
+
+# The ice drift, out west past Lantern Dock: pale floes, wide and tall. Lantern Dock
+# buys ice.
+[entities.ice1]
+"engine.spin" = { rate = 2 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -42, y = 6 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.ice", look = "core.ice", scale = 1.7 }
+ore = { left = 16, total = 16, ware = "ice" }
+
+[entities.ice2]
+"engine.spin" = { rate = -3 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -52, y = 18 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.ice_shard", look = "core.ice", scale = 1.4 }
+ore = { left = 14, total = 14, ware = "ice" }
+
+[entities.ice3]
+"engine.spin" = { rate = 4 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -38, y = 23 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.ice", look = "core.ice", scale = 1.0 }
+ore = { left = 8, total = 8, ware = "ice" }
+
+[entities.ice4]
+"engine.spin" = { rate = 2.5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -60, y = 2 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.ice_shard", look = "core.ice", scale = 1.2 }
+ore = { left = 12, total = 12, ware = "ice" }
+
+[entities.ice5]
+"engine.spin" = { rate = -1.5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -59, y = 33 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.ice", look = "core.ice", scale = 1.9 }
+ore = { left = 20, total = 20, ware = "ice" }
+
+[entities.ice6]
+"engine.spin" = { rate = 3.5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -47, y = 31 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.ice_shard", look = "core.ice", scale = 1.1 }
+ore = { left = 10, total = 10, ware = "ice" }
+
+[entities.ice7]
+"engine.spin" = { rate = -2.5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -68, y = 22 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.ice", look = "core.ice", scale = 1.3 }
+ore = { left = 12, total = 12, ware = "ice" }
+
+[entities.ice8]
+"engine.spin" = { rate = 2 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -49, y = -6 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.ice_shard", look = "core.ice", scale = 1.0 }
+ore = { left = 8, total = 8, ware = "ice" }
+
+# Two glassite rocks, far out north-east: rare, and Cinder Kiln pays well for them.
+[entities.glassite1]
+"engine.spin" = { rate = 3 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 56, y = 32 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.glassite", look = "core.glassite", scale = 1.0 }
+ore = { left = 5, total = 5, ware = "glassite", stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs", empty = "core.glassite_pebbles" }
+
+[entities.glassite2]
+"engine.spin" = { rate = -4 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 64, y = 39 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.glassite", look = "core.glassite", scale = 0.75 }
+ore = { left = 4, total = 4, ware = "glassite", stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs", empty = "core.glassite_pebbles" }
+
+# Loose pebbles and splinters round the drifts: drawn only, never solid, never mined.
+[entities.debris1]
+"engine.spin" = { rate = 7 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 18, y = 6 }
+"engine.model" = { model = "core.debris", look = "core.debris", scale = 1.0 }
+
+[entities.debris2]
+"engine.spin" = { rate = -5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 5, y = 24 }
+"engine.model" = { model = "core.debris", look = "core.debris", scale = 1.3 }
+
+[entities.debris3]
+"engine.spin" = { rate = 6 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 31, y = 19 }
+"engine.model" = { model = "core.debris", look = "core.debris", scale = 0.9 }
+
+[entities.debris4]
+"engine.spin" = { rate = -8 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -1, y = 9 }
+"engine.model" = { model = "core.debris", look = "core.debris", scale = 0.8 }
+
+[entities.debris5]
+"engine.spin" = { rate = 4 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 19, y = 31 }
+"engine.model" = { model = "core.debris", look = "core.debris", scale = 1.2 }
+
+[entities.debris6]
+"engine.spin" = { rate = -6 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -46, y = 12 }
+"engine.model" = { model = "core.debris_ice", look = "core.debris", scale = 1.2 }
+
+[entities.debris7]
+"engine.spin" = { rate = 5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -53, y = 25 }
+"engine.model" = { model = "core.debris_ice", look = "core.debris", scale = 1.0 }
+
+[entities.debris8]
+"engine.spin" = { rate = -4 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -34, y = 13 }
+"engine.model" = { model = "core.debris_ice", look = "core.debris", scale = 0.9 }
+
+[entities.debris9]
+"engine.spin" = { rate = 3 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -63, y = 14 }
+"engine.model" = { model = "core.debris_ice", look = "core.debris", scale = 1.3 }
+
+[entities.debris10]
+"engine.spin" = { rate = -7 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 60, y = 35 }
+"engine.model" = { model = "core.debris", look = "core.debris", scale = 0.9 }
+
+# Faint warm dust drifting over each drift.
+[entities.dust_ore]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 16, y = 14 }
+"engine.emitter" = { recipe = "core.dust", rate = 1.0 }
+
+[entities.dust_ice]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -49, y = 16 }
+"engine.emitter" = { recipe = "core.dust", rate = 1.0 }
+
+[entities.dust_glassite]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 60, y = 35 }
+"engine.emitter" = { recipe = "core.dust", rate = 0.5 }
+
+# Lane buoys: blinking brass posts marking the courier's lane and its moorings. Drawn
+# only, never solid, so nothing snags on them.
+[entities.buoy_north_a]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 1, y = 47 }
+"engine.model" = { model = "core.buoy", look = "core.buoy" }
+
+[entities.buoy_north_b]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 9, y = 47 }
+"engine.model" = { model = "core.buoy", look = "core.buoy" }
+
+[entities.buoy_south_a]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 1, y = -47 }
+"engine.model" = { model = "core.buoy", look = "core.buoy" }
+
+[entities.buoy_south_b]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 9, y = -47 }
+"engine.model" = { model = "core.buoy", look = "core.buoy" }
+
+[entities.buoy_lane_a]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 1, y = -24 }
+"engine.model" = { model = "core.buoy", look = "core.buoy" }
+
+[entities.buoy_lane_b]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 9, y = 28 }
+"engine.model" = { model = "core.buoy", look = "core.buoy" }
+
+[entities.buoy_ice]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -30, y = -2 }
+"engine.model" = { model = "core.buoy", look = "core.buoy" }
+
+[entities.buoy_glassite]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 46, y = 24 }
+"engine.model" = { model = "core.buoy", look = "core.buoy" }
+
+# Far off: a ringed planet sunk well below the field (its model sits low, so it draws
+# behind everything) and a lighthouse on the reach's eastern edge. Neither is solid, and
+# both lie past where the ship can fly.
+[entities.planet]
+"engine.spin" = { rate = 0.4 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -118, y = 92 }
+"engine.model" = { model = "core.planet", look = "core.far" }
+
+[entities.lighthouse]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 92, y = -34 }
+"engine.model" = { model = "core.lighthouse", look = "core.far", scale = 1.3 }
+
 [entities.lantern_exterior]
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = -24, y = -18 }
 "engine.body" = { fixed = true }
-"engine.model" = { model = "core.station", look = "core.station" }
+"engine.model" = { model = "core.station", look = "core.station", scale = 1.35 }
+# Steam off the kettle cap on its tiers, drifting north-east.
+"engine.emitter" = { recipe = "core.steam", height = 5.2, angle = 60, rate = 0.5 }
 # Its name, under the ring, in flight (scripts/hud.luau).
-"engine.anchor" = { name = "label", y = -7.5 }
+"engine.anchor" = { name = "label", y = -10 }
 
 [entities.lantern]
 "engine.place" = { parent = "core.reach", arrival = "core.lantern_berth_spot", width = 30, depth = 30 }
@@ -95,7 +352,7 @@ port = { name = "Lantern Dock", berth = "core.lantern_berth", departure = "core.
 "engine.position" = { x = -7.5, y = -0.5, angle = -1.5707963267948966 }
 "engine.model" = { model = "core.exchange", look = "core.station" }
 "engine.anchor" = { name = "sign", height = 3.0 }
-facility = { station = "core.lantern", name = "Exchange", keeper = "core.lantern_trader", offer = "buys ore and plate", order = 1, camera = "camera.exchange" }
+facility = { station = "core.lantern", name = "Exchange", keeper = "core.lantern_trader", offer = "buys ore, ice and plate", order = 1, camera = "camera.exchange" }
 
 [entities.lantern_office]
 "engine.being" = {}
@@ -108,6 +365,10 @@ facility = { station = "core.lantern", name = "Office", keeper = "core.lantern_m
 # Lantern Dock's market. Plate goes into the galley until it is built.
 [entities.lantern_ore]
 market = { room = "core.lantern_exchange", ware = "ore", role = "buys", base = 12, target = 30, stock = 24, rate = 3 }
+
+# Ice from the west drift: water for the galley and the crews.
+[entities.lantern_ice]
+market = { room = "core.lantern_exchange", ware = "ice", role = "buys", base = 10, target = 30, stock = 22, rate = 3 }
 
 [entities.lantern_plate]
 market = { room = "core.lantern_exchange", ware = "plate", role = "buys", base = 34, target = 24, stock = 18, rate = 2 }
@@ -129,7 +390,7 @@ keeper = { name = "Tova Reyes", idle = "Empty hold? The rocks are just outside."
 "engine.life" = { clock = "core.day", first = "core.lantern_trader_act", name = "Tova Reyes" }
 
 [entities.lantern_trader_act]
-"engine.act" = { place = "core.lantern", spot = "core.lantern_exchange_keeper_spot", angle = -1.5707963267948966, state = "buys ore and plate" }
+"engine.act" = { place = "core.lantern", spot = "core.lantern_exchange_keeper_spot", angle = -1.5707963267948966, state = "buys ore, ice and plate" }
 
 # Said once: the first click introduces the keeper.
 [entities.lantern_trader_intro]
@@ -263,9 +524,11 @@ skiff = { a = "core.lantern_skiff_a_spot", b = "core.lantern_skiff_b_spot" }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 30, y = -22 }
 "engine.body" = { fixed = true }
-"engine.model" = { model = "core.kiln_station", look = "core.station" }
+"engine.model" = { model = "core.kiln_station", look = "core.station", scale = 1.35 }
+# Steam off the chimney, drifting north-east.
+"engine.emitter" = { recipe = "core.steam", height = 6.4, angle = 50, rate = 1.2 }
 # Its name, under the ring, in flight (scripts/hud.luau).
-"engine.anchor" = { name = "label", y = -7.5 }
+"engine.anchor" = { name = "label", y = -8.5 }
 
 [entities.kiln]
 "engine.place" = { parent = "core.reach", arrival = "core.kiln_berth_spot", width = 30, depth = 30 }
@@ -302,7 +565,7 @@ port = { name = "Cinder Kiln", berth = "core.kiln_berth", departure = "core.kiln
 "engine.position" = { x = -7.5, y = -0.5, angle = -1.5707963267948966 }
 "engine.model" = { model = "core.kiln_exchange", look = "core.station" }
 "engine.anchor" = { name = "sign", height = 3.0 }
-facility = { station = "core.kiln", name = "Exchange", keeper = "core.kiln_trader", offer = "buys ore and rations, sells plate", order = 1, camera = "camera.exchange" }
+facility = { station = "core.kiln", name = "Exchange", keeper = "core.kiln_trader", offer = "buys ore, glassite and rations, sells plate", order = 1, camera = "camera.exchange" }
 
 [entities.kiln_office]
 "engine.being" = {}
@@ -315,6 +578,10 @@ facility = { station = "core.kiln", name = "Office", keeper = "core.kiln_master"
 # Cinder Kiln's market: the kiln turns ore into plate.
 [entities.kiln_ore]
 market = { room = "core.kiln_exchange", ware = "ore", role = "buys", base = 16, target = 30, stock = 24, rate = 3 }
+
+# Glassite: rare, so the kiln wants little of it and pays well.
+[entities.kiln_glassite]
+market = { room = "core.kiln_exchange", ware = "glassite", role = "buys", base = 30, target = 12, stock = 8, rate = 1 }
 
 [entities.kiln_plate]
 market = { room = "core.kiln_exchange", ware = "plate", role = "sells", base = 28, target = 24, stock = 24, rate = 2 }
@@ -457,8 +724,8 @@ part = { name = "Hold pods", socket = "hold", price = 70, mass = 3, hold = 3, or
 [entities.thrusters]
 part = { name = "Tuned thrusters", socket = "engine", price = 110, power = 2, mass = 1, speed = 5, order = 3, effect = "your top speed goes from 20 to 25", said = "Open her up out there. She'll run." }
 
-# Traffic: two traders fly their own routes between the stations, moor beside a station
-# for a while, then fly back (scripts/traffic.luau). Their routes keep clear of the
+# Traffic: traders fly their own routes, moor for a while, then fly back
+# (scripts/traffic.luau). Their routes keep clear of the
 # rocks and the player's berths, and their moorings sit off the stations' far sides.
 # A leg is a chain of waypoints flown without stopping, then a docking onto a mooring.
 [entities.mercy]
@@ -470,6 +737,7 @@ part = { name = "Tuned thrusters", socket = "engine", price = 110, power = 2, ma
 "engine.steer" = {}
 "engine.body" = { mass = 2 }
 "engine.model" = { model = "core.hauler", look = "core.ship" }
+"engine.emitter" = { recipe = "core.wake", x = -1.9, by = "speed" }
 "engine.anchor" = { name = "label" }
 trader = { name = "Little Mercy", about = "a hauler working between Lantern Dock and Cinder Kiln", out = "core.mercy_out1", out_moor = "core.kiln_south", home = "core.mercy_home1", home_moor = "core.lantern_south", leg = "home", moored = true, since = -150 }
 
@@ -503,13 +771,14 @@ trader = { name = "Little Mercy", about = "a hauler working between Lantern Dock
 
 [entities.lamp]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 8, y = 32 }
+"engine.position" = { x = 10, y = 42 }
 "engine.motion" = { vx = 8 }
 "engine.flight" = { speed = 8, accel = 10, brake = 9, stop_time = 1.0, turn = 120 }
 "engine.helm" = {}
 "engine.steer" = { mode = "follow", target = "core.lamp_out4" }
 "engine.body" = { mass = 2 }
 "engine.model" = { model = "core.lamp_launch", look = "core.ship" }
+"engine.emitter" = { recipe = "core.wake", x = -1.6, by = "speed" }
 "engine.anchor" = { name = "label" }
 trader = { name = "Quiet Lamp", about = "a lamp launch running the long way round the field", out = "core.lamp_out1", out_moor = "core.kiln_east", home = "core.lamp_home1", home_moor = "core.lantern_west", leg = "out" }
 
@@ -523,52 +792,182 @@ trader = { name = "Quiet Lamp", about = "a lamp launch running the long way roun
 
 [entities.lamp_out1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -38, y = 0 }
+"engine.position" = { x = -34, y = -2 }
 "engine.waypoint" = { next = "core.lamp_out2" }
 
 [entities.lamp_out2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -24, y = 28 }
+"engine.position" = { x = -28, y = 38 }
 "engine.waypoint" = { next = "core.lamp_out3" }
 
 [entities.lamp_out3]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 8, y = 32 }
+"engine.position" = { x = 10, y = 42 }
 "engine.waypoint" = { next = "core.lamp_out4" }
 
 [entities.lamp_out4]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 34, y = 22 }
+"engine.position" = { x = 40, y = 32 }
 "engine.waypoint" = { next = "core.lamp_out5" }
 
 [entities.lamp_out5]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 46, y = 0 }
+"engine.position" = { x = 46, y = 4 }
 "engine.waypoint" = {}
 
 [entities.lamp_home1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 46, y = 0 }
+"engine.position" = { x = 46, y = 4 }
 "engine.waypoint" = { next = "core.lamp_home2" }
 
 [entities.lamp_home2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 34, y = 22 }
+"engine.position" = { x = 40, y = 32 }
 "engine.waypoint" = { next = "core.lamp_home3" }
 
 [entities.lamp_home3]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 8, y = 32 }
+"engine.position" = { x = 10, y = 42 }
 "engine.waypoint" = { next = "core.lamp_home4" }
 
 [entities.lamp_home4]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -24, y = 28 }
+"engine.position" = { x = -28, y = 38 }
 "engine.waypoint" = { next = "core.lamp_home5" }
 
 [entities.lamp_home5]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -38, y = 0 }
+"engine.position" = { x = -34, y = -2 }
+"engine.waypoint" = {}
+
+# Tern, a courier, runs the lane straight across the reach from the north buoys to the
+# south buoys and back, crossing the player's runs between the berths and the ore. It
+# waits out its first long rest at the north buoys.
+[entities.tern]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 5, y = 45, angle = -1.5707963267948966 }
+"engine.motion" = {}
+"engine.flight" = { speed = 13, accel = 18, brake = 14, stop_time = 1.0, turn = 150 }
+"engine.helm" = {}
+"engine.steer" = {}
+"engine.body" = { mass = 1 }
+"engine.model" = { model = "core.courier", look = "core.ship" }
+"engine.emitter" = { recipe = "core.wake", x = -1.4, by = "speed" }
+"engine.anchor" = { name = "label" }
+trader = { name = "Tern", about = "a courier running the lane across the reach", out = "core.tern_out1", out_moor = "core.lane_south", home = "core.tern_home1", home_moor = "core.lane_north", leg = "home", moored = true, since = 600 }
+
+[entities.lane_north]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 5, y = 45, angle = -1.5707963267948966 }
+
+[entities.lane_south]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 5, y = -45, angle = 1.5707963267948966 }
+
+[entities.tern_out1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 5, y = 30 }
+"engine.waypoint" = { next = "core.tern_out2" }
+
+[entities.tern_out2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 5, y = -32 }
+"engine.waypoint" = {}
+
+[entities.tern_home1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 5, y = -32 }
+"engine.waypoint" = { next = "core.tern_home2" }
+
+[entities.tern_home2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 5, y = 30 }
+"engine.waypoint" = {}
+
+# Cold Kettle, an ice barge, hauls ice from its camp beyond the ice drift to a mooring
+# off Lantern Dock's south-west side, slowly.
+[entities.kettle]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -72, y = 10, angle = -1.5707963267948966 }
+"engine.motion" = {}
+"engine.flight" = { speed = 6, accel = 7, brake = 7, stop_time = 1.2, turn = 70 }
+"engine.helm" = {}
+"engine.steer" = {}
+"engine.body" = { mass = 4 }
+"engine.model" = { model = "core.barge", look = "core.ship" }
+"engine.emitter" = { recipe = "core.wake", x = -2.7, by = "speed" }
+"engine.anchor" = { name = "label" }
+trader = { name = "Cold Kettle", about = "an ice barge hauling from the ice camp to Lantern Dock", out = "core.kettle_out1", out_moor = "core.lantern_southwest", home = "core.kettle_home1", home_moor = "core.ice_camp", leg = "home", moored = true, since = -100 }
+
+[entities.ice_camp]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -72, y = 10, angle = -1.5707963267948966 }
+
+[entities.lantern_southwest]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -40, y = -31, angle = 0.0 }
+
+[entities.kettle_out1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -68, y = -10 }
+"engine.waypoint" = { next = "core.kettle_out2" }
+
+[entities.kettle_out2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -54, y = -29 }
+"engine.waypoint" = {}
+
+[entities.kettle_home1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -54, y = -29 }
+"engine.waypoint" = { next = "core.kettle_home2" }
+
+[entities.kettle_home2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -68, y = -10 }
+"engine.waypoint" = {}
+
+# Pell's Luck, a prospector's tug, works the glassite out north-east and runs it down
+# to a mooring off Cinder Kiln's far east side.
+[entities.pell]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 70, y = 28, angle = -1.5707963267948966 }
+"engine.motion" = {}
+"engine.flight" = { speed = 8, accel = 10, brake = 9, stop_time = 1.0, turn = 110 }
+"engine.helm" = {}
+"engine.steer" = {}
+"engine.body" = { mass = 2 }
+"engine.model" = { model = "core.tug", look = "core.ship" }
+"engine.emitter" = { recipe = "core.wake", x = -1.6, by = "speed" }
+"engine.anchor" = { name = "label" }
+trader = { name = "Pell's Luck", about = "a prospector's tug working the glassite for Cinder Kiln", out = "core.pell_out1", out_moor = "core.kiln_far_east", home = "core.pell_home1", home_moor = "core.glassite_camp", leg = "home", moored = true, since = -200 }
+
+[entities.glassite_camp]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 70, y = 28, angle = -1.5707963267948966 }
+
+[entities.kiln_far_east]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 52, y = -28, angle = 3.141592653589793 }
+
+[entities.pell_out1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 66, y = 10 }
+"engine.waypoint" = { next = "core.pell_out2" }
+
+[entities.pell_out2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 60, y = -16 }
+"engine.waypoint" = {}
+
+[entities.pell_home1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 60, y = -16 }
+"engine.waypoint" = { next = "core.pell_home2" }
+
+[entities.pell_home2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 66, y = 10 }
 "engine.waypoint" = {}
 
 # The stations' radio channels (scripts/radio.luau). Each reaches past the far side of

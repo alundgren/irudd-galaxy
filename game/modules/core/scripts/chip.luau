@@ -20,7 +20,7 @@ function chip.build(ctx, ui)
     -- names on hover.
     local wares = {}
     for _, ware in rules.WARES do
-        if hold[ware] > 0 then
+        if (hold[ware] or 0) > 0 then
             table.insert(wares, ui.text { id = "cargo_" .. ware, icon = kit.ware(ware), text = tostring(hold[ware]),
                 width = chip.WARE, size = kit.SIZE.body, cue = "flash", hover = hold[ware] .. " " .. ware })
         end

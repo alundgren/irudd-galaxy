@@ -52,7 +52,7 @@ impl Output {
         }
         if let Some(tx) = &self.tx {
             for action in &actions {
-                if let Action::Play { clip, .. } = action
+                if let Action::Play { clip, .. } | Action::Loop { clip, .. } = action
                     && !self
                         .retained
                         .iter()
@@ -166,6 +166,7 @@ mod tests {
                 bus,
                 volume: 1.0,
                 fade: 0.0,
+                pitch: 1.0,
             }]);
             for action in rx.try_recv().unwrap() {
                 mixer.apply(action);
@@ -208,6 +209,7 @@ mod tests {
             bus: crate::Bus::Sound,
             volume: 1.0,
             fade: 0.0,
+            pitch: 1.0,
         };
         output.send(vec![play.clone(); crate::MAX_VOICES + 1]);
         // Saturating the queue and reusing the same clip must not add owners
@@ -226,6 +228,7 @@ mod tests {
             bus: crate::Bus::Music,
             volume: 1.0,
             fade: 0.0,
+            pitch: 1.0,
         };
         for _ in 0..crate::MAX_VOICES {
             mixer.apply(replacement.clone());

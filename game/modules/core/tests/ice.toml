@@ -1,0 +1,64 @@
+# Each rock yields its own ware: the ship turns west, flies to the ice drift and presses
+# Space, and the nearest rock is ice1, a pale floe. Six ice fill the hold, none of it
+# ore, and the floe has given exactly six.
+seed = 7
+ticks = 420
+
+[[input]]
+tick = 1
+name = "left"
+payload = { down = true }
+
+[[input]]
+tick = 31
+name = "left"
+payload = { down = false }
+
+[[input]]
+tick = 35
+name = "ahead"
+payload = { down = true }
+
+[[input]]
+tick = 90
+name = "ahead"
+payload = { down = false }
+
+[[input]]
+tick = 150
+name = "mine"
+
+[[expect]]
+tick = 152
+entity = "ship"
+component = "pilot"
+field = "target"
+equals = "core.ice1"
+
+[[expect]]
+entity = "ship"
+component = "hold"
+field = "ice"
+equals = 6
+
+[[expect]]
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 0
+
+[[expect]]
+entity = "ice1"
+component = "ore"
+field = "left"
+equals = 10
+
+[[expect]]
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Hold full: 6 ice aboard."
+
+[[expect]]
+facts = "mined"
+equals = 6

@@ -2,7 +2,7 @@ use super::{
     inspect,
     meter::{Meter, db},
 };
-use galaxy_audio::{Bank, Mixer, Scene};
+use galaxy_audio::{Bank, Heard, Mixer, Scene};
 use galaxy_module::{Failure, discover, gate, module::Module};
 use galaxy_motion::Opts;
 use galaxy_sim::{Session, scenario::InputsFile};
@@ -104,7 +104,9 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
     let update = |scene: &mut Scene, mixer: &mut Mixer, session: &Session, next: &mut usize| {
         for action in scene.update(
             &session.world,
-            session.world.facts[*next..].iter().map(|f| f.kind.as_str()),
+            session.world.facts[*next..]
+                .iter()
+                .map(|f| Heard::fact(&f.kind, f.tick, &f.payload)),
         ) {
             mixer.apply(action);
         }

@@ -7,14 +7,14 @@ local rules = {
     -- berth it last left, mined, or docked somewhere else.
     AWAY = 20,
     -- The goods a hold carries, in the order screens list them.
-    WARES = { "ore", "plate", "rations" },
+    WARES = { "ore", "ice", "glassite", "plate", "rations" },
 }
 
 function rules.distance2(a, b)
     return (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2
 end
 
--- Units in a hold ({ ore = n, plate = n, rations = n }).
+-- Units in a hold ({ ore = n, ice = n, ... }).
 function rules.load(hold)
     local n = 0
     for _, ware in rules.WARES do
@@ -36,6 +36,20 @@ end
 -- `capacity` (the bare hull's by default) has room and the rock has ore.
 function rules.transfer(load, left, capacity, rate)
     return math.max(0, math.min(rate or 1, (capacity or rules.CAPACITY) - load, left))
+end
+
+-- The model a rock wears with `mined` of its `total` units gone: `stages` lists its
+-- models, whole first, separated by spaces, each taking an equal share of the rock's
+-- life, and the last one stays to the end. Once all are mined, `empty` (a model, if given)
+-- takes over. Nil when neither applies: the rock keeps its model.
+function rules.stage(stages, mined, total, empty)
+    if empty and empty ~= "" and total > 0 and mined >= total then return empty end
+    local list = string.split(stages, " ")
+    for i = #list, 1, -1 do
+        if list[i] == "" then table.remove(list, i) end
+    end
+    if #list == 0 or total <= 0 then return nil end
+    return list[math.clamp(math.floor(mined / total * #list) + 1, 1, #list)]
 end
 
 -- The price of the next unit on a market line: the base price, raised while the

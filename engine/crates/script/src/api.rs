@@ -99,6 +99,10 @@ pub fn luau_types(engine: &str) -> String {
          export type Id = string\n\
          \n\
          --- A component's fields. An `id` field holds an entity ID, or \"\" for none.\n\
+         --- Effects are components too, drawn only: engine.beam {{ target, look, x, y, height }},\n\
+         --- engine.emitter {{ recipe, target, x, y, height, angle, rate, by }}, engine.burst\n\
+         --- {{ recipe, tick, ... }} (tick = ctx.tick) and engine.camera_feel {{ speed_zoom, lead,\n\
+         --- shake, shake_tick }}. `galaxy-gm fields components` lists every field.\n\
          export type Fields = {{ [string]: number | boolean | string }}\n\
          \n\
          --- A fact's payload: numbers, booleans, text, lists and tables.\n\
@@ -109,6 +113,8 @@ pub fn luau_types(engine: &str) -> String {
          --- engine.talk_chosen {{ talk, line, choice }} (an answer button; stale ones never arrive).\n\
          --- engine.resumed {{}} (source \"resume\") starts the first tick after a save resumed;\n\
          --- a resumed world plays no earlier sound cue, so record the music event again.\n\
+         --- engine.contact {{ entity, other, speed }}: two bodies started touching (`entity` is\n\
+         --- the one that moves more); recorded only when a manifest sets contact_speed.\n\
          export type Event = {{\n\
          \tkind: Id,\n\
          \ttick: number,\n\
@@ -170,6 +176,11 @@ export type ScreenCtx = {
 --- resting_dash), hovering shows the reason, and a click records nothing.
 --- yield = true on an anchored widget: not drawn (rather than clamped) while its anchor
 --- is off screen, it would leave the window, or it would overlap another painted widget.
+--- look names a [screen.looks] entry (fill, text, border, radius, pad, shadow, weight,
+--- underline). spans = { "plain ", { text = "bold", look = "name" } } replaces text on
+--- text and button. icon on text or button sits beside it, or above with icon_at = "top".
+--- cue = "count" (delta: counts up to a new value) or "flash" (briefly flashes a change).
+export type Span = { text: string, look: string? }
 export type Widget = {
     kind: string?, id: string?, text: string?, hover: string?, resting: string?,
     children: {Widget}?,
@@ -177,7 +188,8 @@ export type Widget = {
     size: number?, pad: number?, gap: number?, anchor: string?, yield: boolean?,
     on: Id?, payload: Payload?,
     columns: number?, value: any?, icon: string?, accepts: {[string]: string}?,
-    notes: {[string]: string}?,
+    notes: {[string]: string}?, look: string?, spans: {string | Span}?,
+    icon_at: string?, cue: string?,
 }
 export type Ui = {
     hover: (Widget) -> Widget, target: (Widget) -> Widget,
