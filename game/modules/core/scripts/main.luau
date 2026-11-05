@@ -7,6 +7,7 @@ local fit = require("./fit")
 local undock = require("./launch")
 local cutter = require("./cutter")
 local project = require("./project")
+local salvage = require("./salvage")
 
 -- Which hint each held key teaches.
 local TEACHES = { ahead = "thrust", back = "thrust", left = "turn", right = "turn", boost = "boost" }
@@ -173,6 +174,14 @@ local function mine(event, ctx)
         local ring = cutter.ring(ctx)
         if ring and pilot.cleared then clamp(ctx, ring); return end
     end
+    -- Space beside a barge adrift passes her a line, by hand: the rig cuts rock, it can't
+    -- pass a line. With a barge in tow the beam stays off.
+    local barge, gap = salvage.near(ctx)
+    if key and barge and gap <= salvage.REACH then
+        ctx.record("hitch", { barge = barge }) -- tow.luau passes it, next tick
+        return
+    end
+    if salvage.towing(ctx) then message(ctx, "Not with a barge in tow: 0 casts off the line."); return end
     if rock ~= nil and pilot.mining and pilot.target == rock then cutter.off(ctx, "Beam off."); return end
     if rules.load(ctx.get("ship", "hold")) >= fit.hold(ctx) then message(ctx, "Hold full. Dock to sell or trade."); return end
     if rock ~= nil and (not ctx.get(rock, "ore") or ctx.get(rock, "ore").left <= 0) then
@@ -219,6 +228,10 @@ local function dock(event, ctx)
     if station ~= nil and not ctx.get(station, "port") then station = nil end
     local ring = cutter.ring(ctx)
     if ring and (station == nil or station == ring) then clamp(ctx, ring); return end
+    if salvage.towing(ctx) and not scripted(event) then
+        message(ctx, "The jets can't berth a tow. Fly her slowly into a berth's ring by hand.")
+        return
+    end
     if scripted(event) or cutter.has(ctx, cutter.JETS) then
         if station == nil then
             local at = ctx.get("ship", "engine.position")
@@ -336,7 +349,9 @@ return {
             if pressed(event) and space(ctx) then
                 teach.used(ctx, "cancel")
                 stop(ctx)
-                message(ctx, "Order cancelled. Coasting to a stop.")
+                local off = salvage.cast_off(ctx)
+                if off then log.add(ctx, off) end
+                message(ctx, off or "Order cancelled. Coasting to a stop.")
             end
         end,
         ["engine.arrived"] = function(event, ctx)
@@ -384,6 +399,10 @@ return {
             end
             -- A project's steps that wait on dockings move on, and a happening there counts it.
             local note = project.arrived(ctx, pilot.station, counted, port.visits + (counted and 1 or 0))
+            -- A barge in tow is brought in, and work on one finishes on its station's visit.
+            for _, more in { salvage.docked(ctx, pilot.station), salvage.arrived(ctx, pilot.station, counted, port.visits + (counted and 1 or 0)) } do
+                note = note and note .. " " .. more or more
+            end
             log.add(ctx, "Docked at " .. port.name .. "." .. (note and " " .. note or ""))
             ctx.record("docked", { station = pilot.station, counted = counted })
         end,
@@ -411,6 +430,10 @@ return {
             return
         end
         local near = cutter.situation(ctx, pilot.cleared or ring == nil)
+        if near ~= "aim" and not string.match(near, "^ring:") then
+            local barge, gap = salvage.near(ctx)
+            if barge and gap <= salvage.REACH then near = "barge" end
+        end
         if near ~= pilot.near then ctx.patch("ship", "pilot", { near = near }) end
         if pilot.mining and pilot.target ~= "" then
             cut(ctx, pilot)

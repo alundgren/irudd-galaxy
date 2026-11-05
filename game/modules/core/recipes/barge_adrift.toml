@@ -1,0 +1,72 @@
+about = "Cold Kettle adrift: the ice barge with her engine frozen, her cab dark and a distress lamp blinking rose on the cab roof"
+[[part]]
+name = "hull"
+shape = "body"
+length = 5.2
+width = 2.0
+height = 0.9
+nose = 0.1
+shoulder = 0.98
+paint = "#8f3040"
+trim = "#c98f4a"
+[[part]]
+name = "tanks"
+shape = "tanks"
+length = 1.0
+radius = 0.42
+count = 2
+at = [-0.9, 0, 0.5]
+paint = "#dff2e6"
+trim = "#c98f4a"
+[[part]]
+name = "tanks_fore"
+shape = "tanks"
+length = 1.0
+radius = 0.42
+count = 2
+at = [0.6, 0, 0.5]
+paint = "#dff2e6"
+trim = "#c98f4a"
+[[part]]
+name = "cab"
+shape = "box"
+size = [0.8, 1.2, 0.7]
+at = [1.9, 0, 0.6]
+paint = "#f3ddb0"
+[[part]]
+name = "cab_window"
+shape = "box"
+size = [0.1, 0.9, 0.25]
+at = [2.32, 0, 0.75]
+paint = "#3a2d5c"
+[[part]]
+name = "engines"
+shape = "nozzle"
+radius = 0.4
+at = [-2.5, 0.55, 0]
+mirror = true
+# Its stripe and pennant, inside the hull's footprint.
+[[part]]
+name = "stripe"
+shape = "box"
+size = [2.8, 0.22, 0.06]
+at = [-0.2, 0, 0.95]
+paint = "#f2b43c"
+[[part]]
+name = "pennant"
+shape = "fin"
+length = 0.6
+height = 0.5
+thickness = 0.07
+at = [-1.9, 0, 0.45]
+paint = "#c98f4a"
+# Her one lit thing: a distress lamp on the cab roof, blinking slowly.
+[[part]]
+name = "distress"
+shape = "beacon"
+height = 0.9
+at = [1.9, 0, 0.95]
+paint = "#3a2d5c"
+accent = "#ff8fa3"
+pulse = 1.6
+pulse_low = 0.1

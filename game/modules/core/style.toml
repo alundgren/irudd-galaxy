@@ -221,6 +221,16 @@ flicker = 0.1
 flicker_rate = 2.0
 impact = ["core.sparks", "core.reach_chips", "core.cut_dust"]
 
+# A tow line: a thin brass line from a barge's bow to the ship, steady, with no glow to
+# speak of, so it reads as rope and not as a cutting beam (scripts/salvage.luau).
+[beams.tow]
+color = "#e7b15a"
+width = 0.3
+glow = 0.25
+glow_size = 0.5
+flicker = 0.0
+flicker_rate = 0.0
+
 # Where the beam bites: bright short streaks thrown off the cut.
 [particles.sparks]
 shape = "spark"
@@ -526,6 +536,37 @@ speed = 1.4
 speed_jitter = 0.4
 spread = 40.0
 drag = 0.6
+
+# A distress flare off a barge adrift: slow rose puffs all round her hull that fade, every
+# few seconds, so she can be found without anything flashing and her label never hides
+# them (scripts/tow.luau).
+[particles.flare]
+shape = "puff"
+blend = "paint"
+color = "#ff9bb0"
+end_color = "#ffe3a0"
+count = 14
+size = 1.3
+end_size = 3.4
+life = 3.0
+life_jitter = 0.3
+speed = 3.6
+speed_jitter = 0.5
+spread = 360.0
+drag = 0.6
+
+# Welding off a barge being mended: a few short sparks now and then.
+[particles.weld]
+shape = "spark"
+blend = "add"
+color = "#ffd36b"
+end_color = "#ff7a2e"
+rate = 18.0
+life = 0.6
+speed = 8.0
+spread = 180.0
+size = 0.55
+drag = 2.0
 
 # Dust: a few faint warm motes drifting over the rock drifts.
 [particles.dust]

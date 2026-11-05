@@ -726,12 +726,20 @@ entity = "lantern_grower_intro"
 component = "engine.talk"
 field = "seen"
 equals = true
+# Ines's thanks heard, Noor's next word is her ask after Cold Kettle (kettle.toml), in
+# place of her everyday talk.
+[[expect]]
+tick = 4352
+entity = "kettle_ask"
+component = "engine.talk"
+field = "enabled"
+equals = true
 [[expect]]
 tick = 4352
 entity = "lantern_grower_talk"
 component = "engine.talk"
 field = "enabled"
-equals = true
+equals = false
 [[input]]
 tick = 4355
 name = "core.close"

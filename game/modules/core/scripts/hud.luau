@@ -12,6 +12,7 @@ local signs = require("./signs")
 local trade = require("./trade")
 local fit = require("./fit")
 local cutter = require("./cutter")
+local salvage = require("./salvage")
 
 -- One hint at a time, for what a press does right now: Space in a berth's ring, the
 -- beam with a rock in its sights, the turn to bring the nose onto one in reach, then the
@@ -21,8 +22,14 @@ local function hint(ctx)
     local pilot = ctx.get("ship", "pilot")
     local full = rules.load(ctx.get("ship", "hold")) >= fit.hold(ctx)
     local ring = string.match(pilot.near, "^ring:(.+)$")
-    if ring and ctx.get(ring, "port") and teach.new(taught, "dock") then
+    if ring and ctx.get(ring, "port") and (teach.new(taught, "dock") or salvage.towing(ctx)) then
         return "Space · dock at " .. ctx.get(ring, "port").name
+    end
+    -- Beside a barge adrift, Space passes her a line; with one in tow, 0 casts it off.
+    if pilot.near == "barge" and teach.new(taught, "tow") then return "Space · pass her a line" end
+    if salvage.towing(ctx) then
+        if teach.new(taught, "cancel") then return "0 · cast off the line" end
+        return nil
     end
     if not full and not pilot.mining and teach.new(taught, "mine") then
         if pilot.near == "aim" then return "Hold Space · cut the rock ahead" end
@@ -83,7 +90,7 @@ local function targets(ctx, ui, children)
                 text = text, on = "mine", payload = { rock = id } })
         end
     end
-    local jets = cutter.has(ctx, cutter.JETS)
+    local jets = cutter.has(ctx, cutter.JETS) and not salvage.towing(ctx)
     for _, id in ctx.query("port") do
         local how = jets and "click: the docking jets fly you in" or "fly slowly into its berth's ring to dock"
         table.insert(children, ui.target { id = "dock_" .. string.match(id, "%.(%w+)$"), anchor = id .. "_exterior#label",

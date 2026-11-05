@@ -5,6 +5,7 @@ local trade = require("./trade")
 local fit = require("./fit")
 local places = require("./places")
 local project = require("./project")
+local salvage = require("./salvage")
 
 local voices = {}
 
@@ -104,8 +105,15 @@ function voices.refresh(ctx, station, hold, sold, need)
             if text then ctx.patch(facility.keeper .. "_now", "engine.talk_line", { text = text }) end
         end
     end
+    -- Someone aboard who keeps no room (a barge's skipper) says their own line too.
+    local _, job = salvage.find(ctx)
+    if job and places.of(ctx, job.skipper) == station then
+        local says = salvage.line(ctx, job.skipper, station)
+        if says then ctx.patch(job.skipper .. "_now", "engine.talk_line", { text = says }) end
+    end
     voices.gifts(ctx, station, hold)
     project.offers(ctx, station, hold)
+    salvage.offers(ctx, station)
 end
 
 -- An answered gift's talk is put away and the keeper's everyday talk comes back.
@@ -125,7 +133,10 @@ function voices.retire(ctx)
     -- A project's offer answered or no longer due gives way to the everyday talk, and
     -- the next one due comes on (project.offers).
     local station = places.docked(ctx)
-    if station then project.offers(ctx, station, ctx.get("ship", "hold")) end
+    if station then
+        project.offers(ctx, station, ctx.get("ship", "hold"))
+        salvage.offers(ctx, station)
+    end
 end
 
 -- A keeper's unanswered gift is on offer, in place of their everyday talk, while they

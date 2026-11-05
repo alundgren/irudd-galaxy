@@ -43,19 +43,27 @@ function signs.show(ctx, station, room, log_open, speaking, gliding, chosen)
     if chosen == nil then chosen = pilot.chosen_part end
     local inside = room ~= "" and ctx.get(room, "facility")
     local place = inside and inside.place or ""
+    -- Each keeper's own room, if they keep one; someone aboard who keeps none (a barge's
+    -- skipper) shows only where they stand.
+    local own = {}
     for _, id in ctx.query("facility") do
         local facility = ctx.get(id, "facility")
-        local life = facility.keeper ~= "" and ctx.get(facility.keeper, "engine.life")
+        if facility.keeper ~= "" then own[facility.keeper] = id end
+    end
+    for _, keeper in ctx.query("keeper") do
+        local life = ctx.get(keeper, "engine.life")
         if life then
-            local at = ctx.get(facility.keeper, "engine.location")
+            local id = own[keeper]
+            local facility = id and ctx.get(id, "facility")
+            local at = ctx.get(keeper, "engine.location")
             local visiting = place ~= "" and at ~= nil and at.place == place
-            local here = (facility.station == station and room == id) or visiting
-            local heard = (speaking == nil and not log_open) or facility.keeper == speaking
-            local previewing = facility.fits and (chosen or "") ~= ""
-            local name = here and not gliding and heard and not previewing and ctx.get(facility.keeper, "keeper").name or ""
+            local here = (facility and facility.station == station and room == id) or visiting
+            local heard = (speaking == nil and not log_open) or keeper == speaking
+            local previewing = facility and facility.fits and (chosen or "") ~= ""
+            local name = here and not gliding and heard and not previewing and ctx.get(keeper, "keeper").name or ""
             local presentation = here and "states" or "instant"
             if life.name ~= name or life.presentation ~= presentation then
-                ctx.patch(facility.keeper, "engine.life", { name = name, presentation = presentation })
+                ctx.patch(keeper, "engine.life", { name = name, presentation = presentation })
             end
         end
     end

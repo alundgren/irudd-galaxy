@@ -14,6 +14,7 @@ local kit = require("./kit")
 local layout = require("./layout") -- room panels are layout.ROOM wide: at most about 45% of the view
 local places = require("./places")
 local project = require("./project")
+local salvage = require("./salvage")
 
 -- On the cradle the ship lies nose to the back left, its sockets turned to the camera.
 local CRADLE_ANGLE = 2.3
@@ -100,26 +101,6 @@ local function launch(event, ctx)
     if station then undock.launch(ctx, station) end
 end
 
--- A keeper arriving mid-day starts at the first act of their day, whatever the shared
--- clock reads: the clock picks an act by its value (each act lasts one unit), so the
--- day's acts are turned round until the one it picks is the first. `ahead` is how far
--- the caller has just moved the clock on (its reads still see the old value). Returns
--- the act to start from.
-local function first_act(ctx, first, ahead)
-    local chain, act = {}, first
-    while act ~= "" and #chain < 16 do
-        table.insert(chain, act)
-        act = ctx.get(act, "engine.act").next or ""
-    end
-    local clock = ctx.get("day", "engine.clock")
-    local shift = clock and ((clock.value or 0) + ahead) % #chain or 0
-    if shift == 0 then return first end
-    local turned = {}
-    for i = 1, #chain do turned[i] = chain[(i - 1 - shift) % #chain + 1] end
-    for i, id in turned do ctx.patch(id, "engine.act", { next = turned[i + 1] or "" }) end
-    return turned[1]
-end
-
 -- The site becomes its room: the finished building on the deck, its room furnished,
 -- its keeper arriving to work in it, and the goods they trade.
 local function build_up(ctx, site, build, ahead)
@@ -130,7 +111,7 @@ local function build_up(ctx, site, build, ahead)
     local keeper = build.keeper
     local act = keeper .. "_act"
     local plan = ctx.get(act, "engine.act")
-    local first = first_act(ctx, act, ahead)
+    local first = places.first_act(ctx, act, ahead)
     ctx.put(keeper, "engine.being", {})
     ctx.put(keeper, "engine.location", { place = plan.place, spot = plan.spot })
     ctx.put(keeper, "engine.position", { angle = plan.angle })
@@ -292,7 +273,7 @@ local function price_spans(word, price)
 end
 
 -- One good in a trading room: its row, then its verbs.
-local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, build)
+local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, build, quiet)
     local line = ctx.get(id, "market")
     local name = string.upper(string.sub(line.ware, 1, 1)) .. string.sub(line.ware, 2)
     local price = rules.price(line)
@@ -311,9 +292,10 @@ local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, b
             local units = hold[w]
             local building = build and build.ware == w and math.min(units, build.need - build.given) or 0
             local value = building * price + rules.total((rules.walk(line, units - building)))
-            local key = sellable == 1 and " · Enter" or ""
+            local key = sellable == 1 and not quiet and " · Enter" or ""
             table.insert(inside, kit.button(ui, { id = "sell_" .. w, width = SHEET, on = "sell", payload = { ware = w },
-                icon = kit.ware(w), text = "Sell " .. units .. " " .. w .. " for " .. value .. " cr" .. key }, "primary"))
+                icon = kit.ware(w), text = "Sell " .. units .. " " .. w .. " for " .. value .. " cr" .. key },
+                quiet and "secondary" or "primary"))
         end
     else
         table.insert(inside, table_row(ui, "about_" .. w, w, name, price_spans("asks", price), tostring(line.stock), tostring(hold[w])))
@@ -373,7 +355,7 @@ local function ware_height(line, hold, build)
     return h
 end
 
-local function trade_rows(ctx, ui, station, pilot, children)
+local function trade_rows(ctx, ui, station, pilot, children, quiet)
     local hold = ctx.get("ship", "hold")
     local _, build = trade.building(ctx, station)
     local lines = trade.lines(ctx, pilot.room)
@@ -395,16 +377,17 @@ local function trade_rows(ctx, ui, station, pilot, children)
     -- Selling everything and the last deal's receipt come before the wares, so they stay
     -- on screen however much is aboard (direction doc 8).
     if sellable > 1 then
-        table.insert(children, kit.button(ui, { id = "sell", width = INNER, on = "sell", text = "Sell everything here · Enter" }, "primary"))
+        table.insert(children, kit.button(ui, { id = "sell", width = INNER, on = "sell",
+            text = "Sell everything here" .. (quiet and "" or " · Enter") }, quiet and "secondary" or "primary"))
     end
     if pilot.deal ~= "" then table.insert(children, receipt(ui, pilot)) end
     -- The wares scroll once they would run past the bottom of a 960x540 window.
     local rows, tall = { kit.heads(ui, COLUMNS, { id = "columns" }) }, FRAME_H + HEAD_H
     for _, id in lines do
-        line_rows(ctx, ui, id, hold, capacity, pilot.credits, rows, sellable, build)
+        line_rows(ctx, ui, id, hold, capacity, pilot.credits, rows, sellable, build, quiet)
         tall += ware_height(ctx.get(id, "market"), hold, build)
     end
-    local room = WARES_ROOM - (sellable > 1 and ACTION_H or 0) - (pilot.deal ~= "" and ACTION_H or 0)
+    local room = WARES_ROOM - (sellable > 1 and ACTION_H or 0) - (pilot.deal ~= "" and ACTION_H or 0) - (quiet and ACTION_H or 0)
         - (math.ceil(#(load .. aboard) / LEDGER_CHARS) - 1) * LINE_H
     table.insert(children, kit.sheet(ui, { id = "wares", width = INNER, children = {
         ui.scroll { id = "ware_list", height = math.min(tall, room), gap = WARE_GAP, children = rows },
@@ -456,6 +439,42 @@ local function site_rows(ui, build, children)
     table.insert(children, ui.text { id = "how", width = INNER, size = kit.SIZE.small, text = how })
 end
 
+-- The handover this room's keeper waits on, if one is due now: its talk, and what the
+-- gold button says (project.verb). Nil, nil when there is none.
+local function handover(ctx, room)
+    local facility = room ~= "" and ctx.get(room, "facility")
+    if not facility or facility.keeper == "" or facility.fits then return nil, nil end
+    for _, id in ctx.query("offer") do
+        local talk = ctx.get(id, "engine.talk")
+        if talk and talk.enabled and talk.speaker == facility.keeper then
+            local verb = project.verb(ctx, id)
+            if verb then return id, verb end
+        end
+    end
+    return nil, nil
+end
+
+-- The handover's gold button: the offer is taken as its first answer would take it,
+-- with the same receipt, and the keeper's talk gives way to their everyday line.
+local function hand(event, ctx)
+    if not pressed(event) then return end
+    local station, pilot = docked(ctx)
+    if not station or pilot.room == "" then return end
+    local talk = event.payload.talk
+    local due = handover(ctx, pilot.room)
+    if not talk or due ~= talk then return end -- stale: already handed over
+    local offer = ctx.get(talk, "offer")
+    local said = ctx.get(talk, "engine.talk")
+    if said.active then signs.hush(ctx) end
+    local receipt = project.chosen(ctx, talk, offer.take, false, ctx.get("ship", "hold"))
+        or salvage.chosen(ctx, talk, offer.take, false)
+    if not receipt then return end
+    local speaker = ctx.get(said.speaker, "keeper").name
+    log.add(ctx, speaker .. " at " .. ctx.get(station, "port").name .. ": You: "
+        .. ctx.get(offer.take, "engine.talk_choice").text .. ". " .. receipt)
+    signs.show(ctx, station, pilot.room, pilot.log_open, nil)
+end
+
 local function room_panel(ctx, ui, station, pilot)
     local facility = ctx.get(pilot.room, "facility")
     local site = ctx.get(pilot.room, "build")
@@ -467,6 +486,7 @@ local function room_panel(ctx, ui, station, pilot)
         keeper_text = keeper.name .. " " .. rest
         keeper_spans = kit.name(keeper.name, rest)
     end
+    local due, verb = handover(ctx, pilot.room)
     local children
     if facility.fits then
         -- The fitting room has the most to show, so it packs its own rows.
@@ -479,10 +499,16 @@ local function room_panel(ctx, ui, station, pilot)
                 hover = "Back to the whole station: B, Esc or a right-click" }, "secondary"),
         } } }
         if keeper_spans then table.insert(children, ui.text { id = "keeper", width = INNER, size = kit.SIZE.small, spans = keeper_spans }) end
+        -- What the player came here to hand over or take is the room's one gold press,
+        -- beside the keeper's own offer in talk: no need to hear them out first.
+        if due then
+            table.insert(children, kit.button(ui, { id = "hand", width = INNER, on = "hand", payload = { talk = due },
+                text = verb, hover = "Or click " .. string.match(ctx.get(facility.keeper, "keeper").name, "^%S+") .. " and answer in talk" }, "primary"))
+        end
         if site and not site.done then
             site_rows(ui, site, children)
         elseif #trade.lines(ctx, pilot.room) > 0 then
-            trade_rows(ctx, ui, station, pilot, children)
+            trade_rows(ctx, ui, station, pilot, children, due ~= nil)
         elseif site and site.built ~= "" then
             -- A built room nothing is traded in says what goes on there.
             table.insert(children, ui.text { id = "built", width = INNER, size = kit.SIZE.body, text = site.built })
@@ -569,7 +595,7 @@ end
 
 return {
     on = {
-        open = open, close = close, launch = launch, sell = sell, buy = buy,
+        open = open, close = close, launch = launch, sell = sell, buy = buy, hand = hand,
         fit = cradle.fit, unfit = cradle.unfit, choose = cradle.choose,
         ["engine.place_arrived"] = settled,
     },
