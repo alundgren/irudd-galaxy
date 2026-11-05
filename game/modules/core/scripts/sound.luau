@@ -1,13 +1,19 @@
 -- Sound cues for what the player does. Key bindings send a fact on press and another on
 -- release, and audio.toml plays a sound on every fact of its event, so this script
 -- records one cue event per real change instead: thrust starting and stopping, boost,
--- leaving a dock, a panel opening or closing, a click, a refusal, a mining chip, a full
--- hold, a paid receipt and a talk line appearing. It is listed first in the manifest, so
--- its handlers read the world as it was before the other scripts acted on the same
--- input. It writes nothing but these facts and its own note of the last talk line it
+-- leaving a dock, a click, a refusal, a mining chip, a full hold, a paid receipt, a talk
+-- line appearing and a bump. It is listed first in the manifest, so its handlers read
+-- the world as it was before the other scripts acted on the same input. It writes nothing but these facts and its own note of the last talk line it
 -- cued, so it never changes what happens. Facts that already mark a moment (docked,
--- mined, sold, bought, fitted, grown, the radio's channel cues, a talk starting and an
--- answer chosen) are cued straight from audio.toml.
+-- mined, sold, bought, fitted, grown, the radio's channel cues and an answer chosen) are
+-- cued straight from audio.toml; a talk starting blips as its bubble opens ([ui]).
+--
+-- Screens sound from audio.toml's [ui] table on the frame they change: a click on a
+-- screen (an event from the source "ui") is its press, and a room's panel or the log
+-- opening or closing sounds as it appears or goes, whether a key or a click opened it.
+-- So the clicks here are for keys only, and panels have no cue here at all. Bumps: a
+-- contact the ship is part of knocks on the hull. The drive's and the stations' loops
+-- start again after a resume or a hot load (`drive_on`), unless the ship is docked.
 local rules = require("./rules")
 local fit = require("./fit")
 
@@ -16,6 +22,11 @@ local OTHER = { ahead = "back", back = "ahead" }
 
 local function pressed(event)
     return event.payload.down ~= false
+end
+
+-- A screen click: [ui] in audio.toml sounds it.
+local function clicked(event)
+    return event.source == "ui"
 end
 
 local function here(ctx)
@@ -89,32 +100,8 @@ local function launch(event, ctx)
     if pressed(event) and docked(ctx) then ctx.record("undocked", {}) end
 end
 
--- A room opens when it isn't the one already open (station.luau).
-local function open(event, ctx)
-    if not pressed(event) or not docked(ctx) then return end
-    local id = event.payload.facility or ctx.get(here(ctx), "port").exchange
-    local facility = ctx.get(id, "facility")
-    if not facility or facility.station ~= here(ctx) then return end
-    if ctx.get("ship", "pilot").room ~= id then ctx.record("panel_open", {}) end
-end
-
--- Back closes the open room, else the open log (station.luau).
-local function close(event, ctx)
-    if not pressed(event) then return end
-    local pilot = ctx.get("ship", "pilot")
-    if (docked(ctx) and pilot.room ~= "") or pilot.log_open then ctx.record("panel_close", {}) end
-end
-
--- L opens or shuts the log, except inside a room (hud.luau).
-local function log(event, ctx)
-    if not pressed(event) then return end
-    local pilot = ctx.get("ship", "pilot")
-    if pilot.room ~= "" then return end
-    ctx.record(pilot.log_open and "panel_close" or "panel_open", {})
-end
-
 local function click_in_flight(event, ctx)
-    if pressed(event) and flying(ctx) then ctx.record("ui_click", {}) end
+    if pressed(event) and flying(ctx) and not clicked(event) then ctx.record("ui_click", {}) end
 end
 
 -- Mining with a full hold is refused (main.luau); otherwise the order is taken.
@@ -122,19 +109,37 @@ local function mine(event, ctx)
     if not pressed(event) or not flying(ctx) then return end
     if rules.load(ctx.get("ship", "hold")) >= fit.hold(ctx) then
         ctx.record("refused", {})
-    else
+    elseif not clicked(event) then
         ctx.record("ui_click", {})
     end
+end
+
+-- A bump the ship is part of, flown into or hit by.
+local SHIP = { ship = true, ["core.ship"] = true }
+
+local function contact(event, ctx)
+    local p = event.payload
+    if SHIP[p.entity] or SHIP[p.other] then
+        ctx.record("bump", { entity = SHIP[p.other] and p.entity or p.other, speed = p.speed })
+    end
+end
+
+-- Loops don't come back on their own after a resume or a hot load.
+local function drive_on(_, ctx)
+    if ctx.has("ship", "engine.location") and not docked(ctx) then ctx.record("drive_on", {}) end
 end
 
 return {
     on = {
         ahead = flight, back = flight, left = flight, right = flight, boost = flight,
-        launch = launch, open = open, close = close, log = log,
+        launch = launch,
         dock = click_in_flight, radio = click_in_flight, mine = mine,
         ["engine.talk_next"] = talk_next,
         ["engine.talk_start"] = talk_reset,
         ["engine.talk_chosen"] = talk_reset,
+        ["engine.contact"] = contact,
+        ["engine.resumed"] = drive_on,
+        ["engine.hot_loaded"] = drive_on,
         -- A chip for each second's ore, one of three in turn so it never ticks like a
         -- clock; the unit that fills the hold chimes.
         mined = function(_, ctx)

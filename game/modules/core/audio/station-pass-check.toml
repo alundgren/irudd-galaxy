@@ -1,0 +1,23 @@
+# A station's deck sound follows the ship's distance (galaxy-gm audio check): resting at
+# Lantern Dock's rim (seconds 5 and 6) its loop is clearly there, well over the drive's
+# idle hum alone (drive-rest-check.toml); stopped past seventy units out (second 12) it
+# is gone and only the idle hum and the last of the thrust remain.
+scenario = "station-pass.toml"
+
+[[expect]]
+value = "windows.5.rms_dbfs.sound"
+at_least = -39.0
+at_most = -32.0
+
+[[expect]]
+value = "windows.6.rms_dbfs.sound"
+at_least = -39.0
+at_most = -32.0
+
+[[expect]]
+value = "windows.12.rms_dbfs.sound"
+at_most = -40.0
+
+[[expect]]
+value = "limited_samples"
+equals = 0

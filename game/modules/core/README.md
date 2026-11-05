@@ -146,7 +146,16 @@ Dock buys ice, Cinder Kiln buys glassite (below). The office and the dockmaster 
 ore only.
 
 The sky (`[sky]` in `style.toml`) has 300 stars, mostly tiny, in four parallax layers,
-and 16 soft clouds, mostly violet with rose, amber and teal patches.
+and 16 soft clouds, mostly violet with rose, amber and teal patches. Behind the field it
+has depth drawn in ink, never as a photographic starfield (`[[sky.layers]]`): long plum
+hatching that barely creeps, rose and violet dust a little nearer, shorter violet
+hatching crossing it in the middle distance, tiny peach specks and, nearest, a sparse
+lantern-gold dust that slides past faster than the stars, so speed reads. Far away
+(`[[sky.landmarks]]`) a great dusky planet's limb rises out of the bottom-left corner,
+banded and hatched in its violet shadow; rose and teal nebula washes streak across the
+left; and another station hangs deep in the haze to the north, out of reach. Everything
+far fades into a violet haze (`haze`, `atmosphere`) by how far back it sits, so it stays
+low in contrast and darker than any hull, and the backdrop never looks busy.
 
 The stations read as harbours, each in its owner's shape language:
 
@@ -234,10 +243,36 @@ Cinder Kiln's a banked furnace roar, a low drone and a slow bellows breath. They
 authored 16-second loops in `sounds/`, chosen by the player's place.
 
 Measured in the real mix (`galaxy-gm audio mix`, specs in `audio/`): in flight the
-music plays at -26.2 LUFS and the hum and hush at -37.8, eleven LU under it; docked,
+music plays at -26.4 LUFS and the hum and hush at -37.8, eleven LU under it; docked,
 each deck plays alone (Lantern Dock -33.3 LUFS, Cinder Kiln -33.1). No mix comes near
-clipping (peaks -13.5 dBFS in flight, -20.3 docked). Every loop's seam as played steps
-by at most 1.9 dB.
+clipping (peaks -10.3 dBFS in flight, -8.0 docked as the dock clunks). Every loop's seam
+as played steps by at most 1.9 dB.
+
+Sound follows the world while the ship flies, on three loops in their own channels of
+the effects bus (`[[follow]]` in `audio.toml`). The drive is a warm low hum that rises
+in pitch and fullness with the ship's speed: almost nothing at rest (a tenth of its
+gain, 0.8 times its pitch), cruising and then boosting higher (1.45 times at 36 units a
+second). Each station's own deck sound swells as the ship passes its rim and is gone
+some forty units out. A new game, a resumed save or leaving a dock starts them
+(`scripts/sound.luau` records `drive_on` after a resume or a hot load, unless docked);
+docking stops them under the deck's own sound. A bump against a rock, a station or a
+trader knocks softly on the hull: the manifest's `contact_speed` (2 units a second) has
+the engine record `engine.contact`, and `scripts/sound.luau` records `bump` when the
+ship is in it, so traders bumping each other far off stay silent. Repeated cues (thrust,
+the chips, clicks, blips, coins, clunks, the radio's static) each vary a little in pitch
+and gain, so none sounds stamped.
+
+Screens sound from `[ui]` in `audio.toml`, played by the engine on the frame the player
+acts: hover is the faintest wooden tick (at most one every 0.08 s, so a fast sweep
+thins), a press is the click, softer and lower on parchment and the radio's dark
+buttons, a room's panel and the log open and close with the rising and falling note
+pairs, a talk bubble opens with a blip (clicking a bubble or a person only ticks, so
+the next line's blip leads), picking a part up lifts, letting it go sets it down, and a
+resting button or a refusing socket answers with the soft refusal. The plate, status
+chip, radio and hint strip come and go silently as the ship docks and leaves, where the
+dock's clunk speaks. A panel sounds as it appears or goes, whether a key or a click
+opened it; `scripts/sound.luau` cues clicks for keys only, since a click on a screen
+comes from the source `ui` and already sounds.
 
 Every action answers with a short, soft sound on the effects bus. Flying: thrust
 starting and stopping (W or S) and a boost (Shift), warm whooshes with no sub-bass.
@@ -253,12 +288,12 @@ a bubble blip as each line appears. Radio: a little static as it tunes a channel
 They are synthesised by `sounds/make.py` (sines, decaying modes and filtered noise with
 a fixed seed), levelled with `audio process` and measured with `audio inspect`. The
 cues come from facts the game already records (`docked`, `mined`, `sold`, `bought`,
-`fitted`, `grown`, the radio's channel cues, a talk starting and an answer chosen) and
-from events that `scripts/sound.luau` records once per real change, because a key sends
-a fact on press and on release: thrust on and off (W less S, so S pressed against a
-held W stops it and let go starts it again), boost, undocking, a panel opening or
-closing, a click, a refusal, the chips, the full hold and a talk line appearing. A
-clicked line blips only when the talk really moved on, so a double click or a stale
+`fitted`, `grown`, the radio's channel cues and an answer chosen; a talk starting blips
+as its bubble opens, from `[ui]`) and from events that `scripts/sound.luau` records once
+per real change, because a key sends a fact on press and on release: thrust on and off
+(W less S, so S pressed against a held W stops it and let go starts it again), boost,
+undocking, a key's click, a refusal, the chips, the full hold, a talk line appearing
+and a bump. A clicked line blips only when the talk really moved on, so a double click or a stale
 repeat blips once; the script keeps the last line it cued in `blipped` for that. It is
 first in the manifest, so it reads the world as the other scripts found it, and it
 writes only those facts and that note. The
@@ -266,13 +301,17 @@ hum repeats exactly every second with 0.12 s fades, so the copy each `mined` fac
 starts blends into the last and the hum holds steady while the beam cuts. The three
 chips take turns so they never tick like a clock.
 
-In the real mix the effects sit under the radio: in flight and mining their bus is
--28.4 to -28.9 LUFS against the music's -26.4, a median 5 dB under it in the seconds
+In the real mix the effects sit under the radio: in flight (the drive's hum and the
+stations' loops included) and mining their bus is -30.6 and -28.7 LUFS against the
+music's -26.4, a median 5 dB under it in the seconds
 both play. Two thirds of their energy is between 300 Hz and 3 kHz, where the music has
 a fifth of its own, so the music does not cover them, and almost none is above 3 kHz
 or below 100 Hz. Docked, with the radio faded, they sit over the deck bed. No journey
 reaches the output clamp; the busiest, a trade run with rooms, sales and purchases a
-few ticks apart, peaks at -5.7 dBFS. Nobody has listened to them yet.
+few ticks apart, peaks at -6.0 dBFS. The drive's own checks (`audio/drive-check.toml`,
+`drive-rest-check.toml`, `station-pass-check.toml`): cruising, the effects bus is -34 to
+-36 dBFS a second against -48 at rest; resting at Lantern Dock's rim -37, and -43 once
+seventy units out. Nobody has listened to them yet.
 
 ## The station up close
 
