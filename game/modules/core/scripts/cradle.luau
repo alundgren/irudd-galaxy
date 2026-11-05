@@ -11,6 +11,7 @@ local log = require("./log")
 local kit = require("./kit")
 local layout = require("./layout")
 local trade = require("./trade")
+local signs = require("./signs")
 
 local cradle = {}
 
@@ -56,6 +57,12 @@ local function find(parts, id)
     return nil
 end
 
+-- The keeper's sign hides while a part is chosen (its preview box is where their walk
+-- passes) and is worn again once the choice is done. `chosen` is after the caller's write.
+local function sign(ctx, facility, pilot, chosen)
+    signs.show(ctx, facility.station, pilot.room, pilot.log_open, signs.speaking(ctx), nil, chosen)
+end
+
 -- The fitter's next line: flavour about what just changed, never the receipt again.
 local function say(ctx, facility, text)
     ctx.patch(facility.keeper .. "_now", "engine.talk_line", { text = text })
@@ -82,6 +89,7 @@ function cradle.fit(event, ctx)
     say(ctx, facility, p.said)
     log.add(ctx, "Fitted the " .. name .. " at " .. where .. (cost > 0 and " for " .. cost .. " cr" or "") .. ": " .. p.effect .. ".")
     trade.day(ctx) -- the fitter goes to look her over
+    sign(ctx, facility, pilot, "")
     ctx.record("fitted", { part = p.id, credits = cost })
 end
 
@@ -102,17 +110,20 @@ function cradle.unfit(event, ctx)
     say(ctx, facility, "The locker keeps it safe till you want it back on.")
     log.add(ctx, "Took off the " .. name .. " at " .. ctx.get(facility.station, "port").name .. ", into your locker: fit it again here for nothing.")
     trade.day(ctx)
+    sign(ctx, facility, pilot, "")
     ctx.record("fitted", { part = p.id, credits = 0, off = true })
 end
 
 -- A part clicked rather than dragged: chosen, so its socket (or the tray, for a fitted
 -- part) offers Fit here with the preview. Choosing it again puts it back.
 function cradle.choose(event, ctx)
-    local room, _, pilot = at_cradle(ctx)
+    local room, facility, pilot = at_cradle(ctx)
     if not room then return end
     local id = event.payload.value
     if not ctx.get(id, "part") then return end
-    ctx.patch("ship", "pilot", { chosen_part = pilot.chosen_part == id and "" or id })
+    local chosen = pilot.chosen_part == id and "" or id
+    ctx.patch("ship", "pilot", { chosen_part = chosen })
+    sign(ctx, facility, pilot, chosen)
 end
 
 -- Widths: the room panel is layout.ROOM wide, so the ship on its cradle stays in view
@@ -241,13 +252,14 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
         under,
         budget(ui, t),
     }
-    -- What a choice would do to `target`: Fit here (or Take it off here) with the
-    -- preview on hover, or the refusal in full in its place.
+    -- What a choice would do to `target`: Fit here (or Take it off here), or the refusal
+    -- in full in its place. What it changes is the preview box (cradle.preview), so the
+    -- button has no hover: at 960x540 the only room for one is over that box.
     local function offer(target, id, width, height, verb)
         local why = fit.verdict(chosen, target, parts, pilot.credits, load)
         if why ~= "" then return ui.text { id = id, width = width, height = height, size = 16, text = "Cannot: " .. why } end
         return kit.button(ui, { id = id, width = width, height = height, size = 16, pad = 6, text = verb,
-            hover = fit.changes(chosen, parts, fit.hull_speed(ctx)), on = target == "locker" and "unfit" or "fit",
+            on = target == "locker" and "unfit" or "fit",
             payload = { socket = target, value = chosen.id } }, "primary")
     end
     -- The sockets: each shows its part, or that it is empty, with Choose for the part

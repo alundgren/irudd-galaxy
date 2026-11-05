@@ -302,8 +302,13 @@ the place model.
 
 ## Playing: `galaxy play` and `galaxy shot`
 
-`play` opens a window (1280x720 logical pixels unless `--size`) and runs the session in
-real time:
+`play` opens a window and runs the session in real time. Without `--size` the window opens
+maximized on the current monitor (title bar and borders kept, not fullscreen), since games
+are played that way, and un-maximizing it brings it back to 1280x720 logical pixels.
+`--size` (with or without `--physical-size`) opens exactly that size, unmaximized: bots,
+films and measurements rely on it, and `galaxy-gm test` always passes the bot's `size`.
+Screens lay out for whatever size the window has; the sim never sees it, and a
+recording holds inputs, not the window, so it replays the same at any size. Then:
 
 - Each frame asks the fixed step how many ticks are due (at most 5, so a stall never
   fast-forwards the world), runs them, builds the scene and draws it.

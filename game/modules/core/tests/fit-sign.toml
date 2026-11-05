@@ -1,0 +1,140 @@
+# The cradle keeper's name sign hides while a part is chosen: the preview box stands
+# where Orrin's walk to the ship passes, so his sign would sit under it at 960x540. The
+# panel names him meanwhile. Put back, or a fit, and the sign is worn again. The route
+# is fit-click.toml's up to the sale, then the view settles in the cradle.
+seed = 7
+ticks = 560
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 440
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 389 }
+[[input]]
+tick = 470
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 480
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+[[input]]
+tick = 490
+name = "core.open"
+[[input]]
+tick = 500
+name = "core.sell"
+[[input]]
+tick = 510
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+
+[[input]]
+tick = 513
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_cradle_room", start_tick = 510 }
+
+# Settled in the cradle: Orrin wears his sign.
+[[expect]]
+tick = 515
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = "Orrin Vale"
+
+# The lens chosen: its preview shows, and his sign goes.
+[[input]]
+tick = 520
+name = "core.choose"
+source = "ui"
+payload = { value = "core.lens" }
+[[expect]]
+tick = 521
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = ""
+
+# Put back: the sign is back.
+[[input]]
+tick = 525
+name = "core.choose"
+source = "ui"
+payload = { value = "core.lens" }
+[[expect]]
+tick = 526
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = "Orrin Vale"
+
+# Chosen again, then fitted: the choice is done, so the sign is worn again.
+[[input]]
+tick = 530
+name = "core.choose"
+source = "ui"
+payload = { value = "core.lens" }
+[[expect]]
+tick = 531
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = ""
+[[input]]
+tick = 535
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+[[expect]]
+tick = 536
+entity = "lens"
+component = "part"
+field = "fitted"
+equals = true
+[[expect]]
+tick = 536
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = "Orrin Vale"
+
+# Chosen where it is fitted, then taken off: the same.
+[[input]]
+tick = 540
+name = "core.choose"
+source = "ui"
+payload = { value = "core.lens" }
+[[expect]]
+tick = 541
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = ""
+[[input]]
+tick = 545
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.lens" }
+[[expect]]
+tick = 546
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = "Orrin Vale"
