@@ -66,7 +66,7 @@ scale = 0.55
 
 `galaxy-gm check` reports a key it doesn't know, a value out of its range, a shape that
 isn't one of the list, `model` or `look` on a shape that isn't a model, a model shape
-without a model, and a model or look no module has. While playing, a model the sky
+without a model, `alpha` on a model (models draw opaque in their own paint; fade them with`n`fade` and the atmosphere), and a model or look no module has. While playing, a model the sky
 names that no module has shows in the problems panel and is left out.
 
 ## How it works
@@ -97,7 +97,8 @@ stretched blob of two octaves of value noise, lightly hatched where it is thick.
 **Models are real meshes.** A model landmark, and a model layer's scattered models (the
 cells in view, at most 256 a frame), are mesh instances drawn with the cel and ink
 pipelines, so they keep bands, hatching and silhouette ink. They are not in the
-geometry buffer, so they get no inner ink: distant things read simpler.
+geometry buffer, so they get no inner ink: distant things read simpler. They draw opaque,
+so a model takes no `alpha`; the haze is how a far model quiets.
 
 **Order.** Far things draw after the backdrop's gradient, clouds and stars and before
 the play meshes, sorted far to near by parallax (a landmark before a layer at the same

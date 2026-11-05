@@ -606,7 +606,7 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "[sky.layers]",
         "alpha",
         "0 to 1",
-        "the brightest mark's opacity",
+        "the brightest mark's opacity, default 0.5; not for a model layer (models are opaque)",
     ),
     (
         "[sky.layers]",
@@ -687,7 +687,12 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "",
         "a disc's or wash's paint (a model keeps its own)",
     ),
-    ("[sky.landmarks]", "alpha", "0 to 1", "its opacity"),
+    (
+        "[sky.landmarks]",
+        "alpha",
+        "0 to 1",
+        "a disc's or wash's opacity, default 1; not for a model (models are opaque)",
+    ),
     (
         "[sky.landmarks]",
         "shadow",
@@ -944,8 +949,18 @@ pub fn defaults() -> Vec<(&'static str, Vec<(String, String)>)> {
             }
             sky
         },
-        table("[sky.layers]", &SkyLayer::default()),
-        table("[sky.landmarks]", &Landmark::default()),
+        {
+            // Unset, a layer's marks are at half opacity (models take no alpha).
+            let mut layers = table("[sky.layers]", &SkyLayer::default());
+            layers.1.push(("alpha".to_owned(), "0.5".to_owned()));
+            layers
+        },
+        {
+            // Unset, a disc or wash is opaque (models take no alpha).
+            let mut landmarks = table("[sky.landmarks]", &Landmark::default());
+            landmarks.1.push(("alpha".to_owned(), "1.0".to_owned()));
+            landmarks
+        },
         table("course", &Course::default()),
         table("screen", &{
             // Unset, a resting button uses the panel colour: list that as its default.
@@ -1237,6 +1252,17 @@ fn model_keys(shape: &str, model: &str, look: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Models draw opaque in their own paint, so an `alpha` on one would silently do nothing.
+fn opaque_model(shape: &str, alpha: Option<f32>) -> Result<(), String> {
+    if shape == "model" && alpha.is_some() {
+        return Err(
+            "alpha is for drawn shapes; a model draws opaque in its own paint, so leave it out"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
 /// A backdrop layer: marks drawn per pixel on an endless grid, or a model scattered,
 /// sliding with the camera at its parallax ([`crate::far`]).
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -1246,7 +1272,9 @@ pub struct SkyLayer {
     pub shape: String,
     pub parallax: f32,
     pub tint: Color,
-    pub alpha: f32,
+    /// The brightest mark's opacity, unset for 0.5 ([`SkyLayer::alpha`]); marks only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alpha: Option<f32>,
     /// Marks per 100 by 100 logical pixels at the camera's own zoom.
     pub density: f32,
     /// Smallest and largest mark in logical pixels, or a model's scale.
@@ -1265,7 +1293,7 @@ impl Default for SkyLayer {
             shape: "dust".into(),
             parallax: 0.1,
             tint: Color::hex(0xfff4dd),
-            alpha: 0.5,
+            alpha: None,
             density: 0.5,
             size: [1.0, 2.5],
             angle: 60.0,
@@ -1277,6 +1305,11 @@ impl Default for SkyLayer {
 }
 
 impl SkyLayer {
+    /// The brightest mark's opacity.
+    pub fn alpha(&self) -> f32 {
+        self.alpha.unwrap_or(0.5)
+    }
+
     fn check(&self) -> Result<(), String> {
         let shape = self.shape.as_str();
         if !["dust", "speck", "hatch", "model"].contains(&shape) {
@@ -1285,8 +1318,9 @@ impl SkyLayer {
             ));
         }
         model_keys(shape, &self.model, &self.look)?;
+        opaque_model(shape, self.alpha)?;
         in_range("parallax", self.parallax, 0.0, 1.0)?;
-        in_range("alpha", self.alpha, 0.0, 1.0)?;
+        in_range("alpha", self.alpha(), 0.0, 1.0)?;
         let most = if shape == "model" { 1.0 } else { 16.0 };
         in_range("density", self.density, 0.0, most)?;
         in_range("angle", self.angle, -360.0, 360.0)?;
@@ -1323,7 +1357,9 @@ pub struct Landmark {
     /// Degrees anticlockwise.
     pub angle: f32,
     pub color: Color,
-    pub alpha: f32,
+    /// A disc's or wash's opacity, unset for 1 ([`Landmark::alpha`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alpha: Option<f32>,
     pub shadow: Color,
     pub outline_px: f32,
     pub hatch: f32,
@@ -1343,7 +1379,7 @@ impl Default for Landmark {
             stretch: 0.4,
             angle: 0.0,
             color: Color::hex(0xe8905a),
-            alpha: 1.0,
+            alpha: None,
             shadow: Color::hex(0x9e84cc),
             outline_px: 3.0,
             hatch: 0.4,
@@ -1355,12 +1391,18 @@ impl Default for Landmark {
 }
 
 impl Landmark {
+    /// A disc's or wash's opacity.
+    pub fn alpha(&self) -> f32 {
+        self.alpha.unwrap_or(1.0)
+    }
+
     fn check(&self) -> Result<(), String> {
         let shape = self.shape.as_str();
         if !["disc", "wash", "model"].contains(&shape) {
             return Err(format!("shape is \"{shape}\"; it is disc, wash or model"));
         }
         model_keys(shape, &self.model, &self.look)?;
+        opaque_model(shape, self.alpha)?;
         if !self.at.iter().all(|v| v.is_finite() && v.abs() <= 1e6) {
             return Err(format!(
                 "at is {:?}; it is [x, y] in world units, within a million",
@@ -1372,7 +1414,7 @@ impl Landmark {
         in_range("scale", self.scale, 0.0, 100.0)?;
         in_range("stretch", self.stretch, 0.0, 1.0)?;
         in_range("angle", self.angle, -360.0, 360.0)?;
-        in_range("alpha", self.alpha, 0.0, 1.0)?;
+        in_range("alpha", self.alpha(), 0.0, 1.0)?;
         in_range("outline_px", self.outline_px, 0.0, 16.0)?;
         in_range("hatch", self.hatch, 0.0, 1.0)?;
         in_range("fade", self.fade, 0.0, 2.0)?;
@@ -1610,6 +1652,9 @@ color = \"#3fa7a0\"
         assert_eq!(sky.layers.len(), 2);
         assert_eq!(sky.layers[0].size, [6.0, 12.0]);
         assert_eq!(sky.landmarks[0].at, [10.0, -20.0]);
+        // Unset, marks are at half opacity and a wash is opaque.
+        assert_eq!(sky.layers[0].alpha(), 0.5);
+        assert_eq!(sky.landmarks[0].alpha(), 1.0);
         assert_eq!(sky.haze(), Color::hex(0x3c2b5c));
         // Far things fade more, and the play layer not at all.
         assert_eq!(sky.fade(1.0, 1.0), 0.0);
@@ -1663,6 +1708,15 @@ color = \"#3fa7a0\"
                 "landmarks 1: shape is \"ring\"",
             ),
             ("[[sky.landmarks]]\nstretch = 1.5", "stretch is 1.5"),
+            // A model draws opaque in its own paint, so an alpha on one is a mistake.
+            (
+                "[[sky.layers]]\nshape = \"model\"\nmodel = \"m.a\"\nalpha = 0.2",
+                "layers 1: alpha is for drawn shapes",
+            ),
+            (
+                "[[sky.landmarks]]\nshape = \"model\"\nmodel = \"m.a\"\nalpha = 0.0",
+                "landmarks 1: alpha is for drawn shapes",
+            ),
             ("[sky]\natmosphere = 3.0", "atmosphere is 3"),
         ] {
             let e = Style::parse(bad).unwrap_err();
