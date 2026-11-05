@@ -492,7 +492,10 @@ three later counted dockings there before the strings come down.
 Measured on the headless route in `tests/greenhouse.toml` (seed 7): the galley is built
 at tick 2460 and the greenhouse at 4330, 1870 ticks (62 seconds of scripted play) over
 five trips out: glassite, ore while the panes fire, the panes to Lantern Dock, and two
-holds of ice. Hand flying, docking and talk stretch each trip.
+holds of ice. By real clicks in the window (`greenhouse.bot.toml`, flights scripted) the
+galley is built at tick 3380 and the greenhouse at 8533: 5153 ticks, 2 min 52 s,
+against 88 s from the first sale to the galley on the same route. Hand flying,
+docking and reading the talk stretch each trip.
 
 ## Fitting the ship
 
@@ -837,16 +840,21 @@ pins outlasting dropped entries and the open log's width at 960x540, and
 records `engine.place_arrived` when a cut or glide lands; scenarios give it by hand
 where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
-routes, and so is `fit.inputs`. Eight bots run in a window: `hand-mining.inputs` mines and
+routes, and so is `fit.inputs`. Eleven bots run in a window: `hand-mining.inputs` mines and
 docks with the keys a player presses and clicks a far rock (`hand-mining.bot.toml`, 570
-ticks, eight notes), and seven more use real screen clicks, their flights between
+ticks, eight notes), and eight more use real screen clicks, their flights between
 stations given as scripted Mine and Dock: `play.inputs` docks (the view glides in),
 points at and clicks the exchange building (a cut into the room), talks to Tova at
 her counter, lands the office's cut with a click and talks to Bram at his desk, goes
 back with Esc and with a right-click, shuts the log with Esc and takes twelve notes
 (`play.bot.toml`, 1110 ticks), and
 `trade-play.inputs` plays the whole trade loop through the galley and Ines's gift
-with twelve notes (`trade.bot.toml`, 4150 ticks), and `back-talk.inputs` plays
+with twelve notes (`trade.bot.toml`, 4150 ticks), and `greenhouse-play.inputs` carries
+on from it through Ines's greenhouse (`greenhouse.bot.toml`, 8961 ticks, 26 notes): her
+ask accepted and the plot on the deck, Sefa's introduction and the glassite handed over,
+an ore trip, the panes waiting on a full hold and then loaded as Ines's, handed to her,
+the scaffold and glaziers, two holds of ice, the greenhouse and its lamp strings, her
+thanks, Noor in the greenhouse and the station's dome from the reach, and `back-talk.inputs` plays
 that loop up to Ines's offer, then goes back with Esc on the unanswered offer and
 with a right-click on its first line, takes it the third time, goes back out with B while Tova speaks in her exchange, then comes back in and hears her again (`back-talk.bot.toml`, 3990 ticks, thirteen notes), and `fit-play.inputs` plays the fitting loop with real drags
 (`fit.bot.toml`, 2340 ticks, thirteen notes): the cradle on the first visit, the lens
@@ -866,7 +874,8 @@ traffic zoomed fully in and then fully out (`zoom.bot.toml`, 480 ticks, six note
 Little Mercy off screen with no label drawn, her label yielding while it would sit on the
 message, named beside the ship clear of the HUD, then named far off zoomed out, Quiet
 Lamp by Cinder Kiln and Mercy moored with none, and the rocks and rings turning with
-nothing pressed. All eight declare 1280x720 physical pixels. The GM test
+nothing pressed. Nine declare 1280x720 physical pixels; `cradle-small.bot.toml` and
+`mixed-trade.bot.toml` declare 1200x675, the 960x540 logical window at 125%. The GM test
 report includes their frame times, dimensions, problems and deterministic replay
 results. On a display scaled to 125% that window is 1024x576 logical pixels, and
 the seven click bots run there without problems, and the hand-mining route, shot there
