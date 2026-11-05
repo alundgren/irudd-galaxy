@@ -219,8 +219,10 @@ function cradle.preview(ctx, ui, pilot, right)
         end
         table.insert(lines, ui.text { id = "change_" .. i, width = PREVIEW - 20, size = kit.SIZE.small, spans = spans })
     end
+    -- No hover: Put back says what it does, and at 960x540 a hover has no room but over
+    -- this box's own lines.
     table.insert(lines, kit.button(ui, { id = "put_back", width = PREVIEW - 20, height = CHOOSE, size = 16, pad = 4, text = "Put back",
-        hover = "Leave the " .. string.lower(chosen.name) .. " where it is", on = "choose", payload = { value = chosen.id } }, "secondary"))
+        on = "choose", payload = { value = chosen.id } }, "secondary"))
     return kit.plate(ui, { id = "preview", align = "top-right", x = right, y = layout.M, width = PREVIEW, gap = 4,
         children = { ui.column { id = "changes", gap = 4, children = lines } } })
 end
