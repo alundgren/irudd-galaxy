@@ -217,10 +217,11 @@ end
 -- its name with its icon, the price and the counts as plain labels, then its verbs under
 -- it. Only verbs are buttons: selling is the gold primary, buying the quieter parchment.
 -- The columns fit the sheet: INNER wide inside the panel's padding, SHEET inside the
--- sheet's own.
+-- sheet's own. The wares scroll inside the sheet, and a row in the scroll leaves 64px
+-- for its frame and bar, as in the log.
 local INNER = layout.ROOM - 32
-local SHEET = INNER - 16
-local COLUMNS = { { "Ware", 120 }, { "Price each", 104 }, { "Stock", 64 }, { "Hold", 54 } }
+local SHEET = INNER - 16 - 64
+local COLUMNS = { { "Ware", 104 }, { "Price each", 96 }, { "Stock", 54 }, { "Hold", 40 } }
 
 local function table_row(ui, id, ware, name, price, stock, held)
     return ui.row { id = id, gap = 8, children = {
@@ -300,6 +301,24 @@ local function receipt(ui, pilot)
     } })
 end
 
+-- How tall the wares' rows stand, to size their scroll: its frame, the column heads, a
+-- table row, a small line, a button, and the gap between them. WARES_ROOM is what a 960x540
+-- window leaves the list under the title, keeper and a one-line ledger. Each action
+-- above the list (Sell everything, the receipt) takes ACTION_H of it, and each further
+-- ledger line (about LEDGER_CHARS letters a line) LINE_H.
+local FRAME_H, HEAD_H, ROW_H, SMALL_H, BUTTON_H, WARE_GAP = 24, 24, 26, 20, 56, 6
+local WARES_ROOM, ACTION_H, LINE_H, LEDGER_CHARS = 296, 64, 24, 34
+
+local function ware_height(line, hold, build)
+    local h = ROW_H + WARE_GAP + BUTTON_H + WARE_GAP
+    if line.role == "buys" then
+        h = ROW_H + WARE_GAP
+        if build and build.ware == line.ware then h += SMALL_H + WARE_GAP end
+        if hold[line.ware] > 0 then h += BUTTON_H + WARE_GAP end
+    end
+    return h
+end
+
 local function trade_rows(ctx, ui, station, pilot, children)
     local hold = ctx.get("ship", "hold")
     local _, build = trade.building(ctx, station)
@@ -311,21 +330,31 @@ local function trade_rows(ctx, ui, station, pilot, children)
     end
     local capacity = fit.hold(ctx)
     -- What you bring to the table: credits and the hold, as the status chip shows them.
+    local load = rules.load(hold) .. "/" .. capacity
+    local aboard = " aboard: " .. rules.list(hold)
     table.insert(children, ui.row { id = "ledger", gap = 8, children = {
         ui.text { id = "ledger_credits", width = 110, icon = "credits", size = kit.SIZE.body, cue = "flash",
             spans = { { text = pilot.credits .. " cr", look = kit.LOOK.figure } } },
         ui.text { id = "ledger_hold", width = INNER - 118, icon = "hold", size = kit.SIZE.body, cue = "flash",
-            spans = { { text = rules.load(hold) .. "/" .. capacity, look = kit.LOOK.figure }, " aboard: " .. rules.list(hold) } },
+            spans = { { text = load, look = kit.LOOK.figure }, aboard } },
     } })
-    local rows = { kit.heads(ui, COLUMNS, { id = "columns" }) }
-    for _, id in lines do
-        line_rows(ctx, ui, id, hold, capacity, pilot.credits, rows, sellable, build)
-    end
-    table.insert(children, kit.sheet(ui, { id = "wares", width = INNER, gap = 6, children = rows }))
+    -- Selling everything and the last deal's receipt come before the wares, so they stay
+    -- on screen however much is aboard (direction doc 8).
     if sellable > 1 then
         table.insert(children, kit.button(ui, { id = "sell", width = INNER, on = "sell", text = "Sell everything here · Enter" }, "primary"))
     end
     if pilot.deal ~= "" then table.insert(children, receipt(ui, pilot)) end
+    -- The wares scroll once they would run past the bottom of a 960x540 window.
+    local rows, tall = { kit.heads(ui, COLUMNS, { id = "columns" }) }, FRAME_H + HEAD_H
+    for _, id in lines do
+        line_rows(ctx, ui, id, hold, capacity, pilot.credits, rows, sellable, build)
+        tall += ware_height(ctx.get(id, "market"), hold, build)
+    end
+    local room = WARES_ROOM - (sellable > 1 and ACTION_H or 0) - (pilot.deal ~= "" and ACTION_H or 0)
+        - (math.ceil(#(load .. aboard) / LEDGER_CHARS) - 1) * LINE_H
+    table.insert(children, kit.sheet(ui, { id = "wares", width = INNER, children = {
+        ui.scroll { id = "ware_list", height = math.min(tall, room), gap = WARE_GAP, children = rows },
+    } }))
 end
 
 -- The office: every station's posted prices on its own sheet, then how the builds and
@@ -336,8 +365,8 @@ local function office_rows(ctx, ui, station, children)
         local name = ctx.get(id, "port").name
         local posted = string.sub(trade.posted(ctx, id), #name + 2)
         table.insert(children, kit.sheet(ui, { id = "posted_" .. short(id), width = INNER, gap = 2, children = {
-            ui.text { width = SHEET, size = kit.SIZE.body, spans = kit.name(name, id == station and "here" or nil) },
-            ui.text { width = SHEET, size = kit.SIZE.small, text = posted },
+            ui.text { width = INNER - 16, size = kit.SIZE.body, spans = kit.name(name, id == station and "here" or nil) },
+            ui.text { width = INNER - 16, size = kit.SIZE.small, text = posted },
         } }))
     end
     for _, id in ctx.query("build") do
