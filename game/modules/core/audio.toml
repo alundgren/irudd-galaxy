@@ -28,9 +28,9 @@
 # with `audio process` (DC removed, silence trimmed, -18 LUFS or a gain under a -1 dBTP
 # ceiling) and measured with `audio inspect`. Their volumes set them under the radio's
 # music. scripts/sound.luau records the cue events for key presses and bumps;
-# the other events are the game's own facts. mine_hum repeats exactly every second and
-# fades over its last 0.12 s, the same length as its fade-in: `mined` comes once a
-# second, so each copy blends into the next and the hum holds while the beam cuts.
+# the other events are the game's own facts. mine_hum is one second long and fades
+# over its last 0.12 s, the same length as its fade-in, so as it loops on the beam's
+# channel each copy blends into the next and the hum holds while the beam cuts.
 #
 # Sound that follows the world (the feel pass): three loops play on their own channels
 # of the sound bus while the ship flies, started by a new game, a resumed save or
@@ -89,6 +89,7 @@ volume = 0.42
 [sounds.mine_hum]
 file = "sounds/mine_hum.wav"
 volume = 0.2
+loop_crossfade = 0.12
 
 [sounds.mine_chip1]
 file = "sounds/mine_chip1.wav"
@@ -239,10 +240,20 @@ event = "boost_on"
 sound = "boost"
 
 
-# Mining: the hum and a chip for each second's ore, a chime when the hold is full
+# Mining: the hum loops on its own channel from the beam's first touch on a rock to
+# the moment it lets go (cutter.luau records cut_start and cut_stop), a chip for each
+# second's ore, a chime when the hold is full
 [[events]]
-event = "mined"
+event = "cut_start"
 sound = "mine_hum"
+channel = "beam"
+fade = 0.05
+
+[[events]]
+event = "cut_stop"
+channel = "beam"
+stop = true
+fade = 0.15
 
 [[events]]
 event = "chip1"
