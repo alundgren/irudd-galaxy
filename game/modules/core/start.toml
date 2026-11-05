@@ -670,7 +670,7 @@ keeper = { name = "Noor Hale", idle = "The beds drink a lot of ice.", figure = "
 "engine.act" = { place = "core.lantern_greenhouse_room", spot = "core.lantern_greenhouse_room_beds", angle = -1.2, state = "tending the beds", next = "core.lantern_grower_act2" }
 
 [entities.lantern_grower_act2]
-"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_table", angle = -1.5707963267948966, state = "bringing greens" }
+"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_greens", angle = -2.2, state = "bringing greens" }
 
 # Said once: the first click introduces the keeper.
 [entities.lantern_grower_intro]
@@ -781,6 +781,10 @@ skiff = { a = "core.lantern_skiff_a_spot", b = "core.lantern_skiff_b_spot" }
 
 [entities.lantern_galley_room_table]
 "engine.spot" = { place = "core.lantern_galley_room", name = "table" }
+
+# The grower stands here with the greens, clear of Ines at her hatch.
+[entities.lantern_galley_room_greens]
+"engine.spot" = { place = "core.lantern_galley_room", name = "greens" }
 
 [entities.kiln_exterior]
 "engine.location" = { place = "core.reach" }

@@ -263,7 +263,7 @@ function project.chosen(ctx, talk, choice, open, hold)
         hold[job.ware] -= job.need
         local station = home(ctx, job.maker)
         ctx.patch(id, "project", { fired = ctx.get(station, "port").visits })
-        ctx.patch(job.maker_act, "engine.act", { state = "firing " .. gave .. " panes" })
+        ctx.patch(job.maker_act, "engine.act", { state = "firing " .. gave .. " " .. job.cargo })
         receipt = "Gave " .. job.need .. " " .. job.ware .. " for " .. gave .. " " .. job.cargo .. ": " .. maker .. " fires them."
     elseif step == project.READY then
         if fit.hold(ctx) - rules.load(hold) < job.units then return nil, hold end
@@ -302,7 +302,7 @@ function project.arrived(ctx, station, counted, visits)
     local id, job = project.find(ctx)
     if job and counted and station == home(ctx, job.maker) and project.fired(job, visits) then
         ctx.patch(id, "project", { step = project.READY })
-        ctx.patch(job.maker_act, "engine.act", { state = "packing " .. project.first(name(ctx, job.giver)) .. "'s panes" })
+        ctx.patch(job.maker_act, "engine.act", { state = "packing " .. project.first(name(ctx, job.giver)) .. "'s " .. job.cargo })
     end
     local note = nil
     for _, h in ctx.query("happening") do

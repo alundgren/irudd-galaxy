@@ -734,7 +734,33 @@ name = "engine.place_arrived"
 source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 4355 }
 [[input]]
+tick = 4357
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 4358
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 4357 }
+[[input]]
+tick = 4359
+name = "core.buy"
+payload = { ware = "rations", units = 1 }
+# A trade moves the day on: Noor brings greens to the galley, clear of Ines.
+[[expect]]
 tick = 4360
+entity = "lantern_grower"
+component = "engine.location"
+field = "place"
+equals = "core.lantern_galley_room"
+[[expect]]
+tick = 4360
+entity = "lantern_grower"
+component = "engine.location"
+field = "spot"
+equals = "core.lantern_galley_room_greens"
+[[input]]
+tick = 4362
 name = "core.launch"
 [[input]]
 tick = 4365
