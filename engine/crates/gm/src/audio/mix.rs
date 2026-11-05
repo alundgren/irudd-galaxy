@@ -58,6 +58,14 @@ impl Run<'_> {
             Run::Recorded(replay) => replay.step().map(|_| ()).map_err(Failure::runtime),
         }
     }
+
+    /// At a recording's last tick, its world hot-load made after that tick ran.
+    fn finish(&mut self) -> Result<(), Failure> {
+        match self {
+            Run::Scripted { .. } => Ok(()),
+            Run::Recorded(replay) => replay.finish().map(|_| ()).map_err(Failure::runtime),
+        }
+    }
 }
 
 pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
@@ -182,8 +190,9 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
     let rate = 48_000;
     let mut mixer = Mixer::new(rate);
     let mut scene = Scene::new(bank);
-    // A recording's world already holds its saved facts; only new ones sound.
-    let mut next_fact = if recording.is_some() {
+    // Like play: a fresh start (tick 0) sounds its starting facts, such as `engine.start`;
+    // a resumed save already holds facts that sounded before, so only new ones sound.
+    let mut next_fact = if recording.is_some() && run.world().tick > 0 {
         run.world().facts.len()
     } else {
         0
@@ -261,6 +270,7 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
             }
         }
     }
+    run.finish()?;
     for (_, writer) in writers {
         writer
             .finalize()

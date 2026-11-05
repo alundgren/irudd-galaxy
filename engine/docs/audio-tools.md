@@ -125,7 +125,10 @@ The same `Scene` and `Mixer` as play and `galaxy audio` run an ordinary scripted
 session, with event inputs and no window/device. Clicks, pointer gestures and hot
 loads in inputs are refused; for those, play the session and mix its recording:
 `recording` runs its world again (ticks defaults to the ticks it played) and plays its
-recorded UI sound cues on their frames, listed in the report's `ui_sounds`
+recorded UI sound cues on their frames. Like play, a recording of a fresh start (tick 0)
+sounds its starting facts such as `engine.start`, and one of a loaded save only facts
+made after it; a world hot-load made after the last tick is applied before the report's
+`world_hash`, as replay does, listed in the report's `ui_sounds`
 (`audio.md`, "UI sounds"). Sounds come from `modules`, so an edited `audio.toml` is heard
 on the same session. Up to one hour can be rendered. Source loudness is measured
 before gains and playback clamp. Each bus is captured in the actual mixer pass

@@ -329,3 +329,185 @@ fn modules_without_ui_sounds_stay_silent_and_views_not_listening_leave_no_cues()
     assert_eq!(cues.len(), 1);
     assert!(audio.ui(&cues[0]).is_none(), "no [ui]: the press is silent");
 }
+
+/// A copy of the demo module in `dir`, with `edit` applied to its files.
+fn demo_copy(dir: &Path, edit: impl FnOnce(&Path)) -> PathBuf {
+    let from = engine().join("tests/play/ui-sounds/demo");
+    let to = dir.join("demo");
+    for sub in ["", "scripts", "sounds"] {
+        std::fs::create_dir_all(to.join(sub)).unwrap();
+        for entry in std::fs::read_dir(from.join(sub)).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_file() {
+                std::fs::copy(&path, to.join(sub).join(path.file_name().unwrap())).unwrap();
+            }
+        }
+    }
+    edit(&to);
+    to
+}
+
+/// `galaxy-gm audio mix` of `rec` with the sounds in `modules`: its report.
+fn mix(rec: &galaxy_sim::Recording, modules: &Path) -> Value {
+    let dir = tempfile::tempdir().unwrap();
+    rec.write(&dir.path().join("recording.json")).unwrap();
+    std::fs::write(
+        dir.path().join("mix.toml"),
+        format!(
+            "modules = {:?}\nrecording = 'recording.json'\n",
+            modules.to_str().unwrap()
+        ),
+    )
+    .unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_engine-galaxy-gm"))
+        .args(["audio", "mix"])
+        .arg(dir.path().join("mix.toml"))
+        .current_dir(engine())
+        .env_remove("GALAXY_INSTALL_ROOT")
+        .output()
+        .unwrap();
+    let mix: Value = serde_json::from_slice(&out.stdout)
+        .unwrap_or_else(|_| panic!("{}", String::from_utf8_lossy(&out.stderr)));
+    assert_eq!(out.status.code(), Some(0), "{mix}");
+    mix
+}
+
+#[test]
+fn nested_panels_and_lists_open_and_close_inside_one_that_stays() {
+    let dir = tempfile::tempdir().unwrap();
+    let demo = demo_copy(dir.path(), |to| {
+        std::fs::write(
+            to.join("scripts/screen.luau"),
+            r#"return {
+    on = {
+        toggle = function(_, ctx)
+            local desk = ctx.get("state", "desk")
+            ctx.patch("state", "desk", { shelf = not desk.shelf })
+        end,
+        pick = function() end,
+        place = function() end,
+        locked = function() end,
+    },
+    screen = function(ctx, ui)
+        local desk = ctx.get("state", "desk")
+        local inner = {}
+        if desk.shelf then
+            inner = {
+                ui.panel { id = "nested", children = {
+                    ui.text { text = "Now open" },
+                    ui.scroll { id = "deep", height = 60, children = { ui.text { text = "Deep" } } },
+                } },
+                ui.scroll { id = "list", height = 60, children = { ui.text { text = "Row" } } },
+            }
+        end
+        return ui.panel { id = "outer", width = 400, children = inner }
+    end,
+}
+"#,
+        )
+        .unwrap();
+    });
+    let mut s = Session::new(vec![Module::read(&demo).unwrap()], 1).unwrap();
+    let mut v = View::detached(s.modules(), 1);
+    v.screens.listen(true);
+    let frame = |s: &Session, v: &mut View| -> Vec<(&'static str, String)> {
+        v.scene(&s.world, 1.0, size(), 0.0);
+        let mut heard: Vec<_> = v
+            .screens
+            .take_cues()
+            .into_iter()
+            .map(|c| (c.action.name(), c.widget))
+            .collect();
+        heard.sort();
+        heard
+    };
+    assert_eq!(frame(&s, &mut v), vec![]);
+    let toggle = || Input {
+        tick: 0,
+        source: "ui".into(),
+        name: "demo.toggle".into(),
+        payload: Default::default(),
+    };
+    let step = |s: &mut Session| {
+        let mut input = toggle();
+        input.tick = s.world.tick + 1;
+        s.step(&[input]).unwrap();
+    };
+    step(&mut s);
+    // The panel and the list in the outer panel open; the list inside the new panel is
+    // part of that panel's sound.
+    let heard = frame(&s, &mut v);
+    let widgets = |heard: &[(&str, String)]| -> Vec<String> {
+        heard
+            .iter()
+            .map(|(_, w)| w.rsplit('/').next().unwrap().to_owned())
+            .collect()
+    };
+    assert_eq!(widgets(&heard), ["list[2]", "nested[1]"], "{heard:?}");
+    assert!(heard.iter().all(|(a, _)| *a == "open"), "{heard:?}");
+    assert_eq!(
+        frame(&s, &mut v),
+        vec![],
+        "a panel that stays is heard once"
+    );
+    step(&mut s);
+    let heard = frame(&s, &mut v);
+    assert_eq!(widgets(&heard), ["list[2]", "nested[1]"], "{heard:?}");
+    assert!(heard.iter().all(|(a, _)| *a == "close"), "{heard:?}");
+}
+
+#[test]
+fn a_recorded_fresh_start_mixes_its_start_music_and_a_resumed_save_does_not() {
+    let dir = tempfile::tempdir().unwrap();
+    let demo = demo_copy(dir.path(), |to| {
+        let mut audio = std::fs::read_to_string(to.join("audio.toml")).unwrap();
+        audio = audio.replace(
+            "\n[ui]\n",
+            "\n[[events]]\nevent = \"engine.start\"\nsound = \"open\"\nbus = \"music\"\nfade = 0\n\n[ui]\n",
+        );
+        std::fs::write(to.join("audio.toml"), audio).unwrap();
+    });
+    let module = Module::read(&demo).unwrap();
+    let mut fresh = Session::new(vec![module.clone()], 1).unwrap();
+    fresh.start_recording(BuildStamp::current());
+    for _ in 0..3 {
+        fresh.step(&[]).unwrap();
+    }
+    let heard = mix(&fresh.recording().unwrap(), &demo);
+    assert!(
+        heard["buses"]["music"]["sample_peak_dbfs"].is_number(),
+        "a fresh start plays engine.start, as play does: {heard}"
+    );
+    // Resumed from a save: engine.start sounded in the session that made it.
+    let mut resumed = Session::resume(vec![module], fresh.world.clone()).unwrap();
+    resumed.start_recording(BuildStamp::current());
+    for _ in 0..3 {
+        resumed.step(&[]).unwrap();
+    }
+    let heard = mix(&resumed.recording().unwrap(), &demo);
+    assert!(
+        heard["buses"]["music"]["sample_peak_dbfs"].is_null(),
+        "a resumed save's old facts stay quiet: {heard}"
+    );
+}
+
+#[test]
+fn a_recording_mix_ends_on_a_hot_load_made_after_its_last_tick() {
+    let dir = tempfile::tempdir().unwrap();
+    let demo = demo_copy(dir.path(), |_| {});
+    let mut s = Session::new(vec![Module::read(&demo).unwrap()], 1).unwrap();
+    s.start_recording(BuildStamp::current());
+    for _ in 0..3 {
+        s.step(&[]).unwrap();
+    }
+    let script = demo.join("scripts/screen.luau");
+    let mut text = std::fs::read_to_string(&script).unwrap();
+    text.push_str("-- edited after the last tick\n");
+    std::fs::write(&script, text).unwrap();
+    s.hot_load(Module::read(&demo).unwrap()).unwrap();
+    let rec = s.recording().unwrap();
+    let (_, replayed) = galaxy_sim::replay(&rec).unwrap();
+    assert!(replayed.identical, "{replayed:?}");
+    let heard = mix(&rec, &demo);
+    assert_eq!(heard["world_hash"], rec.end.hash, "{heard}");
+}

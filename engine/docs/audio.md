@@ -163,7 +163,9 @@ keys, kinds and looks and out-of-range numbers.
 **Where cues come from.** The view notices each action where it already decides it:
 `click` (press, or deny on a resting button), pickup and release of a drag, a model
 target's or speaker's click, the frame's pointer test that sets the hand cursor
-(hover), and screen motion's record of surfaces coming and going (open, close). A hover
+(hover), and screen motion's record of surfaces coming and going (open, close). A panel,
+list or bubble inside one that stays opens and closes on its own; inside one that comes
+or goes it is part of that one's sound, so a panel arriving with a list in it opens once. A hover
 fires once per thing entered; a widget with an `id` is the same thing when its screen
 re-parents it. Sounds don't depend on motion keys or reduced motion. Each cue
 (`galaxy_api::ui::UiCue`) carries the action, the widget's kind, look and path, and the
