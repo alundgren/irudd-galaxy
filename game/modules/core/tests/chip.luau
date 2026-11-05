@@ -48,11 +48,12 @@ end
 
 return {
     every_ware_aboard_fits = function()
-        local w = chip.build(world({ ore = 4, plate = 1, rations = 1 }, 6), ui)
+        local w = chip.build(world({ ore = 4, ice = 1, glassite = 1, plate = 1, rations = 1 }, 8), ui)
         rows_fit(w)
         local row = cargo(w)
-        assert(row and #row.children == 3, "all three wares show")
+        assert(row and #row.children == 5, "all five wares show")
         assert(#w.children == 2, "two rows: credits and the hold, then the wares")
+        for _, c in row.children do assert(c.icon, c.id .. " has an icon") end
     end,
 
     a_full_pods_hold_fits = function()

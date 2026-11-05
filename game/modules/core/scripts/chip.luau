@@ -8,9 +8,12 @@ local fit = require("./fit")
 
 -- The chip's width inside its padding (style.toml's chip pad is 12). Each widget has
 -- its own width, so nothing is squeezed: credits (CREDITS, room for five digits) and
--- the hold (HOLD) share the top row, and each ware aboard (WARE) the row below, GAP
--- apart; both rows fit in INNER, so the chip stays two rows tall.
-local chip = { INNER = layout.CHIP - 24, CREDITS = 124, HOLD = 110, WARE = 64, GAP = 12 }
+-- the hold (HOLD) share the top row, GAP apart, and each ware aboard (WARE) the row
+-- below, CARGO_GAP apart; both rows fit in INNER even with all five wares aboard, so the
+-- chip stays two rows tall. A WARE holds an icon and one digit: the biggest hold is 9
+-- (the pods). A part that lets a hold carry 10 or more needs a wider WARE or a third
+-- row, or two-digit counts wrap into fragments.
+local chip = { INNER = layout.CHIP - 24, CREDITS = 124, HOLD = 110, WARE = 44, GAP = 12, CARGO_GAP = 6 }
 
 function chip.build(ctx, ui)
     local pilot = ctx.get("ship", "pilot")
@@ -31,7 +34,7 @@ function chip.build(ctx, ui)
         ui.text { id = "hold", icon = "hold", text = "Hold " .. load .. "/" .. fit.hold(ctx), width = chip.HOLD, size = kit.SIZE.body,
             cue = "flash", hover = "Hold: " .. rules.list(hold) .. " aboard, room for " .. fit.hold(ctx) },
     } } }
-    if #wares > 0 then table.insert(children, ui.row { id = "cargo", gap = chip.GAP, children = wares }) end
+    if #wares > 0 then table.insert(children, ui.row { id = "cargo", gap = chip.CARGO_GAP, children = wares }) end
     return kit.chip(ui, { id = "status", align = "top-right", x = layout.M, y = layout.M, width = layout.CHIP, gap = 4, children = children })
 end
 

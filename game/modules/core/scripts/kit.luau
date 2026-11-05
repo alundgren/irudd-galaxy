@@ -43,7 +43,7 @@ kit.LOOK = {
 -- (the engine's floor is 16).
 kit.SIZE = { title = 28, heading = 20, body = 18, small = 16 }
 
-local WARES = { ore = "ore", plate = "plate", rations = "rations" }
+local WARES = { ore = "ore", ice = "ice", glassite = "glassite", plate = "plate", rations = "rations" }
 local SOCKETS = { drill = "lens", hold = "pods", engine = "thrusters", controls = "controls" }
 
 local function with(w, look)

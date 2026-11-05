@@ -7,6 +7,8 @@ book = { svg = "icons/book.svg" }
 credits = { svg = "icons/credits.svg", painted = true }
 hold = { svg = "icons/hold.svg" }
 ore = { svg = "icons/ore.svg" }
+ice = { svg = "icons/ice.svg" }
+glassite = { svg = "icons/glassite.svg" }
 plate = { svg = "icons/plate.svg" }
 rations = { svg = "icons/rations.svg" }
 power = { svg = "icons/power.svg" }
