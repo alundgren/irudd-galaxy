@@ -119,10 +119,11 @@ local function flight(event, ctx)
             ctx.put("ship", "engine.beam", {})
             ctx.patch("ship", "pilot", { mining = false, target = "", latched = false, cut_from = 0, approach = false,
                 message = "Order dropped: flying by hand." })
-        elseif pilot.mining and not cutter.has(ctx, cutter.RIG) then
-            -- The hand cutter is held on a rock by a steady ship: flying lifts it off,
-            -- and letting go with Space still held puts it back.
-            cutter.off(ctx, nil)
+        elseif pilot.mining then
+            -- The beam is held on a rock by a steady ship: flying lifts it off, the
+            -- rig's and a click's as well as the hand cutter's. Letting go with Space
+            -- still held puts the hand cutter back.
+            cutter.off(ctx, pilot.latched and "Beam off: flying by hand." or nil)
         end
     elseif MOVES[key] and held.mine and not pilot.mining and space(ctx)
         and not (held.ahead or held.back or held.left or held.right) then
@@ -275,25 +276,28 @@ local function cut(ctx, pilot)
     local full = load >= capacity
     -- The unit lands in the hold with an amber puff; the last one fills it with a bigger one.
     ctx.put("ship", "engine.burst", { recipe = full and "core.full" or "core.ore_in", tick = ctx.tick, x = HOLD_X, height = 0.5 })
-    if full then
-        -- The hold's beat: the beam lets go, the camera feels the hold settle.
-        kick(ctx, 0.012)
+    if full or left <= 0 then
+        -- The hold's beat or the rock's: the beam lets go, the camera feels it settle.
+        kick(ctx, full and 0.012 or 0.008)
         cutter.off(ctx, nil)
         ctx.patch("ship", "pilot", { cut_work = rest }) -- off's reads predate this cut
-        local now = { ore = hold.ore + amount, plate = hold.plate, rations = hold.rations }
-        -- The `hold_full` fact itself is sound.luau's, from the `mined` that filled it.
-        log.add(ctx, "Hold full: " .. rules.list(now) .. " aboard.")
-    elseif left <= 0 then
-        kick(ctx, 0.008)
-        cutter.off(ctx, nil)
-        ctx.patch("ship", "pilot", { cut_work = rest })
+        local lines = {}
         local others = {}
-        for _, id in cutter.rocks(ctx) do
-            if id ~= rock then table.insert(others, id) end
+        if left <= 0 then
+            for _, id in cutter.rocks(ctx) do
+                if id ~= rock then table.insert(others, id) end
+            end
+            table.insert(lines, "Rock cut down to pebbles. " .. (#others > 0 and #others .. " more " .. (#others == 1 and "rock holds" or "rocks hold") .. " ore."
+                or "That was the field's last ore for now; fresh stone drifts in while you're docked."))
         end
-        log.add(ctx, "Rock cut down to pebbles. " .. (#others > 0 and #others .. " more " .. (#others == 1 and "rock holds" or "rocks hold") .. " ore."
-            or "That was the field's last ore for now; fresh stone drifts in while you're docked."))
-        if pilot.auto and #others > 0 then
+        if full then
+            local now = { ore = hold.ore + amount, plate = hold.plate, rations = hold.rations }
+            -- The `hold_full` fact itself is sound.luau's, from the `mined` that filled it.
+            table.insert(lines, "Hold full: " .. rules.list(now) .. " aboard.")
+        end
+        -- Both beats on one unit log both, the hold's last so it is the message showing.
+        log.add_all(ctx, lines)
+        if not full and pilot.auto and #others > 0 then
             -- The rig (or a script's order) moves on to the nearest rock by itself.
             local at = ctx.get("ship", "engine.position")
             table.sort(others, function(a, b)

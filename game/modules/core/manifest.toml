@@ -1,7 +1,7 @@
 # The core module: the base game. It is written through the GM (game/AGENTS.md).
 id = "core"
 version = "0.1.0"
-min_engine_version = "0.7.0"
+min_engine_version = "0.8.0"
 scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau"]
 events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "panel_open", "panel_close", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line"]
 writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin", "engine.beam", "engine.emitter", "engine.burst", "engine.camera_feel"]

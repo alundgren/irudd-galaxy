@@ -1,0 +1,176 @@
+# Flying stops the reach rig. Bought after three holds, the rig puts its beam on the
+# first rock from Cinder Kiln's berth with no key held (as in assists.toml); a tap of W
+# lifts it, and no more ore comes in.
+seed = 7
+ticks = 1800
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 440
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 389 }
+[[input]]
+tick = 470
+name = "core.open"
+[[input]]
+tick = 480
+name = "core.sell"
+[[input]]
+tick = 490
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 500
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.rig" }
+[[input]]
+tick = 505
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.jets" }
+[[input]]
+tick = 510
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.jets" }
+[[input]]
+tick = 520
+name = "core.launch"
+[[input]]
+tick = 525
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 540
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 600
+name = "core.dock"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 601
+name = "core.dock"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 760
+name = "core.launch"
+[[input]]
+tick = 770
+name = "core.mine"
+[[input]]
+tick = 1050
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1200
+name = "core.open"
+[[input]]
+tick = 1210
+name = "core.sell"
+[[input]]
+tick = 1240
+name = "core.launch"
+[[input]]
+tick = 1250
+name = "core.mine"
+[[input]]
+tick = 1530
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1680
+name = "core.open"
+[[input]]
+tick = 1690
+name = "core.sell"
+[[input]]
+tick = 1700
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 1710
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.rig" }
+[[input]]
+tick = 1720
+name = "core.launch"
+[[input]]
+tick = 1730
+name = "core.mine"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 1731
+name = "core.mine"
+source = "keyboard"
+payload = { down = false }
+
+[[input]]
+tick = 1740
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 1741
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+
+[[expect]]
+tick = 1739
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 1739
+entity = "ship"
+component = "engine.beam"
+field = "target"
+equals = "core.rock1"
+[[expect]]
+tick = 1740
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+[[expect]]
+tick = 1740
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Beam off: flying by hand."
+[[expect]]
+tick = 1800
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+[[expect]]
+tick = 1800
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 0

@@ -22,10 +22,10 @@ take you in. Two controls are earned at the cradle and change what a press does:
 docking jets fly you into a berth from anywhere, and the reach rig flies out to a rock and
 cuts it from sixteen units off, aiming itself. The hand controls never go away.
 
-Use installed engine/GM 0.7.0 or newer with the engine's effects (beams, particles,
-halos and camera feel). This version was authored and verified with
-`0.7.0-074b385e9087-dev`; an earlier 0.7.0 build such as `0.7.0-c571bdc1442a` refuses
-the effect components. No engine build is needed.
+Use installed engine/GM 0.8.0 or newer: it has the engine's effects (beams, particles,
+halos and camera feel), which no 0.7.0 release has. This version was verified with
+`0.8.0-aa24600ae2cd-dev`; an older engine is refused with how to install a newer one. No
+engine build is needed.
 
 ```sh
 galaxy play --modules game/modules
@@ -75,7 +75,8 @@ however it is broken up, so turning off and back on loses nothing. Each unit thr
 chunk of stone from the cut to the nose, an amber puff at the hold and a `+N` beside the
 hold's count. The sixth unit (ninth with the pods) is the hold's own beat: a bigger puff,
 a small camera kick, and the beam lets go. A rock cut to pebbles crumbles with its own
-burst and kick, and the message says how many rocks still hold ore.
+burst and kick, and the log says how many rocks still hold ore, before the full hold
+when the same unit fills it.
 
 A station's berth is the glowing ring off its dock. Fly into it and stop (8 units a second
 or slower) and the clamps take you in with a puff of vapour; Space in the ring does it at
@@ -517,7 +518,7 @@ flickering for a minute, a stronger station taking over only when steady, a brie
 keeping the channel, a chosen channel holding, and Prev and Next stepping through, and
 in `tests/mining.luau` the cutter's reach from the nose, aim within the slack, a unit
 for every second of beam time however it is broken up, the berth ring, regrowth to half
-and the worked-out message for an empty and a full hold) and twenty-six scenarios (two of them, `sound.toml` and
+and the worked-out message for an empty and a full hold) and twenty-seven scenarios (two of them, `sound.toml` and
 `sound-talk.toml`, under the sound below):
 mining and docking by hand (`hand-mining.toml`: Space out of reach says so, the beam on
 the rock on the tick Space is pressed, a unit at half a second and one a second after,
@@ -528,7 +529,8 @@ latches the beam and flying lifts it, a far rock is too far, and E without the j
 flies nowhere and says how docking is done), the earned controls (`assists.toml`: the
 first sale buys the jets but not the rig, a bought control can't come off, E flies her
 in from the reach, and after three holds the rig cuts from the Kiln's berth with no key
-held, aiming itself), the radio (`radio.toml`: Lantern Dock's channel in the first
+held, aiming itself; `rig-stop.toml`: a tap of W lifts the rig's beam and no more ore
+comes in), the radio (`radio.toml`: Lantern Dock's channel in the first
 second, kept while a hold is mined at the first rock, the music stopped on docking at
 Cinder Kiln, the Kiln's channel straight away on flying off there, and Lantern Dock's
 taking over once beside its berth; `radio-tune.toml`: R to Cinder Kiln held by hand
@@ -543,7 +545,8 @@ away from the station in a straight line and coasts to a stop in a second, D lea
 Cinder Kiln turning), traffic (`traffic.toml`: Little Mercy waits, sets off, is bumped
 aside by the ship and still moors off Cinder Kiln; Quiet Lamp moors there, flies back
 and moors off Lantern Dock; their arrivals never dock the player), refused
-out-of-place actions, repeat trips through depletion with an empty-sale check,
+out-of-place actions, repeat trips through depletion with an empty-sale check (the unit that works rock1
+out and fills the hold logs both),
 the station itself (rooms from signs and M, refused sales outside the exchange,
 a building of another station, the log held shut inside a room, keeper talk, the
 sale receipt and log lines, the skiff and launch), talk (an introduction once,
