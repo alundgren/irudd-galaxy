@@ -10,7 +10,8 @@
 //!   its exact new files), notes (tick, text, the world's hash then, and from a played
 //!   session the camera and the frame that was shown) and zooms (the view height the
 //!   player's wheel set, on the tick it was turned; presentation only, so a replay of the
-//!   world ignores them and a film of the session uses them);
+//!   world ignores them and a film of the session uses them), screen presentation
+//!   snapshots and UI sound cues (presentation only too);
 //! - `end`: the last tick and the world's hash there.
 //!
 //! [`replay`] runs it again from `start` with the recorded files, never the module folders,
@@ -159,6 +160,9 @@ pub enum RecEvent {
     Zoom { tick: u64, view: f32 },
     /// Engine widget state after this tick; ignored by world replay.
     Presentation { tick: u64, state: Value },
+    /// A UI action the module may give a sound (a hover, a press, a drag), as the view
+    /// saw it; ignored by world replay, heard by `galaxy-gm audio mix` of the recording.
+    UiSound(galaxy_api::ui::UiCue),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -335,7 +339,10 @@ impl<'a> Replay<'a> {
             match event {
                 RecEvent::Input(input) => inputs.entry(input.tick).or_default().push(input.clone()),
                 RecEvent::HotLoad { .. } => loads.push_back(event),
-                RecEvent::Note { .. } | RecEvent::Zoom { .. } | RecEvent::Presentation { .. } => {}
+                RecEvent::Note { .. }
+                | RecEvent::Zoom { .. }
+                | RecEvent::Presentation { .. }
+                | RecEvent::UiSound(_) => {}
             }
         }
         let mut replay = Replay {

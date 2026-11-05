@@ -1,0 +1,34 @@
+# Each UI sound is a short tone at its own pitch, so a mix shows which one played.
+[sounds.tick]
+file = "sounds/tick.wav"
+volume = 0.5
+[sounds.click]
+file = "sounds/click.wav"
+[sounds.coin]
+file = "sounds/coin.wav"
+[sounds.open]
+file = "sounds/open.wav"
+[sounds.close]
+file = "sounds/close.wav"
+[sounds.lift]
+file = "sounds/lift.wav"
+[sounds.place]
+file = "sounds/place.wav"
+[sounds.thud]
+file = "sounds/thud.wav"
+
+[ui]
+hover_gap = 0.08
+hover = "tick"
+press = { sound = "click", vary_pitch = 0.05 }
+open = "open"
+close = "close"
+drag = "lift"
+drop = "place"
+deny = "thud"
+
+[ui.kinds.drag_source]
+hover = { sound = "lift", vary_gain = 0.3 }
+
+[ui.looks.chip]
+press = "coin"

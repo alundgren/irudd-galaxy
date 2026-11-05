@@ -1,13 +1,15 @@
 -- The fitting cradle: parts on the ship's sockets, the parts tray, and the budgets.
 -- A part is dragged from the tray onto its socket to fit it (buying it first if it
 -- isn't yours yet), and from its socket back onto the tray to take it off. Or it is
--- clicked (its Choose button), then its socket's Fit here: the same verdicts and the
--- same preview show first either way. Every rule is a verdict on the target
+-- chosen by a click (Choose, where it would go), then Fit here (or Take it off here):
+-- the same verdicts and the same preview show first either way. Every rule is a verdict on the target
 -- (fit.verdict), so a refusal and its reason show the moment a part is picked up or
 -- chosen, before anything changes. The rules themselves are fit.luau.
 local rules = require("./rules")
 local fit = require("./fit")
 local log = require("./log")
+local kit = require("./kit")
+local layout = require("./layout")
 local trade = require("./trade")
 
 local cradle = {}
@@ -75,7 +77,7 @@ function cradle.fit(event, ctx)
     cradle.apply(ctx, parts)
     local name = string.lower(p.name)
     local where = ctx.get(facility.station, "port").name
-    ctx.patch("ship", "pilot", { credits = pilot.credits - cost, sale = -cost, chosen = "",
+    ctx.patch("ship", "pilot", { credits = pilot.credits - cost, sale = -cost, chosen_part = "",
         deal = "Fitted the " .. name .. (cost > 0 and "." or ", from the locker.") })
     say(ctx, facility, p.said)
     log.add(ctx, "Fitted the " .. name .. " at " .. where .. (cost > 0 and " for " .. cost .. " cr" or "") .. ": " .. p.effect .. ".")
@@ -96,7 +98,7 @@ function cradle.unfit(event, ctx)
     ctx.patch(p.id, "part", { fitted = false })
     cradle.apply(ctx, parts)
     local name = string.lower(p.name)
-    ctx.patch("ship", "pilot", { sale = 0, chosen = "", deal = "Took off the " .. name .. ", into your locker." })
+    ctx.patch("ship", "pilot", { sale = 0, chosen_part = "", deal = "Took off the " .. name .. ", into your locker." })
     say(ctx, facility, "The locker keeps it safe till you want it back on.")
     log.add(ctx, "Took off the " .. name .. " at " .. ctx.get(facility.station, "port").name .. ", into your locker: fit it again here for nothing.")
     trade.day(ctx)
@@ -110,31 +112,42 @@ function cradle.choose(event, ctx)
     if not room then return end
     local id = event.payload.value
     if not ctx.get(id, "part") then return end
-    ctx.patch("ship", "pilot", { chosen = pilot.chosen == id and "" or id })
+    ctx.patch("ship", "pilot", { chosen_part = pilot.chosen_part == id and "" or id })
 end
 
--- Widths: three socket columns across the room panel's 488px inside.
-local COLUMN, INSIDE = 157, 141
--- Card heights: a fitted part shows its name and effect; one in the tray adds its
--- price (or that it's yours) and what it draws and weighs.
+-- Widths: the room panel is layout.ROOM wide, so the ship on its cradle stays in view
+-- at 960x540; INNER inside its padding, three socket columns GAP apart across it, and a
+-- card INSIDE a column's padding.
+local INNER, GAP = layout.ROOM - 32, 8
+local COLUMN = (INNER - 2 * GAP) // 3
+local INSIDE = COLUMN - 16
+-- The tray's own columns, inside its padding: a card on the tray is TRAY wide.
+local TRAY = (INNER - 16 - 2 * GAP) // 3
+-- Card heights: a fitted part shows its name (its effect is on its hover and in the
+-- budget's); one in the tray adds its price (or that it's yours) and its effect. What a
+-- part draws and weighs is on its hover, so a card's lines fit the narrower panel (a
+-- wrapped name or effect takes two). An empty socket holds the same space as a fitted
+-- card, so every refusal still fits under it.
 local FITTED, LOOSE = 60, 100
--- The Choose button under each part, and Fit here in a socket.
+-- A Choose button: tall enough for a click target.
 local CHOOSE = 44
 -- Every socket is as tall as the one with the longest refusal, so the row lines up.
-local SOCKET = 168
+local SOCKET = 160
 
 local function short(id)
     return string.match(id, "[^.]+$")
 end
 
--- A part's card. Its hover says the effect in words.
+-- A part's card. Its hover says the effect in words and what it draws and weighs. On
+-- the tray it is TRAY wide, so its lines fit the narrower room panel.
 local function card(ui, p)
-    local text = p.name .. "\n" .. fit.effect(p)
+    local text = p.name
     if not p.fitted then
-        text = p.name .. "\n" .. (p.owned and "In your locker" or p.price .. " cr") .. "\n" .. fit.effect(p) .. "\n" .. fit.cost(p)
+        text = p.name .. "\n" .. (p.owned and "In your locker" or p.price .. " cr") .. "\n" .. fit.effect(p)
     end
-    return ui.drag_source { id = "part_" .. short(p.id), value = p.id, width = INSIDE, height = p.fitted and FITTED or LOOSE, size = 16, pad = 8,
-        text = text, hover = p.name .. ": " .. p.effect .. "." }
+    return ui.drag_source { id = "part_" .. short(p.id), value = p.id, width = p.fitted and INSIDE or TRAY,
+        height = p.fitted and FITTED or LOOSE, size = 16, pad = 6, text = text,
+        hover = p.name .. ": " .. p.effect .. " (" .. fit.cost(p) .. ")." }
 end
 
 -- Holds a card's place where a socket or the tray has none, so every column keeps its
@@ -143,105 +156,150 @@ local function space(ui, id, height, text)
     return ui.text { id = id, width = INSIDE, height = height, size = 16, text = text }
 end
 
--- A receipt's kind, as a word in a box (direction doc 1.5 and 4: "Confirmed").
-function cradle.confirmed(ui)
-    return ui.panel { id = "confirmed", width = 96, pad = 2, children = { ui.text { text = "CONFIRMED", size = 16 } } }
+-- The receipt after a fit, in the keeper's line so the panel keeps its height: the
+-- gold CONFIRMED tag, what was done, and what it cost.
+local function receipt(ui, pilot)
+    local spans = { { text = "CONFIRMED", look = kit.LOOK.confirmed }, " " .. pilot.deal }
+    if pilot.sale < 0 then
+        table.insert(spans, " ")
+        for _, span in kit.amount(pilot.sale, "cr") do table.insert(spans, span) end
+    end
+    return ui.text { id = "receipt", width = INNER, size = kit.SIZE.small, spans = spans, cue = "flash" }
 end
 
--- The whole fitting room: its title with the keeper (or the last receipt) and Back,
--- the budgets (or, with a part chosen, what it would change), the sockets and the
--- parts tray. It fits a 1024x576 window.
+-- The budgets in one short line, power and mass with their icons; each one's whole
+-- sentence, and what the ship does with this fit, are on its hover. The fitted cards
+-- say what each part adds, so the panel stays short enough for 960x540.
+local function budget(ui, t)
+    local ship = fit.ship_text(t)
+    local mass = t.over > 0 and t.mass .. ", " .. t.over .. " over" or t.mass .. " of " .. fit.FREE_MASS
+    return ui.row { id = "budget", gap = 8, children = {
+        ui.text { id = "power", width = 150, icon = "power", size = kit.SIZE.small, cue = "flash",
+            hover = fit.power_text(t) .. ". " .. ship,
+            spans = { { text = t.power .. " of " .. fit.POWER, look = kit.LOOK.figure }, " power" } },
+        ui.text { id = "mass", width = INNER - 158, icon = "mass", size = kit.SIZE.small, cue = "flash",
+            hover = fit.mass_text(t) .. ". " .. ship,
+            spans = { { text = mass, look = kit.LOOK.figure }, " mass" } },
+    } }
+end
+
+-- The whole fitting room: its title and Back, the keeper (or the last receipt), the
+-- budgets, the sockets, the controls and the parts tray.
 function cradle.rows(ctx, ui, pilot, title, keeper)
     local parts = cradle.parts(ctx)
     local load = rules.load(ctx.get("ship", "hold"))
     local t = fit.totals(parts, nil, nil, fit.hull_speed(ctx))
-    -- Under the title, the keeper; after a fit, the receipt instead, its CONFIRMED tag
-    -- beside the title so the heading keeps its height.
-    local named = { ui.text { id = "title", width = 196, text = title, size = 28 } }
-    local under = ui.text { id = "keeper", width = 296, size = 16, text = keeper or "" }
-    if pilot.deal ~= "" then
-        named = { ui.row { id = "titled", gap = 4, children = { named[1], cradle.confirmed(ui) } } }
-        local row = { ui.text { id = "deal", width = pilot.sale < 0 and 220 or 296, text = pilot.deal, size = 16 } }
-        if pilot.sale < 0 then table.insert(row, ui.delta { id = "spent", width = 68, value = pilot.sale, size = 16 }) end
-        under = ui.row { id = "receipt", gap = 8, children = row }
-    end
-    table.insert(named, under)
-    local children = {
-        ui.row { id = "heading", gap = 12, children = {
-            ui.button { id = "close", width = 176, text = "Station  [B]", hover = "Back out to the whole station: B, Esc or right-click", on = "close" },
-            ui.column { id = "named", width = 300, gap = 2, children = named },
-        } },
-    }
-    local chosen = nil
-    for _, p in parts do
-        if p.id == pilot.chosen then chosen = p end
-    end
-    -- The budgets in plain words; the controls are on the ship's rack, always fitted.
-    -- With a part chosen, the preview stands in their place: what it would change,
-    -- before anything does.
-    local budget = fit.power_text(t) .. "\n" .. fit.mass_text(t) .. "\n" .. fit.ship_text(t)
+    -- Under the title, the keeper; after a fit, the receipt instead, in the same place.
+    local under = ui.text { id = "keeper", width = INNER, size = kit.SIZE.small, text = keeper or "" }
+    if pilot.deal ~= "" then under = receipt(ui, pilot) end
+    local chosen = find(parts, pilot.chosen_part)
+    -- With a part chosen, what it would change stands in the keeper's line and the
+    -- budgets' place, before anything does, with Put back beside it.
+    local summary = budget(ui, t)
     if chosen then
         local doing = chosen.fitted and "take off the " or "fit the "
-        budget = "If you " .. doing .. string.lower(chosen.name) .. ":\n" .. fit.changes(chosen, parts, fit.hull_speed(ctx))
+        under = ui.row { id = "preview", gap = 8, children = {
+            ui.text { id = "changes", width = INNER - 108, height = 46, size = kit.SIZE.small, cue = "flash",
+                text = "If you " .. doing .. string.lower(chosen.name) .. ": " .. fit.changes(chosen, parts, fit.hull_speed(ctx)) },
+            kit.button(ui, { id = "put_back", width = 100, height = CHOOSE, size = 16, pad = 4, text = "Put back",
+                hover = "Leave the " .. string.lower(chosen.name) .. " where it is", on = "choose", payload = { value = chosen.id } }, "secondary"),
+        } }
+        summary = nil
     end
-    table.insert(children, ui.text { id = "budget", width = 488, height = 60, size = 16, text = budget,
-        hover = "Controls, always fitted: Mine order, Dock order. They cost no power or mass and never come off." })
+    -- Choose: the click way to pick up `p`, in the place it would go from.
+    local function choose(p, width)
+        local how = p.fitted and "click, then Take it off here: the same as dragging it to the tray"
+            or "click, then Fit here: the same as dragging it here from the tray"
+        return kit.button(ui, { id = "choose_" .. short(p.id), width = width, height = CHOOSE, size = 16, pad = 4, text = "Choose",
+            hover = (p.fitted and "Take off the " or "Fit the ") .. string.lower(p.name) .. ": " .. how,
+            on = "choose", payload = { value = p.id } }, "secondary")
+    end
+    local children = {
+        ui.row { id = "heading", gap = 8, children = {
+            kit.heading(ui, { id = "title", width = INNER - 148, text = title }),
+            kit.button(ui, { id = "close", width = 140, size = kit.SIZE.small, icon = "back", text = "Back · B", on = "close",
+                hover = "Back to the whole station: B, Esc or a right-click" }, "secondary"),
+        } },
+        under,
+    }
+    if summary then table.insert(children, summary) end
     -- What a choice would do to `target`: Fit here (or Take it off here) with the
     -- preview on hover, or the refusal in full in its place.
-    local function offer(target, id, height, verb)
+    local function offer(target, id, width, height, verb)
         local why = fit.verdict(chosen, target, parts, pilot.credits, load)
-        if why ~= "" then return space(ui, id, height, "Cannot: " .. why) end
-        return ui.button { id = id, width = INSIDE, height = height, size = 16, pad = 8, text = verb,
+        if why ~= "" then return ui.text { id = id, width = width, height = height, size = 16, text = "Cannot: " .. why } end
+        return kit.button(ui, { id = id, width = width, height = height, size = 16, pad = 6, text = verb,
             hover = fit.changes(chosen, parts, fit.hull_speed(ctx)), on = target == "locker" and "unfit" or "fit",
-            payload = { socket = target, value = chosen.id } }
+            payload = { socket = target, value = chosen.id } }, "primary")
     end
-    -- The sockets: each shows its part, or that it is empty; dropping on it fits. With a
-    -- part chosen, the empty sockets offer it or say why not.
+    -- The sockets: each shows its part, or that it is empty, with Choose for the part
+    -- that goes there; dropping on it fits. With a part chosen, the empty sockets offer
+    -- it or say why not.
     local sockets = {}
     for _, s in fit.SOCKETS do
-        local accepts, notes, inside = {}, {}, nil
+        local accepts, notes, inside, waiting = {}, {}, nil, nil
         for _, p in parts do
             accepts[p.id] = fit.verdict(p, s.id, parts, pilot.credits, load)
             if accepts[p.id] == "" then notes[p.id] = fit.note(p) end
             if p.fitted and p.socket == s.id then inside = card(ui, p) end
+            if not p.fitted and p.socket == s.id then waiting = p end
         end
         if not inside and chosen and not chosen.fitted then
-            inside = offer(s.id, "offer_" .. s.id, FITTED, "Fit here")
+            inside = offer(s.id, "offer_" .. s.id, INSIDE, FITTED, "Fit here")
+        elseif not inside and waiting then
+            inside = choose(waiting, INSIDE)
         end
         table.insert(sockets, ui.drop_target { id = "socket_" .. s.id, width = COLUMN, height = SOCKET, size = 16, pad = 8,
             text = s.name, on = "fit", payload = { socket = s.id }, accepts = accepts, notes = notes,
             children = { inside or space(ui, "empty_" .. s.id, FITTED, "Empty") } })
     end
-    table.insert(children, ui.row { id = "sockets", gap = 8, children = sockets })
+    table.insert(children, ui.row { id = "sockets", gap = GAP, children = sockets })
+    -- The control rack: the hand controls, always fitted, then controls to buy (parts in
+    -- the "rack" socket). A control costs no power or mass and, once bought, never comes
+    -- off (direction doc 5); one that can't be bought yet rests with its reason.
+    local rack = { ui.text { id = "rack", width = 80, size = 16, text = "Controls",
+        hover = "Always fitted: the hand cutter and hand berthing. Controls cost no power or mass and never come off." } }
+    for _, p in parts do
+        if p.socket == "rack" then
+            local about = p.name .. ": " .. p.effect .. "."
+            if p.fitted then
+                table.insert(rack, ui.text { id = "rack_" .. short(p.id), width = (INNER - 96) // 2, size = 16, icon = "check",
+                    text = p.name, hover = about })
+            else
+                local why = fit.verdict(p, "rack", parts, pilot.credits, load)
+                table.insert(rack, kit.button(ui, { id = "rack_" .. short(p.id), width = (INNER - 96) // 2, height = 44, size = 16, pad = 4,
+                    text = p.name .. " · " .. p.price .. " cr", hover = about, resting = why ~= "" and why or nil,
+                    on = "fit", payload = { socket = "rack", value = p.id } }, "primary"))
+            end
+        end
+    end
+    table.insert(children, ui.row { id = "controls", gap = 8, children = rack })
     -- The tray: parts on the rack to buy and parts in your locker, each under its own
-    -- socket, with Choose under each for fitting by clicks. Dropping a fitted part here
-    -- takes it off.
+    -- socket; where a part is on the ship, Choose to take it off. Dropping a fitted part
+    -- here takes it off.
     local accepts, tray = {}, {}
     for _, s in fit.SOCKETS do
-        local here, mine = nil, nil
+        local here, on_ship = nil, nil
         for _, p in parts do
-            if p.socket == s.id then mine = p end
             if p.socket == s.id and not p.fitted then here = card(ui, p) end
+            if p.socket == s.id and p.fitted then on_ship = p end
         end
         if not here and chosen and chosen.fitted and chosen.socket == s.id then
-            here = offer("locker", "offer_off_" .. s.id, LOOSE, "Take it off here")
+            here = offer("locker", "offer_off_" .. s.id, TRAY, LOOSE, "Take it off here")
+        elseif not here and on_ship then
+            here = ui.column { id = "off_" .. s.id, width = TRAY, gap = 4, children = {
+                ui.text { id = "on_ship_" .. s.id, width = TRAY, height = LOOSE - CHOOSE - 4, size = 16, text = "On the ship" },
+                choose(on_ship, TRAY),
+            } }
         end
-        local column = { here or space(ui, "off_" .. s.id, LOOSE, "On the ship") }
-        if mine then
-            local picked = chosen and chosen.id == mine.id
-            table.insert(column, ui.button { id = "choose_" .. short(mine.id), width = INSIDE, height = CHOOSE, size = 16, pad = 8,
-                text = picked and "Put back" or "Choose", on = "choose", payload = { value = mine.id },
-                hover = picked and "Put the " .. string.lower(mine.name) .. " back" or
-                    "Click, then click " .. (mine.fitted and "the tray" or "its socket") .. ": the same as dragging it" })
-        end
-        table.insert(tray, ui.column { id = "tray_" .. s.id, width = INSIDE, gap = 4, children = column })
+        table.insert(tray, here or ui.text { id = "off_" .. s.id, width = TRAY, height = LOOSE, size = 16, text = "On the ship" })
     end
     for _, p in parts do
         accepts[p.id] = fit.verdict(p, "locker", parts, pilot.credits, load)
     end
-    table.insert(children, ui.drop_target { id = "tray", width = 488, size = 16, pad = 8, on = "unfit", accepts = accepts,
+    table.insert(children, ui.drop_target { id = "tray", width = INNER, size = 16, pad = 4, on = "unfit", accepts = accepts,
         text = "Parts tray: drop a part here to take it off",
-        children = { ui.row { id = "tray_parts", gap = 24, children = tray } } })
+        children = { ui.row { id = "tray_parts", gap = GAP, children = tray } } })
     return children
 end
 

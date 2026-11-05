@@ -544,6 +544,12 @@ static GAME: &[Command] = &[
                 "don't serve the live socket galaxy-gm live reads and hot-loads through \
                  (served by default, locally and to this user only)",
             ),
+            (
+                "--reduced-motion",
+                "the player's reduced-motion setting (also GALAXY_REDUCED_MOTION=1): the camera \
+                 never zooms with speed, leads or shakes, the sky's layers hold still, and \
+                 screens don't slide, fade, lift, count or flash; recordings and notes keep it",
+            ),
         ],
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),
@@ -590,7 +596,7 @@ static GAME: &[Command] = &[
         path: "audio",
         synopsis: "--modules <dir> --out <file.wav> [options]",
         answers: "Render a scripted session through the game's mixer without an audio device.",
-        about: "Writes stereo 48 kHz 16-bit PCM. Uses audio.toml and WAV, Ogg Vorbis or MP3 files from the module folders. No window, device or Luau per-frame work. Refuses an existing output file. Clicks and hot-load entries are refused; use ordinary event inputs.",
+        about: "Writes stereo 48 kHz 16-bit PCM. Uses audio.toml and WAV, Ogg Vorbis or MP3 files from the module folders. No window, device or Luau per-frame work. Refuses an existing output file. Clicks and hot-load entries are refused; use ordinary event inputs. A played session's UI sounds: galaxy-gm audio mix with recording=.",
         args: &[
             ("--modules <dir>", "a module folder, or a folder of modules"),
             ("--out <file.wav>", "new WAV file to create"),
@@ -656,6 +662,11 @@ static GAME: &[Command] = &[
                 "--crop <thing>",
                 "write only the square round this thing (by ID or bare name), enlarged in \
               whole pixel blocks to at least 512 px, for a before and after of one thing",
+            ),
+            (
+                "--reduced-motion",
+                "draw it as a player with reduced motion sees it (also GALAXY_REDUCED_MOTION=1): no \
+                 camera shake, lead or speed zoom, a still sky, and screens already settled",
             ),
         ],
         output: &[

@@ -1,0 +1,40 @@
+# A bot panning the sky, for frame times at 1280x720: fly ahead with boost, turn, and
+# fly on, so every layer and landmark slides. Run for 600 ticks:
+#   galaxy play --modules tests/play/depth --inputs tests/play/depth-inputs.toml \
+#       --ticks 600 --physical-size --size 1280x720
+
+[[input]]
+tick = 5
+name = "sky.thrust_ahead"
+source = "keyboard"
+payload = { down = true }
+
+[[input]]
+tick = 5
+name = "sky.boost"
+source = "keyboard"
+payload = { down = true }
+
+[[input]]
+tick = 200
+name = "sky.turn_left"
+source = "keyboard"
+payload = { down = true }
+
+[[input]]
+tick = 245
+name = "sky.turn_left"
+source = "keyboard"
+payload = { down = false }
+
+[[input]]
+tick = 400
+name = "sky.turn_right"
+source = "keyboard"
+payload = { down = true }
+
+[[input]]
+tick = 470
+name = "sky.turn_right"
+source = "keyboard"
+payload = { down = false }

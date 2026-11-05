@@ -1,0 +1,6 @@
+[icons]
+# Drawn in the text colour of whatever the icon sits in.
+book = { svg = "icons/book.svg" }
+up = { svg = "icons/up.svg" }
+# Drawn in its own paint.
+coin = { svg = "icons/coin.svg", painted = true }

@@ -564,6 +564,14 @@ impl Session {
         }
     }
 
+    /// Records a UI sound cue without changing the simulation, stamped with this tick.
+    pub fn record_ui_sound(&mut self, mut cue: galaxy_api::ui::UiCue) {
+        cue.tick = self.world.tick;
+        if let Some(rec) = &mut self.recording {
+            rec.events.push(RecEvent::UiSound(cue));
+        }
+    }
+
     /// Starts recording from the world as it is now.
     pub fn start_recording(&mut self, build: BuildStamp) {
         self.recording = Some(Recording::start(

@@ -1,0 +1,43 @@
+about = "Glassite, chipped: a crystal broken off and the tall spike snapped"
+seed = 9
+# The same rock in every stage, so swapping stages only changes the crystals while
+# the rock itself keeps shrinking through engine.model morph.
+[[part]]
+name = "rock"
+shape = "rock"
+radius = 2.2
+mined = 0.55
+detail = 1
+lumps = 0.6
+squash = 0.8
+paint = "#5d3f7e"
+accent = "#b98ae6"
+[[part]]
+name = "crystals"
+shape = "cylinder"
+radius = 0.42
+height = 3.2
+taper = 0
+sides = 5
+copies = 4
+spread = 72
+angle = 20
+distance = 0.4
+pitch = -58
+at = [0, 0, 0.2]
+paint = "#c99af2"
+glow = 0.45
+pulse = 4.5
+pulse_low = 0.6
+[[part]]
+name = "spike"
+shape = "cylinder"
+radius = 0.5
+height = 2.0
+taper = 0.5
+sides = 5
+at = [0.2, 0.1, 0.4]
+paint = "#e2c4ff"
+glow = 0.55
+pulse = 4.5
+pulse_low = 0.6

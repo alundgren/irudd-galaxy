@@ -121,9 +121,11 @@ name = "camera.office"
 at = [-0.95, -19, 13.5]
 turn = 90
 pitch = -38
+# Left of the berth and drawn back, so the ship sits right of the cradle panel even at
+# 960x540, with Orrin and the cradle frame still in view.
 [[marker]]
 name = "camera.cradle"
-at = [1.5, -23, 10.5]
+at = [-2.5, -26.5, 12.6]
 turn = 90
 pitch = -32
 [[marker]]

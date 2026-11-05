@@ -1,0 +1,37 @@
+# Hover, earn (count and flash), open and close the shelf (fade and slide).
+[[pointer]]
+tick = 10
+action = "move"
+widget = "earn"
+[[note]]
+tick = 12
+text = "Earn under the pointer: lifted and lighter gold."
+[[click]]
+tick = 15
+widget = "earn"
+[[note]]
+tick = 22
+text = "Credits counting up; Earnings flashing."
+[[pointer]]
+tick = 30
+action = "move"
+widget = "shelf"
+[[click]]
+tick = 40
+widget = "shelf"
+[[note]]
+tick = 43
+text = "Shelf fading and sliding in."
+[[note]]
+tick = 55
+text = "Shelf settled."
+[[click]]
+tick = 70
+widget = "shelf"
+[[note]]
+tick = 73
+text = "Shelf fading out."
+[[pointer]]
+tick = 85
+action = "move"
+widget = "point:1100,600"

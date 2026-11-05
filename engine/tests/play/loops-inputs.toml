@@ -1,0 +1,31 @@
+# The loops module's scripted run (300 ticks, 10 s), for galaxy play, galaxy audio and
+# galaxy-gm audio mix. The beam is held from 1 s to 6 s; pings at 1.5, 2.5 and 3.5 s;
+# the ship thrusts from 7 s and bumps into the rock about 1.7 s later.
+[[input]]
+tick = 31
+name = "hum.beam"
+payload = { down = true }
+[[input]]
+tick = 46
+name = "hum.tap"
+[[input]]
+tick = 76
+name = "hum.tap"
+[[input]]
+tick = 106
+name = "hum.tap"
+[[input]]
+tick = 181
+name = "hum.beam"
+payload = { down = false }
+[[input]]
+tick = 211
+name = "hum.thrust"
+payload = { down = true }
+
+[[note]]
+tick = 150
+text = "The beam loop holds a steady level while B is held; three pings, each a little different."
+[[note]]
+tick = 290
+text = "The hum rose with the ship's speed and the bump sounded once at the rock."

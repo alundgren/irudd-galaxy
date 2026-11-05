@@ -13,6 +13,7 @@ name = "engine-galaxy"
 path = "src/main.rs"
 
 [dependencies]
+arboard.workspace = true
 galaxy-api.workspace = true
 galaxy-audio.workspace = true
 galaxy-live.workspace = true

@@ -1,0 +1,49 @@
+# Drift's field, with effects. The ship's exhaust sprays from behind it while it pushes
+# ahead; its beam leaves from just past its nose. The camera widens a quarter at top
+# speed and looks a third of a second ahead.
+[entities.ship]
+keys = {}
+"engine.position" = { x = 0.0, y = 0.0 }
+"engine.motion" = {}
+"engine.flight" = {}
+"engine.helm" = {}
+"engine.steer" = {}
+"engine.body" = { mass = 1.0 }
+"engine.model" = { model = "effects.ship", look = "effects.hull" }
+"engine.camera" = { tilt = 30.0, view = 36.0 }
+"engine.camera_feel" = { speed_zoom = 0.25, lead = 0.3 }
+"engine.emitter" = { recipe = "effects.exhaust", x = -2.0, angle = 180.0, by = "thrust" }
+"engine.beam" = { look = "effects.cutter", x = 2.3, height = 0.2 }
+"engine.burst" = {}
+
+[entities.beacon]
+"engine.position" = { x = 26.0, y = -6.5 }
+"engine.model" = { model = "effects.beacon", look = "effects.lamp" }
+"engine.body" = { fixed = true }
+
+[entities.hub]
+"engine.position" = { x = -24.0, y = -18.0 }
+"engine.model" = { model = "effects.hub", look = "effects.hull" }
+"engine.body" = { fixed = true }
+
+[entities.berth]
+"engine.position" = { x = -24.0, y = -6.0, angle = 1.5707963267948966 }
+"engine.model" = { model = "effects.pad", look = "effects.prop" }
+
+[entities.rock1]
+"engine.position" = { x = -14.0, y = 9.0, angle = 0.4 }
+"engine.motion" = {}
+"engine.body" = { mass = 8.0 }
+"engine.model" = { model = "effects.rock", look = "effects.rock", scale = 1.6 }
+
+[entities.rock2]
+"engine.position" = { x = -6.0, y = 16.0, angle = 2.1 }
+"engine.motion" = {}
+"engine.body" = { mass = 2.0 }
+"engine.model" = { model = "effects.rock", look = "effects.rock", scale = 1.0 }
+
+[entities.rock3]
+"engine.position" = { x = 10.0, y = 12.0, angle = 4.0 }
+"engine.motion" = {}
+"engine.body" = { mass = 12.0 }
+"engine.model" = { model = "effects.rock", look = "effects.rock", scale = 2.2, morph = 0.5 }

@@ -1,0 +1,9 @@
+# At rest for `audio mix`: turn north, as the cruise does, and sit still.
+[[input]]
+tick = 1
+name = "core.left"
+payload = { down = true }
+[[input]]
+tick = 16
+name = "core.left"
+payload = { down = false }

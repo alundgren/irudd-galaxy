@@ -1,0 +1,47 @@
+# Bumps (scripts/sound.luau): W from the start flies the ship into rock1 (as in
+# collision.toml). The collide service records engine.contact as they meet, at least as
+# fast as the manifest's contact_speed, and the ship's part in it records one bump for
+# the hull's knock. Pressing on against the rock is the same contact: still one bump.
+# Backing off and flying in again knocks again.
+ticks = 150
+[[input]]
+tick = 1
+name = "ahead"
+payload = { down = true }
+[[input]]
+tick = 60
+name = "ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "back"
+payload = { down = true }
+[[input]]
+tick = 85
+name = "back"
+payload = { down = false }
+[[input]]
+tick = 100
+name = "ahead"
+payload = { down = true }
+[[input]]
+tick = 150
+name = "ahead"
+payload = { down = false }
+
+[[expect]]
+tick = 15
+facts = "bump"
+equals = 0
+[[expect]]
+tick = 59
+facts = "bump"
+equals = 1
+[[expect]]
+tick = 59
+facts = "engine.contact"
+at_least = 1
+[[expect]]
+tick = 150
+facts = "bump"
+equals = 2

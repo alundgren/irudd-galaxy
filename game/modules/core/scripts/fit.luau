@@ -60,6 +60,8 @@ end
 function fit.verdict(p, target, parts, credits, load)
     if target == "locker" then
         if not p.fitted then return "it isn't fitted" end
+        -- A control in the rack (socket "rack") is never taken away once bought.
+        if p.socket == "rack" then return "controls never come off" end
         local after = fit.totals(parts, p.id, nil)
         if load > after.hold then return "you carry " .. load .. "; the hold would take " .. after.hold end
         return ""

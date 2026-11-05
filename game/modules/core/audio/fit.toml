@@ -1,0 +1,6 @@
+# audio mix scenario: the fitting run of tests/fit.inputs, parts bought, fitted and
+# taken off at the fitter (galaxy-gm audio mix audio/fit.toml).
+modules = "../.."
+ticks = 1460
+seed = 7
+inputs = "../tests/fit.inputs"

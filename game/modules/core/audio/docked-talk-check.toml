@@ -1,0 +1,21 @@
+# Docking, a conversation and the log (galaxy-gm audio check): the clunks, bubble blips
+# and panels over the deck bed once the radio has faded, with headroom left.
+scenario = "docked-talk.toml"
+
+[[expect]]
+value = "buses.ambience.integrated_lufs"
+at_least = -36.0
+at_most = -32.0
+
+[[expect]]
+value = "buses.sound.integrated_lufs"
+at_least = -33.0
+at_most = -25.0
+
+[[expect]]
+value = "playback.sample_peak_dbfs"
+at_most = -6.0
+
+[[expect]]
+value = "limited_samples"
+equals = 0

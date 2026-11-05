@@ -1,0 +1,32 @@
+about = "A loose drift of pebbles and grit, too small to mine"
+seed = 3
+[[part]]
+shape = "rock"
+radius = 0.45
+detail = 0
+at = [0, 0, 0]
+paint = "#8a4228"
+[[part]]
+shape = "rock"
+radius = 0.3
+detail = 0
+at = [1.1, 0.6, 0]
+paint = "#a65532"
+[[part]]
+shape = "rock"
+radius = 0.22
+detail = 0
+at = [-0.9, 0.8, 0]
+paint = "#7c3b26"
+[[part]]
+shape = "rock"
+radius = 0.35
+detail = 0
+at = [0.4, -1.0, 0]
+paint = "#955032"
+[[part]]
+shape = "rock"
+radius = 0.18
+detail = 0
+at = [-0.6, -0.5, 0]
+paint = "#b8623a"

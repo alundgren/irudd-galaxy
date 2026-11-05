@@ -234,7 +234,8 @@ component = "engine.life"
 field = "name"
 equals = "Bram Okafor"
 
-# Launching from inside a room flies straight off.
+# Launching from inside a room flies straight off; the view glides out, and the
+# traders' labels wait until it lands.
 [[input]]
 tick = 650
 name = "core.open"
@@ -245,6 +246,17 @@ tick = 660
 name = "core.launch"
 [[expect]]
 tick = 660
+entity = "ship"
+component = "pilot"
+field = "gliding"
+equals = true
+[[input]]
+tick = 690
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.reach", start_tick = 660 }
+[[expect]]
+tick = 690
 entity = "ship"
 component = "pilot"
 field = "gliding"

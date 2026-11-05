@@ -1,0 +1,62 @@
+# Docked for `audio mix`: mine a little, dock at Lantern (the clunk), the dockmaster's
+# introduction line by line (a blip for each bubble), the log opened and shut, then
+# launch (the undock clunk) back into the reach.
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 450
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 396 }
+[[input]]
+tick = 510
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_master_intro" }
+[[input]]
+tick = 570
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
+[[input]]
+tick = 630
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro2" }
+[[input]]
+tick = 690
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro3" }
+[[input]]
+tick = 750
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro4" }
+[[input]]
+tick = 810
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro5" }
+[[input]]
+tick = 900
+name = "core.log"
+[[input]]
+tick = 990
+name = "core.log"
+[[input]]
+tick = 1050
+name = "core.launch"

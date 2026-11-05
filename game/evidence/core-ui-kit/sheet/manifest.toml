@@ -1,0 +1,9 @@
+# The core's UI kit on one sheet, for evidence: every look and icon. Draw it from a copy
+# with the core's style.toml, icons.toml, icons/ and scripts/kit.luau beside these files
+# (see game/evidence/core-ui-kit/README.md).
+id = "sheet"
+version = "0.1.0"
+min_engine_version = "0.8.0"
+scripts = ["scripts/sheet.luau"]
+events = ["press"]
+writes = ["engine.position", "engine.camera"]

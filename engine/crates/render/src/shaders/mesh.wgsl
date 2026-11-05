@@ -15,6 +15,8 @@ struct Instance {
     // hatching is spaced for (0: the instance's own), z: the share of its glow that
     // shows (a pulsing lamp).
     morph: vec4<f32>,
+    // rgb: the colour a distant thing fades towards, w: how far (0 for none).
+    haze: vec4<f32>,
 };
 
 @group(1) @binding(0) var<storage, read> instances: array<Instance>;
@@ -227,6 +229,7 @@ fn fs_main(in: VOut) -> @location(0) vec4<f32> {
     col = mix(col, in.color.rgb * inst.tint.rgb * 1.1, in.color.a * pulse);
     col = mix(col, col * shadow_rgb, in.color.a * (1.0 - pulse));
     col += inst.emissive.rgb * inst.emissive.a;
+    col = mix(col, inst.haze.rgb, inst.haze.w);
     return vec4<f32>(col, 1.0);
 }
 
@@ -240,7 +243,7 @@ fn vs_outline(v: VIn) -> OOut {
     let inst = instances[v.ii];
     let world = inst.model * vec4<f32>(morphed(v, inst.morph.x).pos, 1.0);
     var o: OOut;
-    o.color = vec4<f32>(inst.outline.rgb, 1.0);
+    o.color = vec4<f32>(mix(inst.outline.rgb, inst.haze.rgb, inst.haze.w), 1.0);
     if too_small(world.xyz, v.span, inst.model) {
         o.clip = vec4<f32>(0.0, 0.0, 2.0, 1.0);
         return o;

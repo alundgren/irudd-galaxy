@@ -55,7 +55,9 @@ permit, so engine and slice builds queue for each other. Never plain `cargo buil
   `docs/audio.md`, `docs/talk.md`, `docs/tests-and-what-if.md`,
   `docs/live-socket.md` (galaxy-gm reading and hot-loading a running game),
   `docs/model-generator.md`, `docs/music-generation.md`, `docs/audio-tools.md`,
-  `docs/gm-unattended.md` (scheduled GM runs: memory, continuing save, handover).
+  `docs/gm-unattended.md` (scheduled GM runs: memory, continuing save, handover),
+  `docs/effects.md` (beams, particles, halos and camera feel), `docs/sky-depth.md`
+  (backdrop layers and distant landmarks).
 - **Exit codes and error kinds** are one table for both binaries, kept in
   `crates/module/src/failure.rs` and `docs/exit-codes.md` together.
 - **Determinism.** The simulation is deterministic: fixed tick, seeded randomness,

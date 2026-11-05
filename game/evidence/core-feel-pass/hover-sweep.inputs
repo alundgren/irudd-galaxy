@@ -1,0 +1,178 @@
+# Hover sweep for the feel pass's UI sounds: dock at Cinder Kiln, then sweep the pointer
+# across the station key and the building signs, first a widget every tick (faster than
+# [ui] hover_gap, so hovers thin), then one every 10 ticks (each sounds), then open the
+# exchange, click a resting button (deny) and go back.
+[[input]]
+tick = 1
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[pointer]]
+tick = 400
+action = "move"
+widget = "key_exchange"
+
+[[pointer]]
+tick = 401
+action = "move"
+widget = "key_office"
+
+[[pointer]]
+tick = 402
+action = "move"
+widget = "key_cradle"
+
+[[pointer]]
+tick = 403
+action = "move"
+widget = "key_exchange"
+
+[[pointer]]
+tick = 404
+action = "move"
+widget = "key_office"
+
+[[pointer]]
+tick = 405
+action = "move"
+widget = "key_cradle"
+
+[[pointer]]
+tick = 406
+action = "move"
+widget = "key_exchange"
+
+[[pointer]]
+tick = 407
+action = "move"
+widget = "key_office"
+
+[[pointer]]
+tick = 408
+action = "move"
+widget = "key_cradle"
+
+[[pointer]]
+tick = 409
+action = "move"
+widget = "key_exchange"
+
+[[pointer]]
+tick = 410
+action = "move"
+widget = "key_office"
+
+[[pointer]]
+tick = 411
+action = "move"
+widget = "key_cradle"
+
+[[pointer]]
+tick = 412
+action = "move"
+widget = "key_exchange"
+
+[[pointer]]
+tick = 413
+action = "move"
+widget = "key_office"
+
+[[pointer]]
+tick = 414
+action = "move"
+widget = "key_cradle"
+
+[[pointer]]
+tick = 415
+action = "move"
+widget = "key_exchange"
+
+[[pointer]]
+tick = 416
+action = "move"
+widget = "key_office"
+
+[[pointer]]
+tick = 417
+action = "move"
+widget = "key_cradle"
+
+[[pointer]]
+tick = 418
+action = "move"
+widget = "key_exchange"
+
+[[pointer]]
+tick = 419
+action = "move"
+widget = "key_office"
+
+[[pointer]]
+tick = 420
+action = "move"
+widget = "key_cradle"
+
+[[pointer]]
+tick = 421
+action = "move"
+widget = "key_exchange"
+
+[[pointer]]
+tick = 422
+action = "move"
+widget = "key_office"
+
+[[pointer]]
+tick = 423
+action = "move"
+widget = "key_cradle"
+
+[[pointer]]
+tick = 460
+action = "move"
+widget = "key_exchange"
+
+[[pointer]]
+tick = 470
+action = "move"
+widget = "key_office"
+
+[[pointer]]
+tick = 480
+action = "move"
+widget = "key_cradle"
+
+[[pointer]]
+tick = 490
+action = "move"
+widget = "key_exchange"
+
+[[pointer]]
+tick = 500
+action = "move"
+widget = "key_office"
+
+[[pointer]]
+tick = 510
+action = "move"
+widget = "key_cradle"
+
+[[note]]
+tick = 525
+text = "Swept the key: fast hovers thinned, slow hovers each ticked."
+
+[[click]]
+tick = 540
+widget = "key_exchange"
+
+[[click]]
+tick = 600
+widget = "buy1_plate"
+
+[[note]]
+tick = 610
+text = "A resting Buy answers with the refusal."
+
+[[click]]
+tick = 630
+widget = "close"

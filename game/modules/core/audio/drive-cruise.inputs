@@ -1,0 +1,17 @@
+# Cruising for `audio mix`: turn north, away from the stations, and fly at top speed.
+[[input]]
+tick = 1
+name = "core.left"
+payload = { down = true }
+[[input]]
+tick = 16
+name = "core.left"
+payload = { down = false }
+[[input]]
+tick = 20
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 170
+name = "core.ahead"
+payload = { down = false }

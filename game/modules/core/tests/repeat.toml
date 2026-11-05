@@ -74,12 +74,37 @@ component = "market"
 field = "stock"
 equals = 36
 
+# The second hold worked rock1 out; docking again brought fresh stone into it, half
+# its twelve.
 [[expect]]
 tick = 1590
 entity = "rock1"
 component = "ore"
 field = "left"
-equals = 0
+equals = 6
+
+# The second hold's last unit is rock1's last too: the log keeps both beats, the rock's
+# first and the full hold last.
+[[expect]]
+tick = 1150
+entity = "log5"
+component = "entry"
+field = "text"
+equals = "Rock cut down to pebbles. 6 more rocks hold ore."
+
+[[expect]]
+tick = 1150
+entity = "log6"
+component = "entry"
+field = "text"
+equals = "Hold full: 6 ore aboard."
+
+[[expect]]
+tick = 1150
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Hold full: 6 ore aboard."
 
 [[expect]]
 tick = 2100

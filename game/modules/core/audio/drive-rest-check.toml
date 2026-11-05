@@ -1,0 +1,11 @@
+# At rest the drive barely hums (galaxy-gm audio check): the effects bus stays at least
+# ten dB under the cruise's (drive-check.toml) once the turn's sounds have passed.
+scenario = "drive-rest.toml"
+
+[[expect]]
+value = "windows.3.rms_dbfs.sound"
+at_most = -44.0
+
+[[expect]]
+value = "windows.4.rms_dbfs.sound"
+at_most = -44.0

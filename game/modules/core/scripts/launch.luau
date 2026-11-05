@@ -22,7 +22,9 @@ local function launch(ctx, station)
     ctx.put("ship", "engine.helm", {})
     ctx.put("ship", "engine.steer", {})
     ctx.put("ship", "held", {})
-    ctx.patch("ship", "pilot", { room = "", mining = false, target = "", log_open = false, gliding = false })
+    -- The view glides out (below) and the traders' labels wait until it lands: from a
+    -- room it starts low among them (scripts/traffic.luau).
+    ctx.patch("ship", "pilot", { room = "", mining = false, target = "", log_open = false, gliding = true })
     signs.show(ctx, station, "", false, nil, true) -- worn again once the next visit settles
     -- Out glides back to the ship's view, as docking glided in, from the deck or from
     -- a room (whose glides are off otherwise, so going in and out of them cuts:
@@ -36,7 +38,7 @@ local function launch(ctx, station)
     ctx.patch("ship", "engine.position", { angle = outward(berth.angle) })
     ctx.put("ship", "engine.body", { mass = 1 })
     ctx.patch("ship", "engine.model", { scale = 1 })
-    log.add(ctx, "Launched from " .. port.name .. ".")
+    log.leave(ctx, "Launched from " .. port.name .. ".")
 end
 
 return { docked = docked, launch = launch }

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Hold pods: two cargo capsules side by side. -->
+  <path fill-rule="evenodd" fill="currentColor" d="M3 6a3.5 3.5 0 0 1 7 0v12a3.5 3.5 0 0 1-7 0zM5.2 9v3h2.6V9z"/>
+  <path fill-rule="evenodd" fill="currentColor" d="M14 6a3.5 3.5 0 0 1 7 0v12a3.5 3.5 0 0 1-7 0zM16.2 9v3h2.6V9z"/>
+</svg>

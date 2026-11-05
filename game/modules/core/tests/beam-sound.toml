@@ -1,0 +1,63 @@
+# The beam's hum (audio.toml's beam channel) starts and stops with the beam however it
+# ends, and comes back on a resume: cut_start on the press, beam_on when a save resumed
+# mid-cut (this run given engine.resumed on tick 81), and cut_stop when Cancel stops
+# the ship mid-cut on tick 100.
+seed = 7
+ticks = 110
+[[input]]
+tick = 2
+name = "core.mine"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 3
+name = "core.mine"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 4
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 13
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 45
+name = "core.mine"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 81
+name = "engine.resumed"
+source = "resume"
+[[input]]
+tick = 100
+name = "core.cancel"
+source = "keyboard"
+payload = { down = true }
+
+[[expect]]
+tick = 45
+facts = "core.cut_start"
+equals = 1
+[[expect]]
+tick = 81
+facts = "core.beam_on"
+equals = 1
+[[expect]]
+tick = 99
+facts = "core.cut_stop"
+equals = 0
+[[expect]]
+tick = 100
+facts = "core.cut_stop"
+equals = 1
+[[expect]]
+tick = 100
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false

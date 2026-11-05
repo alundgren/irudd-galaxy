@@ -1,0 +1,5 @@
+# audio mix scenario: a pass by Lantern Dock (galaxy-gm audio mix audio/station-pass.toml).
+modules = "../.."
+ticks = 420
+seed = 7
+inputs = "station-pass.inputs"

@@ -1,0 +1,209 @@
+# The controls you earn. Both rest in the cradle's control rack until they can be paid
+# for. After the first sale the docking jets are bought (80 cr); the reach rig can't be
+# yet. Out in the reach, E then flies her into the nearest berth by itself. Two holds
+# later the reach rig is bought too: from Cinder Kiln's berth, Space puts its long
+# beam straight on the first rock, sixteen units off, aiming itself, and it cuts the
+# hold full with no key held. Bought controls stay fitted: dragging one to the tray
+# takes nothing off. The flights between sales are scripted orders, which fly themselves.
+seed = 7
+ticks = 1980
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 440
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 389 }
+[[input]]
+tick = 470
+name = "core.open"
+[[input]]
+tick = 480
+name = "core.sell"
+[[input]]
+tick = 490
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 500
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.rig" }
+[[input]]
+tick = 505
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.jets" }
+[[input]]
+tick = 510
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.jets" }
+[[input]]
+tick = 520
+name = "core.launch"
+[[input]]
+tick = 525
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 540
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 600
+name = "core.dock"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 601
+name = "core.dock"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 760
+name = "core.launch"
+[[input]]
+tick = 770
+name = "core.mine"
+[[input]]
+tick = 1050
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1200
+name = "core.open"
+[[input]]
+tick = 1210
+name = "core.sell"
+[[input]]
+tick = 1240
+name = "core.launch"
+[[input]]
+tick = 1250
+name = "core.mine"
+[[input]]
+tick = 1530
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1680
+name = "core.open"
+[[input]]
+tick = 1690
+name = "core.sell"
+[[input]]
+tick = 1700
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 1710
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.rig" }
+[[input]]
+tick = 1720
+name = "core.launch"
+[[input]]
+tick = 1730
+name = "core.mine"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 1731
+name = "core.mine"
+source = "keyboard"
+payload = { down = false }
+
+# The first sale pays for the jets, not the rig.
+[[expect]]
+tick = 515
+entity = "jets"
+component = "part"
+field = "fitted"
+equals = true
+[[expect]]
+tick = 515
+entity = "rig"
+component = "part"
+field = "owned"
+equals = false
+[[expect]]
+tick = 515
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 17
+[[expect]]
+tick = 515
+facts = "core.fitted"
+equals = 1
+
+# E out in the reach: the jets fly her in.
+[[expect]]
+tick = 600
+entity = "ship"
+component = "engine.steer"
+field = "mode"
+equals = "dock"
+[[expect]]
+tick = 600
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "The docking jets take her into Cinder Kiln."
+[[expect]]
+tick = 750
+facts = "core.docked"
+equals = 2
+
+# The rig, bought after the second hold, cuts from the berth with no key held.
+[[expect]]
+tick = 1715
+entity = "rig"
+component = "part"
+field = "fitted"
+equals = true
+[[expect]]
+tick = 1731
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 1731
+entity = "ship"
+component = "engine.beam"
+field = "look"
+equals = "core.reach"
+[[expect]]
+tick = 1731
+entity = "ship"
+component = "engine.beam"
+field = "target"
+equals = "core.rock1"
+[[expect]]
+tick = 1960
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 6
+[[expect]]
+facts = "core.hold_full"
+equals = 4

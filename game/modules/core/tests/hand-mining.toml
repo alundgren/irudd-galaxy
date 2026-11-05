@@ -1,0 +1,169 @@
+# Mining and docking by hand, with the keys a player presses. Space out of reach cuts
+# nothing and says why. W flies up to the first rock; Space held puts the beam on it at
+# once, a unit comes loose half a second in and one every second after, and the sixth
+# fills the hold: the beam lets go with the hold's own beat. Turned onto Lantern Dock's
+# berth, W let go coasts the ship to a stop in its ring and the clamps take her in.
+# hand-mining.inputs is the same route for a window (hand-mining.bot.toml).
+seed = 7
+ticks = 430
+
+[[input]]
+tick = 2
+name = "core.mine"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 3
+name = "core.mine"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 4
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 13
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 45
+name = "core.mine"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 260
+name = "core.mine"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 265
+name = "core.right"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 290
+name = "core.right"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 291
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 320
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+
+# Nine units from the rock's surface, out of the cutter's reach: nothing to cut.
+[[expect]]
+tick = 2
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+[[expect]]
+tick = 2
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "No rock in reach. The cutter reaches 7 units: fly closer."
+
+# In reach with the nose on it, the hint says what Space does here.
+[[expect]]
+tick = 44
+entity = "ship"
+component = "pilot"
+field = "near"
+equals = "aim"
+
+# Space held: the beam is on the rock on the tick it is pressed.
+[[expect]]
+tick = 45
+entity = "ship"
+component = "engine.beam"
+field = "target"
+equals = "core.rock1"
+[[expect]]
+tick = 45
+facts = "core.cut_start"
+equals = 1
+[[expect]]
+tick = 59
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 0
+[[expect]]
+tick = 60
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 1
+[[expect]]
+tick = 60
+entity = "rock1"
+component = "ore"
+field = "left"
+equals = 11
+[[expect]]
+tick = 90
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 2
+
+# The sixth unit fills the hold: the beam lets go, once.
+[[expect]]
+tick = 210
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 6
+[[expect]]
+tick = 210
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+[[expect]]
+tick = 211
+facts = "core.hold_full"
+equals = 1
+[[expect]]
+tick = 211
+facts = "core.mined"
+equals = 6
+[[expect]]
+tick = 211
+facts = "core.cut_stop"
+equals = 1
+[[expect]]
+tick = 210
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Hold full: 6 ore aboard."
+
+# Flown into Lantern Dock's ring and stopped there: the clamps take her in.
+[[expect]]
+tick = 360
+entity = "ship"
+component = "engine.steer"
+field = "mode"
+equals = "dock"
+[[expect]]
+tick = 361
+facts = "core.clamped"
+equals = 1
+[[expect]]
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.lantern"
+[[expect]]
+facts = "core.docked"
+equals = 1

@@ -43,11 +43,20 @@ pub struct Scene {
     /// Colour behind everything when there is no backdrop.
     pub clear_color: Color,
     pub backdrop: Option<BackdropHandle>,
+    /// Distant things behind the play layer, drawn after the backdrop in this order
+    /// (far to near) and before [`Scene::meshes`] ([`crate::far`]).
+    pub far: Vec<crate::far::Far>,
+    /// Holds the backdrop's clouds and stars still instead of scrolling them with the
+    /// camera: the player's reduced-motion setting.
+    pub still_sky: bool,
     pub meshes: Vec<MeshInstance>,
     /// Lanes, borders, rings, beams: ribbons in world space.
     pub lines: Vec<Line>,
     /// Soft additive halos (lanterns, engine glow, beam impact).
     pub glows: Vec<Glow>,
+    /// Sparks, chips and puffs, drawn between lines and glows; at most
+    /// [`MAX_PARTICLES`] are drawn.
+    pub particles: Vec<Particle>,
     /// Screen-space UI drawn on top.
     pub overlay: Overlay,
     /// How the inner ink is drawn (creases, colour edges, depth steps).
@@ -64,9 +73,12 @@ impl Scene {
             lights: Lights::default(),
             clear_color: defaults::SKY_BOTTOM,
             backdrop: None,
+            far: Vec::new(),
+            still_sky: false,
             meshes: Vec::new(),
             lines: Vec::new(),
             glows: Vec::new(),
+            particles: Vec::new(),
             overlay: Overlay::default(),
             ink: Ink::default(),
             time: 0.0,
@@ -129,6 +141,9 @@ pub struct MeshInstance {
     pub hatch_scale: f32,
     /// The share of the mesh's glow (self-lit paint) that shows, `0..=1`: a pulsing lamp.
     pub glow: f32,
+    /// A colour the finished paint and ink fade towards, alpha how far: a distant thing
+    /// sinking into the sky's haze. Transparent for none.
+    pub haze: Color,
 }
 
 impl MeshInstance {
@@ -140,6 +155,7 @@ impl MeshInstance {
             morph: 0.0,
             hatch_scale: 0.0,
             glow: 1.0,
+            haze: Color::TRANSPARENT,
         }
     }
 
@@ -177,6 +193,12 @@ impl MeshInstance {
         } else {
             1.0
         };
+        self
+    }
+
+    /// Fades the finished paint and ink `haze.a` of the way to `haze`.
+    pub fn with_haze(mut self, haze: Color) -> Self {
+        self.haze = haze;
         self
     }
 
@@ -279,6 +301,8 @@ pub struct Line {
     /// lines that continue each other share one pattern when the second starts where the
     /// first ended; a line drawn from a fixed end keeps its pattern still in the world.
     pub phase: f32,
+    /// How strong a beam's soft outer glow is (1 is the default; 0 leaves the hot core).
+    pub glow: f32,
 }
 
 impl Line {
@@ -291,6 +315,7 @@ impl Line {
             closed: false,
             wobble: 0.0,
             phase: 0.0,
+            glow: 1.0,
         }
     }
 
@@ -337,6 +362,52 @@ impl Line {
         self.wobble = amplitude;
         self
     }
+
+    /// Sets a beam's outer glow strength (0 to 4).
+    pub fn with_glow(mut self, glow: f32) -> Self {
+        self.glow = if glow.is_finite() {
+            glow.clamp(0.0, 4.0)
+        } else {
+            1.0
+        };
+        self
+    }
+}
+
+/// The most particles one scene draws; the rest are dropped, so a runaway emitter can't
+/// eat the frame.
+pub const MAX_PARTICLES: usize = 4096;
+
+/// How a particle is drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ParticleShape {
+    /// A soft round dot.
+    #[default]
+    Dot,
+    /// A streak along its velocity, bright at the head.
+    Spark,
+    /// A round cel puff with an ink rim.
+    Puff,
+    /// A small turned square with an ink rim.
+    Chip,
+}
+
+/// One particle, as the view placed it this frame: presentation only.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Particle {
+    pub position: Vec3,
+    /// World units a second; a spark streaks along it.
+    pub velocity: Vec3,
+    /// Diameter in world units.
+    pub size: f32,
+    /// Colour; alpha is its opacity.
+    pub color: Color,
+    pub shape: ParticleShape,
+    /// Added to the colour beneath (a glow) instead of painted over it.
+    pub additive: bool,
+    /// A chip's turn on screen, radians.
+    pub spin: f32,
 }
 
 /// A soft round halo, added on top of the scene.
@@ -376,6 +447,10 @@ pub struct Panel {
     pub border: Color,
     pub border_px: f32,
     pub shadow: bool,
+    /// How far the shadow falls below the panel, logical pixels (with `shadow`).
+    pub shadow_px: f32,
+    /// Multiplies the whole panel, its shadow included: 1 is as painted (UI fades).
+    pub opacity: f32,
     /// Dash length plus gap of the border in logical pixels; 0 draws it solid.
     pub dash: f32,
     /// Turn around the centre, radians, clockwise on screen.
@@ -404,6 +479,8 @@ impl Panel {
             border: defaults::INK,
             border_px: 3.0,
             shadow: true,
+            shadow_px: 5.0,
+            opacity: 1.0,
             dash: 0.0,
             rotate: 0.0,
             shape: PanelShape::Box,
@@ -434,6 +511,17 @@ pub struct Text {
     pub align: Align,
     /// Wrap width in logical pixels.
     pub max_width: Option<f32>,
+    /// Parts of `text` drawn in their own colour and weight; the rest uses `color` and
+    /// `weight`. Ranges are byte ranges on character boundaries, in order, not overlapping.
+    pub spans: Vec<TextSpan>,
+}
+
+/// A byte range of a [`Text`] drawn in its own colour and weight.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextSpan {
+    pub range: std::ops::Range<usize>,
+    pub color: Color,
+    pub weight: u16,
 }
 
 impl Text {
@@ -446,6 +534,7 @@ impl Text {
             weight: 500,
             align: Align::Left,
             max_width: None,
+            spans: Vec::new(),
         }
     }
 
@@ -470,12 +559,23 @@ impl Text {
     }
 }
 
-/// One overlay layer: its panels draw first, then its text.
+/// A vector icon drawn into a logical-pixel rectangle: as a mask in `tint`, or in its
+/// own colours when `tint` is `None`. The renderer rasterises it at the display scale.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UiImage {
+    pub rect: Rect,
+    pub icon: std::sync::Arc<crate::vector::Icon>,
+    pub tint: Option<Color>,
+    pub opacity: f32,
+}
+
+/// One overlay layer: its panels draw first, then its images, then its text.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct UiLayer {
     pub panels: Vec<Panel>,
+    pub images: Vec<UiImage>,
     pub texts: Vec<Text>,
-    /// Logical-pixel clip shared by panels and glyphs in this layer.
+    /// Logical-pixel clip shared by panels, images and glyphs in this layer.
     pub clip: Option<Rect>,
 }
 

@@ -323,7 +323,7 @@ tick = 2470
 entity = "lantern_master_now"
 component = "engine.talk_line"
 field = "text"
-equals = "The field still holds 30 ore."
+equals = "The field still holds 78 ore."
 
 # In her own room she wears her name sign.
 [[expect]]

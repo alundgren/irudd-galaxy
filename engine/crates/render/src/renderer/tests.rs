@@ -19,6 +19,7 @@ fn widget_scissor_clips_panels_and_glyphs_at_two_scales() {
         });
         let before = renderer.render_to_rgba(&scene).unwrap();
         scene.overlay.widgets.push(UiLayer {
+            images: Vec::new(),
             panels: vec![Panel {
                 fill: Color::hex(0xe00000),
                 ..Panel::new(Rect::new(0.0, 0.0, 100.0, 100.0))

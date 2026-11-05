@@ -1,7 +1,7 @@
 //! CPU tessellation of lines, beams and glows into camera-facing triangles.
 
 use crate::camera::{Camera, Projection};
-use crate::scene::{Glow, Line, LineStyle};
+use crate::scene::{Glow, Line, LineStyle, MAX_PARTICLES, Particle, ParticleShape};
 use bytemuck::{Pod, Zeroable};
 use glam::Vec3;
 
@@ -12,9 +12,11 @@ pub(crate) struct FxVertex {
     /// x: distance along the line (world units), y: across, -1..1.
     pub uv: [f32; 2],
     pub color: [f32; 4],
-    /// x: kind (0 ribbon, 1 dashed, 2 glow, 3 beam, 4 dotted). Dashed: y dash, z gap.
-    /// Beam: y width, z length. Dotted: everything in half-widths, so a dot is round:
-    /// `uv.x` is the distance along, y spacing, z fade length, w where the line ends.
+    /// x: kind (0 ribbon, 1 dashed, 2 glow, 3 beam, 4 dotted, 5 particle). Dashed: y
+    /// dash, z gap. Beam: y width, z length, w glow strength. Dotted: everything in
+    /// half-widths, so a dot is round: `uv.x` is the distance along, y spacing, z fade
+    /// length, w where the line ends. Particle: y shape (0 dot, 1 spark, 2 puff, 3 chip),
+    /// z 1 when additive; `uv` runs -1 to 1 across the quad (+x at a spark's head).
     pub params: [f32; 4],
 }
 
@@ -23,6 +25,9 @@ const KIND_DASHED: f32 = 1.0;
 const KIND_GLOW: f32 = 2.0;
 const KIND_BEAM: f32 = 3.0;
 const KIND_DOTTED: f32 = 4.0;
+const KIND_PARTICLE: f32 = 5.0;
+/// A spark's streak: this many seconds of its travel trail behind its head.
+const STREAK_SECONDS: f32 = 0.045;
 
 /// The direction the camera looks at `p` from.
 fn view_dir(camera: &Camera, p: Vec3) -> Vec3 {
@@ -47,10 +52,12 @@ fn lift(camera: &Camera, p: Vec3, by: f32) -> Vec3 {
     }
 }
 
-/// Appends triangles for every line and glow. Lines first, then glows on top.
+/// Appends triangles for every line, particle and glow: lines first, then particles (at
+/// most [`MAX_PARTICLES`]), then glows on top.
 pub(crate) fn tessellate(
     lines: &[Line],
     glows: &[Glow],
+    particles: &[Particle],
     camera: &Camera,
     verts: &mut Vec<FxVertex>,
     indices: &mut Vec<u32>,
@@ -61,6 +68,9 @@ pub(crate) fn tessellate(
     let fwd = (camera.target - camera.eye).normalize_or(Vec3::NEG_Z);
     let right = fwd.cross(camera.up).normalize_or(Vec3::X);
     let up = right.cross(fwd);
+    for p in particles.iter().take(MAX_PARTICLES) {
+        particle(p, camera, fwd, (right, up), verts, indices);
+    }
     for glow in glows {
         if !glow.position.is_finite() || !glow.radius.is_finite() || glow.radius <= 0.0 {
             continue;
@@ -77,6 +87,73 @@ pub(crate) fn tessellate(
         }
         indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
     }
+}
+
+/// One particle as a camera-facing quad: square for dots, puffs and chips (a chip turned
+/// by its spin), stretched along its on-screen velocity for a spark.
+fn particle(
+    p: &Particle,
+    camera: &Camera,
+    fwd: Vec3,
+    (right, up): (Vec3, Vec3),
+    verts: &mut Vec<FxVertex>,
+    indices: &mut Vec<u32>,
+) {
+    if !p.position.is_finite() || !p.size.is_finite() || p.size <= 0.0 || p.color.a <= 0.0 {
+        return;
+    }
+    let half = p.size * 0.5;
+    let shape = match p.shape {
+        ParticleShape::Dot => 0.0,
+        ParticleShape::Spark => 1.0,
+        ParticleShape::Puff => 2.0,
+        ParticleShape::Chip => 3.0,
+    };
+    // Lengthways and sideways half-extents, as world vectors on the camera plane.
+    let (along, across, centre) = match p.shape {
+        ParticleShape::Spark if p.velocity.is_finite() => {
+            let flat = p.velocity - fwd * p.velocity.dot(fwd);
+            let speed = flat.length();
+            if speed > 1e-4 {
+                let dir = flat / speed;
+                let length = half + speed * STREAK_SECONDS;
+                let side = dir.cross(fwd).normalize_or(up);
+                // The head sits on the particle; the streak trails behind it.
+                (
+                    dir * length,
+                    side * half,
+                    p.position - dir * (length - half),
+                )
+            } else {
+                (right * half, up * half, p.position)
+            }
+        }
+        ParticleShape::Chip => {
+            let (s, c) = (p.spin.sin(), p.spin.cos());
+            (
+                (right * c + up * s) * half,
+                (up * c - right * s) * half,
+                p.position,
+            )
+        }
+        _ => (right * half, up * half, p.position),
+    };
+    let centre = lift(camera, centre, half);
+    let base = verts.len() as u32;
+    for (u, v) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
+        verts.push(FxVertex {
+            pos: (centre + along * u + across * v).into(),
+            uv: [u, v],
+            color: p.color.to_array(),
+            params: [
+                KIND_PARTICLE,
+                shape,
+                if p.additive { 1.0 } else { 0.0 },
+                0.0,
+            ],
+        });
+    }
+    indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
 }
 
 /// Resamples a polyline so wobble has points to bend, and applies the wobble.
@@ -143,7 +220,7 @@ fn line_strip(
     let (kind, dash, gap, end) = match line.style {
         LineStyle::Solid => (KIND_RIBBON, 0.0, 0.0, 0.0),
         LineStyle::Dashed { dash, gap } => (KIND_DASHED, dash.max(0.01), gap.max(0.0), 0.0),
-        LineStyle::Beam => (KIND_BEAM, line.width, total, 0.0),
+        LineStyle::Beam => (KIND_BEAM, line.width, total, line.glow),
         LineStyle::Dotted { spacing, fade } => {
             let half = line.width * 0.5;
             (
@@ -221,7 +298,7 @@ mod tests {
     fn straight_line_makes_a_quad_of_the_right_width() {
         let (mut v, mut i) = (vec![], vec![]);
         let line = Line::path(vec![Vec3::ZERO, Vec3::X * 10.0], 2.0, Color::WHITE);
-        tessellate(&[line], &[], &cam(), &mut v, &mut i);
+        tessellate(&[line], &[], &[], &cam(), &mut v, &mut i);
         assert_eq!(v.len(), 4);
         assert_eq!(i.len(), 6);
         for vert in &v {
@@ -249,13 +326,13 @@ mod tests {
             radius: 4.0,
             color: Color::WHITE,
         }];
-        tessellate(&lines, &glows, &cam(), &mut v, &mut i);
+        tessellate(&lines, &glows, &[], &cam(), &mut v, &mut i);
         assert!(v.iter().all(|x| x.pos.iter().all(|c| c.is_finite())));
         assert!(i.iter().all(|&k| (k as usize) < v.len()));
 
         // The circle's ribbon stays within radius ± (half width + wobble), allowing miters.
         let (mut v, mut i) = (vec![], vec![]);
-        tessellate(&lines[..1], &[], &cam(), &mut v, &mut i);
+        tessellate(&lines[..1], &[], &[], &cam(), &mut v, &mut i);
         assert!(v.len() > 48);
         for vert in &v {
             let r = Vec2::new(vert.pos[0], vert.pos[1]).length();
@@ -271,7 +348,46 @@ mod tests {
             Line::path(vec![Vec3::ZERO, Vec3::X], 0.0, Color::WHITE),
             Line::path(vec![Vec3::NAN, Vec3::X], 1.0, Color::WHITE),
         ];
-        tessellate(&lines, &[], &cam(), &mut v, &mut i);
+        tessellate(&lines, &[], &[], &cam(), &mut v, &mut i);
         assert!(v.is_empty() && i.is_empty());
+    }
+
+    fn spark(position: Vec3, velocity: Vec3) -> Particle {
+        Particle {
+            position,
+            velocity,
+            size: 0.4,
+            color: Color::WHITE,
+            shape: ParticleShape::Spark,
+            additive: true,
+            spin: 0.0,
+        }
+    }
+
+    #[test]
+    fn a_spark_streaks_behind_its_head_along_its_velocity() {
+        let (mut v, mut i) = (vec![], vec![]);
+        let p = spark(Vec3::new(5.0, 0.0, 0.0), Vec3::new(20.0, 0.0, 0.0));
+        tessellate(&[], &[], &[p], &cam(), &mut v, &mut i);
+        assert_eq!((v.len(), i.len()), (4, 6));
+        let xs: Vec<f32> = v.iter().map(|x| x.pos[0]).collect();
+        let head = xs.iter().copied().fold(f32::MIN, f32::max);
+        let tail = xs.iter().copied().fold(f32::MAX, f32::min);
+        assert!((head - 5.2).abs() < 1e-3, "{xs:?}");
+        assert!((head - tail - (0.4 + 20.0 * STREAK_SECONDS * 2.0)).abs() < 1e-3);
+        // The head end is uv.x = +1.
+        let at_head = v.iter().find(|x| (x.pos[0] - head).abs() < 1e-4).unwrap();
+        assert_eq!(at_head.uv[0], 1.0);
+        assert_eq!(at_head.params, [KIND_PARTICLE, 1.0, 1.0, 0.0]);
+    }
+
+    #[test]
+    fn particles_stop_at_the_cap_and_skip_broken_ones() {
+        let (mut v, mut i) = (vec![], vec![]);
+        let mut many = vec![spark(Vec3::NAN, Vec3::X)];
+        many.extend((0..MAX_PARTICLES + 50).map(|k| spark(Vec3::X * k as f32, Vec3::ZERO)));
+        tessellate(&[], &[], &many, &cam(), &mut v, &mut i);
+        assert_eq!(v.len(), (MAX_PARTICLES - 1) * 4);
+        assert!(v.iter().all(|x| x.pos.iter().all(|c| c.is_finite())));
     }
 }

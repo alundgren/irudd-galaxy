@@ -1,0 +1,199 @@
+# Sound cues (scripts/sound.luau): each real change records one cue event, never one
+# for each press and release. Thrust starts once for a held W even when the key repeats,
+# S pressed against the held W stops it and let go starts it again, and W let go stops
+# it. Shift
+# boosts once. The radio and the mine order click; each unit mined chips, the three
+# chips taking turns; mining a full hold is refused, and the unit that fills it chimes.
+# Docked, a movement key flying off cues once. A click on a screen button, and a room or
+# the log opening and closing, cue nothing here: [ui] in audio.toml sounds them.
+seed = 7
+ticks = 760
+
+[[input]]
+tick = 1
+name = "ahead"
+payload = { down = true }
+[[input]]
+tick = 2
+name = "ahead"
+payload = { down = true }
+[[input]]
+tick = 5
+name = "back"
+payload = { down = true }
+[[input]]
+tick = 6
+name = "back"
+payload = { down = false }
+[[input]]
+tick = 10
+name = "ahead"
+payload = { down = false }
+[[input]]
+tick = 12
+name = "boost"
+payload = { down = true }
+[[input]]
+tick = 13
+name = "boost"
+payload = { down = true }
+[[input]]
+tick = 14
+name = "boost"
+payload = { down = false }
+[[input]]
+tick = 20
+name = "radio"
+payload = { tune = "next" }
+[[input]]
+tick = 24
+name = "radio"
+source = "ui"
+payload = { tune = "next" }
+[[input]]
+tick = 60
+name = "mine"
+[[input]]
+tick = 340
+name = "mine"
+payload = { down = true }
+[[input]]
+tick = 341
+name = "mine"
+payload = { down = false }
+[[input]]
+tick = 350
+name = "dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 600
+name = "open"
+[[input]]
+tick = 610
+name = "open"
+[[input]]
+tick = 620
+name = "close"
+payload = { down = true }
+[[input]]
+tick = 621
+name = "close"
+payload = { down = false }
+[[input]]
+tick = 630
+name = "close"
+[[input]]
+tick = 640
+name = "log"
+[[input]]
+tick = 650
+name = "log"
+[[input]]
+tick = 700
+name = "ahead"
+payload = { down = true }
+[[input]]
+tick = 710
+name = "ahead"
+payload = { down = false }
+
+[[expect]]
+tick = 4
+facts = "thrust_on"
+equals = 1
+[[expect]]
+tick = 4
+facts = "thrust_off"
+equals = 0
+[[expect]]
+tick = 5
+facts = "thrust_off"
+equals = 1
+[[expect]]
+tick = 6
+facts = "thrust_on"
+equals = 2
+[[expect]]
+tick = 9
+facts = "thrust_off"
+equals = 1
+[[expect]]
+tick = 10
+facts = "thrust_off"
+equals = 2
+[[expect]]
+tick = 15
+facts = "boost_on"
+equals = 1
+
+# Tuning by key clicks; the same tune clicked on the radio's button records no click,
+# since audio.toml's [ui] press sounds it on the frame. Then the mine order clicks.
+[[expect]]
+tick = 30
+facts = "ui_click"
+equals = 1
+[[expect]]
+tick = 60
+facts = "ui_click"
+equals = 2
+
+# Six units fill the bare hull's hold, each with a chip, the three chips in turn, and
+# the last one chimes.
+[[expect]]
+tick = 339
+facts = "mined"
+equals = 6
+[[expect]]
+tick = 339
+facts = "chip1"
+equals = 2
+[[expect]]
+tick = 339
+facts = "chip2"
+equals = 2
+[[expect]]
+tick = 339
+facts = "chip3"
+equals = 2
+[[expect]]
+tick = 339
+facts = "hold_full"
+equals = 1
+[[expect]]
+tick = 339
+facts = "refused"
+equals = 0
+[[expect]]
+tick = 345
+facts = "refused"
+equals = 1
+
+# The dock order clicks; arriving clunks (the docked fact).
+[[expect]]
+tick = 599
+facts = "ui_click"
+equals = 3
+[[expect]]
+tick = 599
+facts = "docked"
+equals = 1
+
+# Opening the exchange, Back and the log record no cue here: [ui] in audio.toml sounds a
+# room's panel and the log as they open and close, by key or click.
+[[expect]]
+tick = 655
+facts = "ui_click"
+equals = 3
+
+# W flies off the dock: one undock and one thrust; letting go stops it.
+[[expect]]
+tick = 705
+facts = "undocked"
+equals = 1
+[[expect]]
+tick = 705
+facts = "thrust_on"
+equals = 3
+[[expect]]
+facts = "thrust_off"
+equals = 3

@@ -1,0 +1,29 @@
+about = "A far planet, dusky rose with a pale ring, sunk well below the field so it sits behind everything"
+[[part]]
+name = "globe"
+shape = "sphere"
+radius = 20
+rings = 10
+sides = 28
+at = [0, 0, -60]
+paint = "#7d5a9e"
+[[part]]
+name = "band"
+shape = "sphere"
+radius = 20.3
+rings = 3
+sides = 28
+scale = [1.0, 1.0, 0.18]
+at = [0, 0, -60]
+paint = "#9a6aa8"
+[[part]]
+name = "ring"
+shape = "ring"
+radius = 30
+tube = 4
+flat = 0.08
+segments = 48
+sides = 4
+pitch = 14
+at = [0, 0, -60]
+paint = "#b493c4"

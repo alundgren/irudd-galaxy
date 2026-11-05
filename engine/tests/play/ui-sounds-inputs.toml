@@ -1,0 +1,79 @@
+# Every UI sound once: hover and press the shelf button (the shelf opens), press the
+# chip (its look's own sound), press the resting Locked (deny), drop the token on the
+# narrow slot (deny) and then the wide one (drop), sweep down the list one row a tick
+# (a hover cue per row, a sound at most every 0.08 s), and close the shelf.
+[[pointer]]
+tick = 10
+action = "move"
+widget = "shelf"
+[[click]]
+tick = 15
+widget = "shelf"
+[[pointer]]
+tick = 25
+action = "move"
+widget = "chip"
+[[click]]
+tick = 30
+widget = "chip"
+[[pointer]]
+tick = 40
+action = "move"
+widget = "locked"
+[[click]]
+tick = 45
+widget = "locked"
+[[pointer]]
+tick = 55
+action = "pickup"
+widget = "token"
+[[pointer]]
+tick = 60
+action = "move"
+widget = "narrow"
+[[pointer]]
+tick = 65
+action = "drop"
+widget = "narrow"
+[[pointer]]
+tick = 80
+action = "pickup"
+widget = "token"
+[[pointer]]
+tick = 85
+action = "move"
+widget = "wide"
+[[pointer]]
+tick = 90
+action = "drop"
+widget = "wide"
+[[pointer]]
+tick = 100
+action = "move"
+widget = "row-ash"
+[[pointer]]
+tick = 101
+action = "move"
+widget = "row-birch"
+[[pointer]]
+tick = 102
+action = "move"
+widget = "row-cedar"
+[[pointer]]
+tick = 103
+action = "move"
+widget = "row-elm"
+[[pointer]]
+tick = 104
+action = "move"
+widget = "row-fir"
+[[pointer]]
+tick = 105
+action = "move"
+widget = "row-oak"
+[[click]]
+tick = 115
+widget = "shelf"
+[[note]]
+tick = 120
+text = "The shelf has closed; every UI action so far had its sound."

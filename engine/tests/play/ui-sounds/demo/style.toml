@@ -1,0 +1,9 @@
+[screen]
+button_hover = "#d4d4d4"
+hover_lift = 2.0
+press_sink = 2.0
+motion_in = 0.2
+motion_out = 0.2
+
+[screen.looks.chip]
+weight = 700.0
