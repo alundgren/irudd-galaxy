@@ -27,6 +27,15 @@ pub const MAX_WATCH_TICKS: u64 = 9000;
 pub const MAX_SAMPLES: u64 = 1000;
 /// The most facts one `history` returns.
 pub const MAX_HISTORY: usize = 500;
+/// The most ticks one `input` runs: five minutes.
+pub const MAX_INPUT_TICKS: u64 = 9000;
+/// The most steps one `input` takes.
+pub const MAX_STEPS: usize = 1000;
+/// The left mouse button, as `input` names it beside the manifest key names (which name
+/// the right one `mouse_right`).
+pub const MOUSE_LEFT: &str = "mouse_left";
+/// The farthest a pointer step reaches, in logical pixels.
+const MAX_POINT: f32 = 100_000.0;
 
 /// What kind of local socket an endpoint is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -167,6 +176,56 @@ pub enum Op {
         #[serde(default)]
         dirs: Vec<PathBuf>,
     },
+    /// Keys and the pointer, held and moved over the next `ticks` ticks through the same
+    /// path as the window's own: answered once they have passed. What the connection
+    /// still holds when it closes is let go.
+    Input { steps: Vec<Step>, ticks: u64 },
+}
+
+/// One step of an `input`: what happens, `at` ticks after the input started. A step at
+/// `at` takes effect on the tick `at + 1` after the one the input started on, so a step
+/// at 0 reaches the very next tick.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Step {
+    pub at: u64,
+    #[serde(flatten)]
+    pub act: Act,
+}
+
+/// What a step does: `{"do": "key", "key": "w", "down": true}` or
+/// `{"do": "move", "x": 400, "y": 300}`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "do", rename_all = "snake_case")]
+pub enum Act {
+    /// A key goes down or up: a manifest key name (`w`, `space`, `mouse_right`) or
+    /// [`MOUSE_LEFT`].
+    Key { key: String, down: bool },
+    /// The pointer moves to this point of the window, in logical pixels from its top
+    /// left.
+    Move { x: f32, y: f32 },
+}
+
+impl Act {
+    /// The step as `galaxy-gm live input` writes it: `down w`, `up w`, `move 400 300`.
+    pub fn text(&self) -> String {
+        match self {
+            Act::Key { key, down: true } => format!("down {key}"),
+            Act::Key { key, down: false } => format!("up {key}"),
+            Act::Move { x, y } => format!("move {x} {y}"),
+        }
+    }
+}
+
+/// Whether `key` is one `input` can hold: a manifest key name or [`MOUSE_LEFT`].
+pub fn is_key(key: &str) -> bool {
+    key == MOUSE_LEFT || galaxy_module::manifest::KEYS.contains(&key)
+}
+
+/// Why `key` is not a key, with the names that are.
+pub fn not_a_key(key: &str) -> String {
+    let mut names: Vec<&str> = galaxy_module::manifest::KEYS.to_vec();
+    names.push(MOUSE_LEFT);
+    format!("`{key}` is not a key; keys are {}", names.join(", "))
 }
 
 impl Op {
@@ -179,6 +238,7 @@ impl Op {
             Op::Watch { .. } => "watch",
             Op::Shot { .. } => "shot",
             Op::Load { .. } => "load",
+            Op::Input { .. } => "input",
         }
     }
 
@@ -254,6 +314,45 @@ impl Op {
                 }
                 dirs.iter()
                     .try_for_each(|d| text("the module folder", &d.to_string_lossy()))
+            }
+            Op::Input { steps, ticks } => {
+                if *ticks == 0 || *ticks > MAX_INPUT_TICKS {
+                    return Err(format!(
+                        "an input runs 1 to {MAX_INPUT_TICKS} ticks (30 a second, so at most \
+                         {} seconds); this one runs {ticks}",
+                        MAX_INPUT_TICKS / 30
+                    ));
+                }
+                if steps.len() > MAX_STEPS {
+                    return Err(format!(
+                        "an input takes at most {MAX_STEPS} steps; this one has {}",
+                        steps.len()
+                    ));
+                }
+                for step in steps {
+                    if step.at >= *ticks {
+                        return Err(format!(
+                            "step `{}` is at tick {} of an input that runs {ticks}",
+                            step.act.text(),
+                            step.at
+                        ));
+                    }
+                    match &step.act {
+                        Act::Key { key, .. } if !is_key(key) => return Err(not_a_key(key)),
+                        Act::Move { x, y }
+                            if !(x.is_finite() && y.is_finite())
+                                || !(0.0..=MAX_POINT).contains(x)
+                                || !(0.0..=MAX_POINT).contains(y) =>
+                        {
+                            return Err(format!(
+                                "a pointer point is logical pixels from the window's top left, \
+                                 0 to {MAX_POINT}; not ({x}, {y})"
+                            ));
+                        }
+                        _ => {}
+                    }
+                }
+                Ok(())
             }
         }
     }
@@ -380,6 +479,36 @@ mod tests {
             .contains("samples")
         );
         assert!(Op::parse("history", json!({ "last": 0 })).is_err());
+        let input = Op::parse(
+            "input",
+            json!({ "ticks": 2, "steps": [
+                { "at": 0, "do": "key", "key": "w", "down": true },
+                { "at": 1, "do": "move", "x": 400, "y": 300 },
+            ] }),
+        )
+        .unwrap();
+        let Op::Input { steps, .. } = &input else {
+            panic!("{input:?}")
+        };
+        assert_eq!(steps[1].act, Act::Move { x: 400.0, y: 300.0 });
+        assert_eq!(serde_json::to_value(&steps[0]).unwrap()["do"], "key");
+        let step = |at: u64, key: &str| {
+            json!({ "ticks": 2, "steps": [
+            { "at": at, "do": "key", "key": key, "down": true }
+        ] })
+        };
+        assert!(
+            Op::parse("input", step(2, "w"))
+                .unwrap_err()
+                .contains("runs 2")
+        );
+        assert!(
+            Op::parse("input", step(0, "jump"))
+                .unwrap_err()
+                .contains("not a key")
+        );
+        assert!(Op::parse("input", step(0, "mouse_left")).is_ok());
+        assert!(Op::parse("input", json!({ "ticks": 0, "steps": [] })).is_err());
         assert!(Op::parse("state", json!({ "entity": "x".repeat(5000) })).is_err());
     }
 }

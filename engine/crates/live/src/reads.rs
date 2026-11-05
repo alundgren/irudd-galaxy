@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use galaxy_api::command::Cause;
 use galaxy_api::engine::{MODEL, MOTION, POSITION};
-use galaxy_sim::World;
 use galaxy_sim::session::LogLine;
+use galaxy_sim::{Session, World};
 use serde_json::{Map, Value, json};
 
 /// What a state read prints: a line an entity, or fields.
@@ -200,9 +200,11 @@ pub fn cause_text(cause: &Cause) -> String {
     }
 }
 
-/// Recent facts, oldest first, each with who made it, and what scripts printed since the
+/// Recent facts, oldest first, each with who made it (and for an input that did not come
+/// from the window itself, how it came: `via` live), and what scripts printed since the
 /// first one shown.
-pub fn history(world: &World, log: &[LogLine], query: &HistoryQuery) -> Value {
+pub fn history(session: &Session, query: &HistoryQuery) -> Value {
+    let (world, log) = (&session.world, &session.log);
     let cause_of = |id: u64| world.causes.get(id as usize).map(|c| &c.cause);
     let matching: Vec<&galaxy_sim::world::Fact> = world
         .facts
@@ -219,13 +221,22 @@ pub fn history(world: &World, log: &[LogLine], query: &HistoryQuery) -> Value {
     let facts: Vec<Value> = shown
         .iter()
         .map(|f| {
-            json!({
+            let via = session.via(f.cause);
+            let by = cause_of(f.cause).map(|c| match via {
+                Some(via) => format!("{} via {via}", cause_text(c)),
+                None => cause_text(c),
+            });
+            let mut fact = json!({
                 "seq": f.seq,
                 "tick": f.tick,
                 "kind": f.kind,
-                "by": cause_of(f.cause).map(cause_text),
+                "by": by,
                 "payload": f.payload,
-            })
+            });
+            if let Some(via) = via {
+                fact["via"] = json!(via);
+            }
+            fact
         })
         .collect();
     let printed: Vec<&LogLine> = log.iter().filter(|l| l.tick >= from).collect();

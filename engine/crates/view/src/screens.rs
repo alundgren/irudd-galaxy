@@ -306,6 +306,7 @@ impl Screens {
             source: "ui".into(),
             name: name.clone(),
             payload: w.payload.clone(),
+            via: None,
         })?;
         self.ui_cue(UiAction::Press, w);
         Some(input)

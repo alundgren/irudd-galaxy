@@ -169,7 +169,10 @@ pub fn run(path: &Path, modules_dir: &Path, all: bool) -> Result<Output, Failure
             let inputs: Vec<String> = base
                 .inputs_at(tick)
                 .iter()
-                .map(|i| format!("{} ({})", i.name, i.source))
+                .map(|i| match &i.via {
+                    Some(via) => format!("{} ({} via {via})", i.name, i.source),
+                    None => format!("{} ({})", i.name, i.source),
+                })
                 .collect();
             out["inputs"] = json!(inputs);
             let when = if tick == first {

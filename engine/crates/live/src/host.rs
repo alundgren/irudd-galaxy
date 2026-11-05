@@ -4,9 +4,11 @@
 //! Reads (`status`, `state`, `history`, `watch`, `shot`) take the session by shared
 //! reference, so they can't change the world or its hash. `load` is the one change: it
 //! hot-loads through the host, exactly like a `--watch` reload, so the session records it
-//! and still replays.
+//! and still replays. `input` holds keys and moves the pointer through the host, on the
+//! ticks its steps name, the way the window's own keyboard and mouse would; the inputs
+//! that makes are recorded like theirs, marked `via` live.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -17,9 +19,9 @@ use galaxy_render::RgbaImage;
 use galaxy_sim::{Session, World};
 use serde_json::{Map, Value, json};
 
-use crate::protocol::{Discovery, Op, WireError};
+use crate::protocol::{Act, Discovery, MOUSE_LEFT, Op, Step, WireError};
 use crate::reads::{self, HistoryQuery, StateQuery, Watched};
-use crate::server::{Incoming, Server, ServerOptions, Wake};
+use crate::server::{Incoming, Message, Server, ServerOptions, Wake};
 
 /// The running game, as the live socket sees it.
 pub trait Host {
@@ -40,6 +42,39 @@ pub trait Host {
     fn hot_load(&mut self, modules: Vec<Module>) -> Vec<Result<(), String>>;
     /// Writes the recording so far into the session folder, after a hot-load.
     fn write_recording(&mut self) -> Option<PathBuf>;
+    /// Why the game can't take live input now, if it can't: it has no window, or an F8
+    /// note has the keyboard.
+    fn refuses_input(&self) -> Option<String> {
+        Some("this game takes no live input".into())
+    }
+    /// A key or pointer step from live connection `conn`, for the next tick: through the
+    /// same path the window's own keyboard and mouse take, with the inputs it makes marked
+    /// `via` live.
+    fn live_input(&mut self, conn: u64, act: &Act) -> Result<(), String> {
+        let _ = (conn, act);
+        Err("this game takes no live input".into())
+    }
+    /// Live connection `conn` closed: let go of every key and button it holds.
+    fn live_release(&mut self, conn: u64) {
+        let _ = conn;
+    }
+    /// Whether a module binds this manifest key name, so holding it sends events.
+    fn bound(&self, key: &str) -> bool {
+        let _ = key;
+        true
+    }
+}
+
+/// A live `input` running its steps over its ticks.
+struct Driving {
+    incoming: Incoming,
+    start: u64,
+    end: u64,
+    /// Steps still to take, in order.
+    steps: VecDeque<Step>,
+    /// Steps taken: the tick each takes effect on, and the step.
+    taken: Vec<Value>,
+    unbound: BTreeSet<String>,
 }
 
 /// A watch waiting for its ticks.
@@ -56,6 +91,9 @@ struct Pending {
 pub struct Live {
     server: Server,
     watches: Vec<Pending>,
+    inputs: Vec<Driving>,
+    /// The keys each live connection holds down now, as its steps left them.
+    held: BTreeMap<u64, BTreeSet<String>>,
     /// Where each module was last loaded from, for `load` with no folder.
     dirs: BTreeMap<String, PathBuf>,
 }
@@ -72,6 +110,8 @@ impl Live {
         Ok(Live {
             server: Server::start(opts, wake)?,
             watches: Vec::new(),
+            inputs: Vec::new(),
+            held: BTreeMap::new(),
             dirs,
         })
     }
@@ -80,11 +120,22 @@ impl Live {
         self.server.discovery()
     }
 
-    /// Answers every request waiting. Call between ticks.
+    /// Answers every request waiting, lets go of what closed connections held, and takes
+    /// the input steps due for the next tick. Call between ticks.
     pub fn serve(&mut self, host: &mut impl Host) {
-        while let Some(incoming) = self.server.poll() {
-            self.answer(host, incoming);
+        while let Some(message) = self.server.poll() {
+            match message {
+                Message::Request(incoming) => self.answer(host, incoming),
+                Message::Closed(conn) => self.closed(host, conn),
+            }
         }
+        self.drive(host);
+    }
+
+    /// Takes the input steps due for the next tick. Call before each tick, so a step lands
+    /// on its own tick even when one frame runs several.
+    pub fn before_tick(&mut self, host: &mut impl Host) {
+        self.drive(host);
     }
 
     /// Whether a watch is waiting for ticks.
@@ -92,12 +143,91 @@ impl Live {
         !self.watches.is_empty()
     }
 
-    /// Samples the watches after a tick, and answers those that are done.
+    /// Whether a watch or an input is waiting for ticks.
+    pub fn waiting(&self) -> bool {
+        !self.watches.is_empty() || !self.inputs.is_empty()
+    }
+
+    /// A connection closed: what it held is let go, and what it waits for is dropped.
+    fn closed(&mut self, host: &mut impl Host, conn: u64) {
+        self.inputs.retain(|d| d.incoming.conn != conn);
+        self.watches.retain(|w| w.incoming.conn != conn);
+        if self.held.remove(&conn).is_some() {
+            host.live_release(conn);
+        }
+    }
+
+    /// Takes every input step due for the next tick, in order.
+    fn drive(&mut self, host: &mut impl Host) {
+        if self.inputs.is_empty() {
+            return;
+        }
+        let tick = host.session().world.tick;
+        let mut still = Vec::new();
+        for mut d in std::mem::take(&mut self.inputs) {
+            let mut failed = None;
+            while d.steps.front().is_some_and(|s| d.start + s.at <= tick) {
+                let step = d.steps.pop_front().expect("a step");
+                if let Err(e) = host.live_input(d.incoming.conn, &step.act) {
+                    failed = Some(
+                        WireError::runtime(format!("step `{}`: {e}", step.act.text()))
+                            .with("tick", tick + 1)
+                            .with("steps", d.taken.clone()),
+                    );
+                    break;
+                }
+                if let Act::Key { key, down } = &step.act {
+                    let held = self.held.entry(d.incoming.conn).or_default();
+                    if *down {
+                        held.insert(key.clone());
+                    } else {
+                        held.remove(key);
+                    }
+                    if key != MOUSE_LEFT && !host.bound(key) {
+                        d.unbound.insert(key.clone());
+                    }
+                }
+                d.taken
+                    .push(json!({ "tick": tick + 1, "step": step.act.text() }));
+            }
+            match failed {
+                Some(e) => d.incoming.respond(Err(e)),
+                None => still.push(d),
+            }
+        }
+        self.inputs = still;
+    }
+
+    /// Samples the watches after a tick, answers those that are done, and answers the
+    /// inputs whose ticks have passed.
     pub fn after_tick(&mut self, world: &World) {
+        let tick = world.tick;
+        let mut still = Vec::new();
+        for d in std::mem::take(&mut self.inputs) {
+            if tick < d.end || !d.steps.is_empty() {
+                still.push(d);
+                continue;
+            }
+            let held: Vec<&String> = self
+                .held
+                .get(&d.incoming.conn)
+                .into_iter()
+                .flatten()
+                .collect();
+            let report = json!({
+                "from_tick": d.start + 1,
+                "to_tick": tick,
+                "steps": d.taken,
+                "held": held,
+                "unbound": d.unbound,
+                "hash": world.hash(),
+            });
+            d.incoming.respond(Ok(report));
+        }
+        self.inputs = still;
         if self.watches.is_empty() {
             return;
         }
-        let tick = world.tick;
         let mut still = Vec::new();
         for mut w in std::mem::take(&mut self.watches) {
             let due = tick > w.start && (tick - w.start).is_multiple_of(w.every) || tick == w.end;
@@ -138,8 +268,7 @@ impl Live {
                 kind,
                 inputs,
             } => Ok(reads::history(
-                world,
-                &host.session().log,
+                host.session(),
                 &HistoryQuery {
                     last: *last,
                     since: *since,
@@ -178,6 +307,24 @@ impl Live {
                 let dirs = dirs.clone();
                 self.load(host, &dirs)
             }
+            Op::Input { steps, ticks } => match host.refuses_input() {
+                Some(why) => Err(WireError::runtime(why)),
+                None => {
+                    let start = world.tick;
+                    let mut steps = steps.clone();
+                    steps.sort_by_key(|s| s.at);
+                    let (steps, end) = (steps.into(), start + ticks);
+                    self.inputs.push(Driving {
+                        incoming,
+                        start,
+                        end,
+                        steps,
+                        taken: Vec::new(),
+                        unbound: BTreeSet::new(),
+                    });
+                    return;
+                }
+            },
         };
         incoming.respond(result);
     }

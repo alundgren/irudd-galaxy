@@ -427,6 +427,7 @@ fn nested_panels_and_lists_open_and_close_inside_one_that_stays() {
         source: "ui".into(),
         name: "demo.toggle".into(),
         payload: Default::default(),
+        via: None,
     };
     let step = |s: &mut Session| {
         let mut input = toggle();

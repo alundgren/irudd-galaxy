@@ -345,6 +345,7 @@ fn input(raw: RawInput, qualify: impl Fn(&str) -> Option<String>) -> Result<Inpu
         source: raw.source.unwrap_or_else(|| "script".into()),
         name,
         payload,
+        via: None,
     })
 }
 

@@ -227,6 +227,7 @@ fn a_declined_offer_ends_the_talk_and_module_logic_keeps_it_away() {
             .as_object()
             .unwrap()
             .clone(),
+        via: None,
     };
     s.step(&[advance]).unwrap();
     assert_eq!(

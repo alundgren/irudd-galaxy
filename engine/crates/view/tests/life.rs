@@ -21,6 +21,7 @@ fn input(s: &mut Session, name: &str) {
         source: "test".into(),
         name: format!("life.{name}"),
         payload: Default::default(),
+        via: None,
     }])
     .unwrap();
     assert!(
@@ -199,6 +200,7 @@ fn saved_and_replayed_mid_walk_rebuild_the_morph_bubble_sign_and_hash() {
         source: "talk".into(),
         name: TALK_START.into(),
         payload: json!({"talk":"life.speech"}).as_object().unwrap().clone(),
+        via: None,
     }])
     .unwrap();
     input(&mut s, "advance");

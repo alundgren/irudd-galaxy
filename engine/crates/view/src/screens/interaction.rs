@@ -203,6 +203,7 @@ impl Screens {
                 source: "ui".into(),
                 name: b.widget.on.clone()?,
                 payload,
+                via: None,
             })
         });
         self.settle(drag, destination, tick);
