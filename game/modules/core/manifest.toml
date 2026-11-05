@@ -3,8 +3,8 @@ id = "core"
 version = "0.1.0"
 min_engine_version = "0.8.0"
 scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "panel_open", "panel_close", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit"]
-writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin", "engine.emitter"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "panel_open", "panel_close", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit"]
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin", "engine.beam", "engine.emitter", "engine.burst", "engine.camera_feel"]
 
 [components.pilot]
 credits = "int"
@@ -26,6 +26,24 @@ away = "bool"
 # The docked view is gliding: arriving, or to or from a room's building. Anchored signs
 # rest until it settles, so they never crowd the moving view.
 gliding = "bool"
+# The cutting beam (scripts/cutter.luau). `mining` while it is on `target`; `latched`
+# keeps it on without Space held (a click on the rock, the reach rig, a script's order),
+# and `auto` aims it without the nose. `approach` while the rig flies out to `target`.
+# `cut_from` is the tick the beam last came on or last cut a unit (0 while off), and
+# `cut_work` the work done on `target` before then and not yet come loose, in beam ticks
+# times ore a second, so a unit comes loose for every second of beam time however it is
+# broken up, and a lens fitted between cuts never counts old work twice. `gained`
+# counts this cut's units.
+latched = "bool"
+auto = "bool"
+approach = "bool"
+cut_from = "int"
+cut_work = "int"
+gained = "int"
+# What the ship is near, for the hint strip: "ring:<station>", "aim", "reach" or "".
+near = "text"
+# Out of the last berth's ring since launching: flying into a ring docks only then.
+cleared = "bool"
 
 # What the hold carries, by ware. Its total is bounded by the hold's capacity.
 [components.hold]
@@ -41,6 +59,7 @@ back = "bool"
 left = "bool"
 right = "bool"
 boost = "bool"
+mine = "bool"
 
 # The talk line whose click last blipped (scripts/sound.luau), cleared as a talk starts
 # or an answer is chosen, so a repeated click on the same line blips once.

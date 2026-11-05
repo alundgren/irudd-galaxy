@@ -1,7 +1,8 @@
--- The ship's own screens in flight: the orders and the hint strip. Each kind of
--- thing keeps one look and one place: status top right, the log bottom left, what just
--- happened at the bottom with the key to learn and the orders, and each station's name
--- under it while it is in view. A room panel or the open log takes the
+-- The ship's own screens in flight: the things you can click (each rock and each
+-- station) and the hint strip. Each kind of thing keeps one look and one place: status
+-- top right, the log bottom left (status.luau, logbook.luau), what just happened at the
+-- bottom with the key that fits where the ship is, and each station's name under it
+-- while it is in view. A room panel or the open log takes the
 -- whole focus, so the rest steps aside.
 local rules = require("./rules")
 local layout = require("./layout")
@@ -9,17 +10,31 @@ local teach = require("./teach")
 local signs = require("./signs")
 local trade = require("./trade")
 local fit = require("./fit")
+local cutter = require("./cutter")
 
--- The flight keys, taught one at a time: one key and what it does, until it has been
--- used a few times (teach.luau). Mining has its own button, which names its key.
+-- One hint at a time, for what a press does right now: Space in a berth's ring, the
+-- beam with a rock in its sights, the turn to bring the nose onto one in reach, then the
+-- flight keys; each until it has been used a few times (teach.luau).
 local function hint(ctx)
     local taught = ctx.get("ship", "taught")
+    local pilot = ctx.get("ship", "pilot")
     local full = rules.load(ctx.get("ship", "hold")) >= fit.hold(ctx)
-    if full and teach.new(taught, "dock") then return "E · dock at the nearest station" end
+    local ring = string.match(pilot.near, "^ring:(.+)$")
+    if ring and ctx.get(ring, "port") and teach.new(taught, "dock") then
+        return "Space · dock at " .. ctx.get(ring, "port").name
+    end
+    if not full and not pilot.mining and teach.new(taught, "mine") then
+        if pilot.near == "aim" then return "Hold Space · cut the rock ahead" end
+        if pilot.near == "reach" then return "A or D · point your nose at the rock" end
+    end
+    if full and teach.new(taught, "dock") then
+        if cutter.has(ctx, cutter.JETS) then return "E · the docking jets fly you in" end
+        return "Fly slowly into a berth's glowing ring to dock"
+    end
     if teach.new(taught, "thrust") then return "W · fly ahead" end
     if teach.new(taught, "turn") then return "A or D · turn" end
     if teach.new(taught, "boost") then return "Shift · boost" end
-    if teach.new(taught, "dock") then return "E · dock at the nearest station" end
+    if not full and teach.new(taught, "mine") then return "Fly up to a rock and face it to cut" end
     if ctx.get("ship", "engine.steer").mode ~= "" and teach.new(taught, "cancel") then return "0 · cancel the order" end
     return nil
 end
@@ -41,23 +56,37 @@ local function station_names(ctx, ui, children)
     end
 end
 
--- Every flight order can be given by mouse (direction doc 9, "Mouse first"): mining,
--- named with its key, beside the one key still to learn; then docking at either station,
--- whose posted prices show on hover.
-local function orders(ctx, ui, bottom)
-    local inside = layout.MESSAGE - 32
-    local first = { ui.button { id = "mine", width = 120, pad = 12, size = 16, text = "Space · Mine",
-        hover = "Mine the nearest ore", on = "mine" } }
-    local key = hint(ctx)
-    if key then table.insert(first, ui.text { id = "hints", width = inside - 128, pad = 12, size = 16, text = key }) end
-    table.insert(bottom, ui.row { id = "orders", gap = 8, children = first })
-    local docks = { ui.text { id = "dock_at", width = 88, pad = 12, text = "Dock at", size = 16 } }
-    for _, id in ctx.query("port") do
-        local port = ctx.get(id, "port")
-        table.insert(docks, ui.button { id = string.match(id, "%.(%w+)$"), width = #port.name * 9 + 28, pad = 12, size = 16,
-            text = port.name, hover = trade.posted(ctx, id), on = "dock", payload = { station = id } })
+-- Everything in flight is also a click on the thing itself (direction doc 9, "Mouse
+-- first"): a rock lifts and outlines under the pointer and a click cuts it, a station
+-- docks. What a click does is said on hover; what is in reach depends on the fit.
+local function targets(ctx, ui, children)
+    local rig = cutter.has(ctx, cutter.RIG)
+    local pilot = ctx.get("ship", "pilot")
+    for _, id in ctx.query("ore") do
+        if ctx.get(id, "engine.anchor") then
+            local ore = ctx.get(id, "ore")
+            -- Each rock names its own ware: ore, ice or glassite.
+            local ware = ore.ware ~= "" and ore.ware or "ore"
+            local text
+            if ore.left <= 0 then
+                text = "Cut down to pebbles"
+            elseif pilot.mining and pilot.target == id then
+                text = ore.left .. " of " .. ore.total .. " " .. ware .. " left · click to stop the beam"
+            elseif rig then
+                text = ore.left .. " of " .. ore.total .. " " .. ware .. " · click: the rig flies out and cuts it"
+            else
+                text = ore.left .. " of " .. ore.total .. " " .. ware .. " · click to cut it, nose on it and in reach"
+            end
+            table.insert(children, ui.target { id = "rock_" .. string.match(id, "%.(%w+)$"), anchor = id .. "#rock",
+                text = text, on = "mine", payload = { rock = id } })
+        end
     end
-    table.insert(bottom, ui.row { id = "docks", gap = 8, children = docks })
+    local jets = cutter.has(ctx, cutter.JETS)
+    for _, id in ctx.query("port") do
+        local how = jets and "click: the docking jets fly you in" or "fly slowly into its berth's ring to dock"
+        table.insert(children, ui.target { id = "dock_" .. string.match(id, "%.(%w+)$"), anchor = id .. "_exterior#label",
+            text = trade.posted(ctx, id) .. " · " .. how, on = "dock", payload = { station = id } })
+    end
 end
 
 return {
@@ -82,10 +111,11 @@ return {
         local children = {}
         if space then
             station_names(ctx, ui, children)
-            -- One strip at the bottom: the latest message, then the orders and the one
-            -- key still to learn.
+            targets(ctx, ui, children)
+            -- One strip at the bottom: the latest message, then the one key still to learn.
             local bottom = { ui.text { id = "message", width = layout.MESSAGE - 32, text = pilot.message, size = 20 } }
-            orders(ctx, ui, bottom)
+            local key = hint(ctx)
+            if key then table.insert(bottom, ui.text { id = "hints", width = layout.MESSAGE - 32, size = 16, text = key }) end
             table.insert(children, ui.panel { id = "bottom", align = "bottom", y = layout.M, width = layout.MESSAGE, gap = 6, children = bottom })
         end
         return layout.frame(ui, "hud", children)

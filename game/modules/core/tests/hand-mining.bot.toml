@@ -1,0 +1,4 @@
+inputs = "tests/hand-mining.inputs"
+ticks = 570
+size = [1280, 720]
+seed = 7

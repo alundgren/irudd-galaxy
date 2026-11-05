@@ -6,6 +6,8 @@
 # At the exchange with a full hold, a click on the resting Buy 1 buys nothing.
 # Rooms glide open, so a click after opening or leaving one waits for the glide.
 
+# The flights between are scripted Mine and Dock orders, which fly themselves;
+# hand-mining.inputs flies them by hand.
 [[input]]
 tick = 1
 name = "core.ahead"
@@ -16,13 +18,14 @@ tick = 11
 name = "core.ahead"
 payload = { down = false }
 
-[[click]]
+[[input]]
 tick = 60
-widget = "mine"
+name = "core.mine"
 
-[[click]]
+[[input]]
 tick = 330
-widget = "kiln"
+name = "core.dock"
+payload = { station = "core.kiln" }
 
 [[click]]
 tick = 480
@@ -161,17 +164,18 @@ widget = "close"
 tick = 1040
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 1080
-widget = "mine"
+name = "core.mine"
 
 [[note]]
 tick = 1230
 text = "Mining with the lens: two ore a second."
 
-[[click]]
+[[input]]
 tick = 1320
-widget = "kiln"
+name = "core.dock"
+payload = { station = "core.kiln" }
 
 [[click]]
 tick = 1470
@@ -211,17 +215,18 @@ widget = "close"
 tick = 1730
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 1770
-widget = "mine"
+name = "core.mine"
 
 [[note]]
 tick = 1900
 text = "In flight with the pods: the hull carries them, a little slower."
 
-[[click]]
+[[input]]
 tick = 2060
-widget = "kiln"
+name = "core.dock"
+payload = { station = "core.kiln" }
 
 [[click]]
 tick = 2230
