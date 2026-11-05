@@ -448,10 +448,14 @@ local function room_panel(ctx, ui, station, pilot)
         end
     end
     -- The room's panel is on the right; the room's camera frames its people to the left.
-    return layout.frame(ui, "room", {
+    local placed = {
         kit.place(ui, { id = "room", align = "top-right", x = layout.M, y = layout.M,
             width = layout.ROOM, gap = facility.fits and 4 or 8, children = children }),
-    })
+    }
+    -- At the cradle, a chosen part's preview stands beside the panel.
+    local preview = facility.fits and cradle.preview(ctx, ui, pilot, layout.M + layout.ROOM + 8)
+    if preview then table.insert(placed, preview) end
+    return layout.frame(ui, "room", placed)
 end
 
 -- What a building's sign says on hover: its keeper and offer, or how its build stands.

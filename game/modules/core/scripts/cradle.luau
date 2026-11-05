@@ -183,6 +183,37 @@ local function budget(ui, t)
     } }
 end
 
+-- The click preview's box: PREVIEW wide, beside the room panel, so every change has a
+-- line of its own and the panel keeps its height at 960x540.
+local PREVIEW = 280
+
+-- With a part chosen, what it would change, before anything does: a box beside the
+-- room panel, over the room's upper floor (the ship sits lower on its cradle), with the
+-- choice ("If you fit the hold pods"), one line per change, each number from what it is
+-- to what it would be with a blue + better or a vermilion - worse, and Put back. Nil
+-- with nothing chosen. Its right edge is `right` from the window's.
+function cradle.preview(ctx, ui, pilot, right)
+    local parts = cradle.parts(ctx)
+    local chosen = find(parts, pilot.chosen_part)
+    if not chosen then return nil end
+    local doing = chosen.fitted and "If you take off the " or "If you fit the "
+    local lines = { ui.text { id = "preview_title", width = PREVIEW - 20, size = kit.SIZE.small, look = kit.LOOK.plate_name,
+        text = doing .. string.lower(chosen.name) } }
+    for i, c in fit.change_list(chosen, parts, fit.hull_speed(ctx)) do
+        local spans = { string.upper(string.sub(c.text, 1, 1)) .. string.sub(c.text, 2) }
+        if c.good ~= nil then
+            table.insert(spans, " ")
+            table.insert(spans, { text = c.good and "+" or "-", look = c.good and kit.LOOK.gain_dark or kit.LOOK.loss_dark })
+            table.insert(spans, c.good and " better" or " worse")
+        end
+        table.insert(lines, ui.text { id = "change_" .. i, width = PREVIEW - 20, size = kit.SIZE.small, spans = spans })
+    end
+    table.insert(lines, kit.button(ui, { id = "put_back", width = PREVIEW - 20, height = CHOOSE, size = 16, pad = 4, text = "Put back",
+        hover = "Leave the " .. string.lower(chosen.name) .. " where it is", on = "choose", payload = { value = chosen.id } }, "secondary"))
+    return kit.plate(ui, { id = "preview", align = "top-right", x = right, y = layout.M, width = PREVIEW, gap = 4,
+        children = { ui.column { id = "changes", gap = 4, children = lines } } })
+end
+
 -- The whole fitting room: its title and Back, the keeper (or the last receipt), the
 -- budgets, the sockets, the controls and the parts tray.
 function cradle.rows(ctx, ui, pilot, title, keeper)
@@ -193,19 +224,6 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
     local under = ui.text { id = "keeper", width = INNER, size = kit.SIZE.small, text = keeper or "" }
     if pilot.deal ~= "" then under = receipt(ui, pilot) end
     local chosen = find(parts, pilot.chosen_part)
-    -- With a part chosen, what it would change stands in the keeper's line and the
-    -- budgets' place, before anything does, with Put back beside it.
-    local summary = budget(ui, t)
-    if chosen then
-        local doing = chosen.fitted and "take off the " or "fit the "
-        under = ui.row { id = "preview", gap = 8, children = {
-            ui.text { id = "changes", width = INNER - 108, height = 46, size = kit.SIZE.small, cue = "flash",
-                text = "If you " .. doing .. string.lower(chosen.name) .. ": " .. fit.changes(chosen, parts, fit.hull_speed(ctx)) },
-            kit.button(ui, { id = "put_back", width = 100, height = CHOOSE, size = 16, pad = 4, text = "Put back",
-                hover = "Leave the " .. string.lower(chosen.name) .. " where it is", on = "choose", payload = { value = chosen.id } }, "secondary"),
-        } }
-        summary = nil
-    end
     -- Choose: the click way to pick up `p`, in the place it would go from.
     local function choose(p, width)
         local how = p.fitted and "click, then Take it off here: the same as dragging it to the tray"
@@ -221,8 +239,8 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
                 hover = "Back to the whole station: B, Esc or a right-click" }, "secondary"),
         } },
         under,
+        budget(ui, t),
     }
-    if summary then table.insert(children, summary) end
     -- What a choice would do to `target`: Fit here (or Take it off here) with the
     -- preview on hover, or the refusal in full in its place.
     local function offer(target, id, width, height, verb)

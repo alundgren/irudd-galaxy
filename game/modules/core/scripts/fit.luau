@@ -76,16 +76,17 @@ function fit.verdict(p, target, parts, credits, load)
 end
 
 -- What fitting `p` (or taking it off, when it is fitted) would change, before it
--- happens: each number that moves, from what it is to what it would be, and whether
--- that is better or worse; and what it costs. `hull` as in fit.totals.
-function fit.changes(p, parts, hull)
+-- happens, one change each: what it costs, then each number that moves, from what it
+-- is to what it would be. Each is { text, good }: good is true when that is better,
+-- false when worse, nil for the cost and the power left free. `hull` as in fit.totals.
+function fit.change_list(p, parts, hull)
     local before = fit.totals(parts, nil, nil, hull)
     local after = p.fitted and fit.totals(parts, p.id, nil, hull) or fit.totals(parts, nil, p.id, hull)
     local list = {}
-    if not p.fitted then table.insert(list, p.owned and "from your locker, free" or p.price .. " cr") end
+    if not p.fitted then table.insert(list, { text = p.owned and "from your locker, free" or p.price .. " cr" }) end
     local function moved(name, a, b, unit)
         if fit.num(a) ~= fit.num(b) then
-            table.insert(list, name .. " " .. fit.num(a) .. " to " .. fit.num(b) .. (unit or "") .. (b > a and ", better" or ", worse"))
+            table.insert(list, { text = name .. " " .. fit.num(a) .. " to " .. fit.num(b) .. (unit or ""), good = b > a })
         end
     end
     moved("hold", before.hold, after.hold)
@@ -94,9 +95,18 @@ function fit.changes(p, parts, hull)
     moved("turns", before.turn, after.turn, "°")
     local free_before, free_after = fit.POWER - before.power, fit.POWER - after.power
     if free_before ~= free_after then
-        table.insert(list, "power free " .. free_before .. " to " .. free_after)
+        table.insert(list, { text = "power free " .. free_before .. " to " .. free_after })
     end
-    return table.concat(list, " · ")
+    return list
+end
+
+-- The same changes in one line: "90 cr · mines 1 to 2 a second, better · power free 3 to 1".
+function fit.changes(p, parts, hull)
+    local words = {}
+    for _, c in fit.change_list(p, parts, hull) do
+        table.insert(words, c.text .. (c.good == nil and "" or c.good and ", better" or ", worse"))
+    end
+    return table.concat(words, " · ")
 end
 
 -- The short form a dragged part shows under "Drop here": its cost and what it gives.

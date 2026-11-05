@@ -481,10 +481,13 @@ yours is bought first. Drag a fitted part onto the tray to take it off into the
 locker; fitting it again costs nothing. Clicking works the same: `Choose` where a
 part would go from (its empty socket, or the tray's `On the ship` for a fitted
 part), and its socket offers `Fit here` (or the tray `Take it off here`) while every
-other socket says `Cannot:` with the reason, and the keeper's line and the budgets
-give way to what it would do (`If you fit the cutting lens: 90 cr · mines 1 to 2 a
-second, better · power free 3 to 1`, with `Put back`) before anything changes. The
-click way adds no height: the cradle's panel still fits a 960x540 window. Picking a part up tints every target at
+other socket says `Cannot:` with the reason, and a dark box beside the panel, over
+the room's upper floor, says what it would do before anything changes: `If you fit
+the cutting lens`, then one line per change (`90 cr`, `Mines 1 to 2 a second + better`,
+`Power free 3 to 1`; a blue + for better, a vermilion - for worse), then `Put back`.
+The panel keeps its keeper's line and budgets, so the click way adds no height and
+the cradle still fits a 960x540 window; the longest preview (five changes) ends above
+the ship on its cradle there. Picking a part up tints every target at
 once, sky blue with `Drop here` or vermilion with `Cannot drop:` and the
 reason in full: the wrong socket (`it goes in the drill mount`), power (`it needs
 2 power; 1 is free`), credits (`it costs 90 cr; you have 40`), or cargo that
@@ -895,7 +898,7 @@ The fitting loop is the thinnest one too: one fitter, three parts on one rack, o
 part per socket and no hulls, blueprints or parts ordered from friends. The fit is
 instant, with no crane or fitting moment. While a part is held, a socket that will take it says `Drop here` with the part's
 cost and effect, but not the whole change (the mass cost of the pods); only the
-click way previews that, in place of the budgets. The cradle's sign
+click way previews that, in its box beside the panel. The cradle's sign
 sits low beside it, on the rim side, so it clears the dockmaster's and Orrin's
 name signs at both window sizes.
 

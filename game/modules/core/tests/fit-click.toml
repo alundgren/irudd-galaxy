@@ -201,3 +201,26 @@ entity = "ship"
 component = "pilot"
 field = "chosen_part"
 equals = ""
+
+# Everything done in the station's rooms (the sale at the exchange, the fit and the
+# removal at the cradle) is logged at the station, so it is one visit with its docking.
+[[expect]]
+tick = 570
+entity = "log3"
+component = "entry"
+field = "at"
+equals = "core.kiln"
+
+[[expect]]
+tick = 570
+entity = "log4"
+component = "entry"
+field = "at"
+equals = "core.kiln"
+
+[[expect]]
+tick = 570
+entity = "log5"
+component = "entry"
+field = "at"
+equals = "core.kiln"
