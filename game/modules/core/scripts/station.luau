@@ -9,6 +9,7 @@ local trade = require("./trade")
 local fit = require("./fit")
 local cradle = require("./cradle")
 local undock = require("./launch")
+local kit = require("./kit")
 local layout = require("./layout") -- room panels are layout.PANEL wide: at most about 45% of the view
 
 local function pressed(event)
@@ -212,42 +213,55 @@ local function skiffs(ctx)
     end
 end
 
--- The trade table's columns: ware, price each, stock and what you hold. Only verbs are
--- buttons; prices and counts are plain labels.
-local COLUMNS = { 150, 150, 80, 72 }
+-- The trade table (direction doc 1.5): one sheet, its column heads, then a row per ware,
+-- its name with its icon, the price and the counts as plain labels, then its verbs under
+-- it. Only verbs are buttons: selling is the gold primary, buying the quieter parchment.
+-- The columns fit the sheet: INNER wide inside the panel's padding, SHEET inside the
+-- sheet's own.
+local INNER = layout.ROOM - 32
+local SHEET = INNER - 16
+local COLUMNS = { { "Ware", 120 }, { "Price each", 104 }, { "Stock", 64 }, { "Hold", 54 } }
 
-local function table_row(ui, id, cells, size)
-    local children = {}
-    for i, text in cells do
-        table.insert(children, ui.text { width = COLUMNS[i], text = text, size = size })
-    end
-    return ui.row { id = id, gap = 12, children = children }
+local function table_row(ui, id, ware, name, price, stock, held)
+    return ui.row { id = id, gap = 8, children = {
+        ui.text { width = COLUMNS[1][2], icon = kit.ware(ware), text = name, size = kit.SIZE.body },
+        ui.text { width = COLUMNS[2][2], size = kit.SIZE.body, spans = price },
+        ui.text { width = COLUMNS[3][2], size = kit.SIZE.body, text = stock, cue = "flash" },
+        ui.text { width = COLUMNS[4][2], size = kit.SIZE.body, text = held, cue = "flash" },
+    } }
 end
 
--- One good in a trading room: its price and stock as plain text, then its verbs.
+-- "pays 17 cr": the word quiet, the figure heavy.
+local function price_spans(word, price)
+    return { word .. " ", { text = price .. " cr", look = kit.LOOK.figure } }
+end
+
+-- One good in a trading room: its row, then its verbs.
 local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, build)
     local line = ctx.get(id, "market")
     local name = string.upper(string.sub(line.ware, 1, 1)) .. string.sub(line.ware, 2)
     local price = rules.price(line)
     local w = line.ware
+    local inside = rows
     if line.role == "buys" then
         local building = build and build.ware == w
-        table.insert(rows, table_row(ui, "about_" .. w,
-            { name, "pays " .. price .. " cr", building and "-" or tostring(line.stock), tostring(hold[w]) }, 20))
+        table.insert(inside, table_row(ui, "about_" .. w, w, name, price_spans("pays", price),
+            building and "-" or tostring(line.stock), tostring(hold[w])))
         if building then
-            table.insert(rows, ui.text { id = "builds_" .. w, size = 16,
-                text = "Builds the " .. string.lower(build.name) .. ": " .. build.given .. " of " .. build.need .. " in" })
+            table.insert(inside, ui.text { id = "builds_" .. w, width = SHEET, size = kit.SIZE.small, spans = {
+                "Builds the " .. string.lower(build.name) .. ": ",
+                { text = build.given .. " of " .. build.need, look = kit.LOOK.figure }, " in" } })
         end
         if hold[w] > 0 then
             local units = hold[w]
             local building = build and build.ware == w and math.min(units, build.need - build.given) or 0
             local value = building * price + rules.total((rules.walk(line, units - building)))
-            local key = sellable == 1 and "  [Enter]" or ""
-            table.insert(rows, ui.button { id = "sell_" .. w, on = "sell", payload = { ware = w },
-                text = "Sell " .. units .. " " .. w .. " for " .. value .. " cr" .. key })
+            local key = sellable == 1 and " · Enter" or ""
+            table.insert(inside, kit.button(ui, { id = "sell_" .. w, width = SHEET, on = "sell", payload = { ware = w },
+                icon = kit.ware(w), text = "Sell " .. units .. " " .. w .. " for " .. value .. " cr" .. key }, "primary"))
         end
     else
-        table.insert(rows, table_row(ui, "about_" .. w, { name, "asks " .. price .. " cr", tostring(line.stock), tostring(hold[w]) }, 20))
+        table.insert(inside, table_row(ui, "about_" .. w, w, name, price_spans("asks", price), tostring(line.stock), tostring(hold[w])))
         local room = capacity - rules.load(hold)
         local most = rules.affordable(line, room, credits)
         -- Buying that can't happen now rests in place, with its reason beside it.
@@ -260,21 +274,30 @@ local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, b
             why = "Not enough credits for one " .. w .. "."
         end
         if why then
-            table.insert(rows, ui.row { id = "buy_" .. w, gap = 12, children = {
-                ui.button { id = "buy1_" .. w, width = 200, on = "buy", payload = { ware = w, units = 1 },
-                    text = "Buy 1 · " .. price .. " cr", resting = why },
-                ui.text { id = "why_" .. w, width = 276, text = why, size = 18 },
+            table.insert(inside, ui.row { id = "buy_" .. w, gap = 8, children = {
+                kit.button(ui, { id = "buy1_" .. w, width = 150, on = "buy", payload = { ware = w, units = 1 },
+                    text = "Buy 1 · " .. price .. " cr", resting = why }, "secondary"),
+                ui.text { id = "why_" .. w, width = SHEET - 158, text = why, size = kit.SIZE.small },
             } })
         else
-            local buttons = { ui.button { id = "buy1_" .. w, width = 200, on = "buy", payload = { ware = w, units = 1 },
-                text = "Buy 1 · " .. price .. " cr" } }
+            local buttons = { kit.button(ui, { id = "buy1_" .. w, width = 150, on = "buy", payload = { ware = w, units = 1 },
+                text = "Buy 1 · " .. price .. " cr" }, "secondary") }
             if most > 1 then
-                table.insert(buttons, ui.button { id = "buymax_" .. w, width = 240, on = "buy", payload = { ware = w, units = 0 },
-                    text = "Buy " .. most .. " · " .. rules.total((rules.walk(line, most))) .. " cr" })
+                table.insert(buttons, kit.button(ui, { id = "buymax_" .. w, width = SHEET - 158, on = "buy", payload = { ware = w, units = 0 },
+                    text = "Buy " .. most .. " · " .. rules.total((rules.walk(line, most))) .. " cr" }, "secondary"))
             end
-            table.insert(rows, ui.row { id = "buy_" .. w, gap = 12, children = buttons })
+            table.insert(inside, ui.row { id = "buy_" .. w, gap = 8, children = buttons })
         end
     end
+end
+
+-- The receipt for the last deal: a dark ticket, what changed hands, and the amount.
+local function receipt(ui, pilot)
+    local spans = { pilot.deal .. (pilot.sale >= 0 and " Paid " or " Spent ") }
+    for _, span in kit.amount(pilot.sale, "cr", true) do table.insert(spans, span) end
+    return kit.ticket(ui, { id = "receipt", width = INNER, children = {
+        ui.text { id = "deal", width = INNER - 20, size = kit.SIZE.body, spans = spans, cue = "flash" },
+    } })
 end
 
 local function trade_rows(ctx, ui, station, pilot, children)
@@ -287,71 +310,84 @@ local function trade_rows(ctx, ui, station, pilot, children)
         if line.role == "buys" and hold[line.ware] > 0 then sellable += 1 end
     end
     local capacity = fit.hold(ctx)
-    table.insert(children, ui.text { id = "ledger", size = 20, text = "Hold " .. rules.load(hold) .. " / " .. capacity
-        .. ": " .. rules.list(hold) .. "\nYou have " .. pilot.credits .. " cr" })
-    table.insert(children, table_row(ui, "columns", { "WARE", "PRICE EACH", "STOCK", "HOLD" }, 16))
+    -- What you bring to the table: credits and the hold, as the status chip shows them.
+    table.insert(children, ui.row { id = "ledger", gap = 8, children = {
+        ui.text { id = "ledger_credits", width = 110, icon = "credits", size = kit.SIZE.body, cue = "flash",
+            spans = { { text = pilot.credits .. " cr", look = kit.LOOK.figure } } },
+        ui.text { id = "ledger_hold", width = INNER - 118, icon = "hold", size = kit.SIZE.body, cue = "flash",
+            spans = { { text = rules.load(hold) .. "/" .. capacity, look = kit.LOOK.figure }, " aboard: " .. rules.list(hold) } },
+    } })
+    local rows = { kit.heads(ui, COLUMNS, { id = "columns" }) }
     for _, id in lines do
-        line_rows(ctx, ui, id, hold, capacity, pilot.credits, children, sellable, build)
+        line_rows(ctx, ui, id, hold, capacity, pilot.credits, rows, sellable, build)
     end
+    table.insert(children, kit.sheet(ui, { id = "wares", width = INNER, gap = 6, children = rows }))
     if sellable > 1 then
-        table.insert(children, ui.button { id = "sell", on = "sell", text = "Sell everything here  [Enter]" })
+        table.insert(children, kit.button(ui, { id = "sell", width = INNER, on = "sell", text = "Sell everything here · Enter" }, "primary"))
     end
-    if pilot.deal ~= "" then
-        -- The receipt: its kind as a word in a box, what changed hands, and the amount.
-        table.insert(children, ui.row { id = "receipt", gap = 8, children = {
-            cradle.confirmed(ui),
-            ui.text { width = 292, text = pilot.deal .. (pilot.sale >= 0 and " Paid:" or " Spent:"), size = 20 },
-            ui.delta { width = 80, value = pilot.sale, size = 20 },
-        } })
-    end
+    if pilot.deal ~= "" then table.insert(children, receipt(ui, pilot)) end
 end
 
+-- The office: every station's posted prices on its own sheet, then how the builds and
+-- the field stand.
 local function office_rows(ctx, ui, station, children)
-    local lines = { "Posted prices:" }
+    table.insert(children, ui.text { id = "prices", size = kit.SIZE.small, look = kit.LOOK.column, text = "Posted prices" })
     for _, id in ctx.query("port") do
-        table.insert(lines, trade.posted(ctx, id) .. (id == station and " (here)" or ""))
+        local name = ctx.get(id, "port").name
+        local posted = string.sub(trade.posted(ctx, id), #name + 2)
+        table.insert(children, kit.sheet(ui, { id = "posted_" .. short(id), width = INNER, gap = 2, children = {
+            ui.text { width = SHEET, size = kit.SIZE.body, spans = kit.name(name, id == station and "here" or nil) },
+            ui.text { width = SHEET, size = kit.SIZE.small, text = posted },
+        } }))
     end
-    table.insert(children, ui.text { id = "prices", width = 488, text = table.concat(lines, "\n"), size = 20 })
     for _, id in ctx.query("build") do
         local build = ctx.get(id, "build")
         local where = ctx.get(build.station, "port").name
         local text = build.done and where .. "'s " .. string.lower(build.name) .. " is open."
             or where .. " is building a " .. string.lower(build.name) .. ": " .. build.given .. " of " .. build.need .. " " .. build.ware .. " in."
-        table.insert(children, ui.text { id = "build_" .. short(id), width = 488, text = text, size = 20 })
+        table.insert(children, ui.text { id = "build_" .. short(id), width = INNER, text = text, size = kit.SIZE.body })
     end
     local left, total = 0, 0
     for _, id in ctx.query("ore") do
         local ore = ctx.get(id, "ore")
         if ore.ware == "ore" or ore.ware == "" then left, total = left + ore.left, total + ore.total end
     end
-    table.insert(children, ui.text { id = "field", text = "Ore left in the field: " .. left .. " of " .. total, size = 20 })
+    table.insert(children, ui.text { id = "field", width = INNER, icon = "ore", size = kit.SIZE.body,
+        spans = { "Ore left in the field: ", { text = left .. " of " .. total, look = kit.LOOK.figure } } })
 end
 
 local function site_rows(ui, build, children)
-    table.insert(children, ui.text { id = "plan", width = 488, size = 20, text = "A " .. string.lower(build.name)
+    table.insert(children, ui.text { id = "plan", width = INNER, size = kit.SIZE.body, text = "A " .. string.lower(build.name)
         .. " goes up here once the station has the " .. build.ware .. " for it." })
-    table.insert(children, ui.text { id = "progress", size = 22, text = build.given .. " of " .. build.need .. " " .. build.ware .. " in" })
-    table.insert(children, ui.text { id = "how", width = 488, size = 18, text = "Plate sold at the exchange builds it. When it opens, a cook will sell rations here." })
+    table.insert(children, ui.text { id = "progress", size = 22, icon = kit.ware(build.ware), cue = "flash",
+        spans = { { text = build.given .. " of " .. build.need, look = kit.LOOK.figure }, " " .. build.ware .. " in" } })
+    table.insert(children, ui.text { id = "how", width = INNER, size = kit.SIZE.small, text = "Plate sold at the exchange builds it. When it opens, a cook will sell rations here." })
 end
 
 local function room_panel(ctx, ui, station, pilot)
     local facility = ctx.get(pilot.room, "facility")
     local at = ctx.get(pilot.room, "engine.position")
     local site = ctx.get(pilot.room, "build")
-    local keeper_text = nil
+    local keeper_text, keeper_spans = nil, nil
     if facility.keeper ~= "" then
         local keeper = ctx.get(facility.keeper, "keeper")
         local first = string.match(keeper.name, "^%S+")
-        keeper_text = keeper.name .. " keeps it."
-            .. (teach.new(ctx.get("ship", "taught"), "talk") and " Click " .. first .. " to talk." or "")
+        local rest = "keeps it." .. (teach.new(ctx.get("ship", "taught"), "talk") and " Click " .. first .. " to talk." or "")
+        keeper_text = keeper.name .. " " .. rest
+        keeper_spans = kit.name(keeper.name, rest)
     end
     local children
     if facility.fits then
         -- The fitting room has the most to show, so it packs its own rows.
         children = cradle.rows(ctx, ui, pilot, facility.name, keeper_text)
     else
-        children = { ui.text { id = "title", text = facility.name, size = 28 } }
-        if keeper_text then table.insert(children, ui.text { id = "keeper", size = 18, text = keeper_text }) end
+        -- The title with Back beside it, so the room's own rows start high.
+        children = { ui.row { id = "heading", gap = 8, children = {
+            kit.heading(ui, { id = "title", width = INNER - 148, text = facility.name }),
+            kit.button(ui, { id = "close", width = 140, size = kit.SIZE.small, icon = "back", text = "Back · B", on = "close",
+                hover = "Back to the whole station: B, Esc or a right-click" }, "secondary"),
+        } } }
+        if keeper_spans then table.insert(children, ui.text { id = "keeper", width = INNER, size = kit.SIZE.small, spans = keeper_spans }) end
         if site and not site.done then
             site_rows(ui, site, children)
         elseif #trade.lines(ctx, pilot.room) > 0 then
@@ -359,12 +395,11 @@ local function room_panel(ctx, ui, station, pilot)
         else
             office_rows(ctx, ui, station, children)
         end
-        table.insert(children, ui.button { id = "close", text = "Back to the station  [B]", on = "close" })
     end
     -- The panel opens on the side away from its building, so the building stays in view.
     return layout.frame(ui, "room", {
-        ui.panel { id = "room", align = at.x < 0 and "top-right" or "top-left", x = layout.M, y = layout.M,
-            width = layout.PANEL, gap = facility.fits and 8 or 12, children = children },
+        kit.place(ui, { id = "room", align = at.x < 0 and "top-right" or "top-left", x = layout.M, y = layout.M,
+            width = layout.ROOM, gap = facility.fits and 4 or 8, children = children }),
     })
 end
 
@@ -378,16 +413,30 @@ local function about(ctx, id)
     return ctx.get(facility.keeper, "keeper").name .. " · " .. facility.offer
 end
 
+-- The station key's icon for a room: what kind of room it is.
+local function key_icon(ctx, id, facility)
+    if facility.fits then return "ship" end
+    local site = ctx.get(id, "build")
+    if site and not site.done then return "station" end
+    if #trade.lines(ctx, id) > 0 then return "credits" end
+    return "pin"
+end
+
+-- The docked HUD along the bottom: the log's book (logbook.luau) bottom left, the key
+-- centred and Launch bottom right. KEY wide icons, KEY_GAP apart, and a LAUNCH wide
+-- button leave the key clear of both at 960x540 with three rooms (direction doc 3.1).
+local KEY, KEY_GAP, LAUNCH = 160, 10, 176
+
 local function overview(ctx, ui, station, pilot)
     local port = ctx.get(station, "port")
     local children = {
         -- The station's plate: its name, who holds it, and plainly that you are docked
         -- there. No faction holds a core station yet, so each says so (direction doc 3.1).
-        ui.panel { id = "plate", align = "top-left", x = layout.M, y = layout.M, width = 320, gap = 0, children = {
-            ui.text { id = "station", text = port.name, size = 30 },
-            ui.text { id = "owner", text = "Unclaimed", size = 18 },
-            ui.text { id = "docked", text = "Docked here", size = 16 },
-        } },
+        -- Dark ink and compact, so it reads as a name plate and leaves the station clear.
+        kit.plate(ui, { id = "plate", align = "top-left", x = layout.M, y = layout.M, width = 240, gap = 0, children = {
+            ui.text { id = "station", text = port.name, size = 24, look = kit.LOOK.plate_name },
+            ui.text { id = "owner", icon = "dock", text = "Unclaimed · docked here", size = kit.SIZE.small },
+        } }),
     }
     local key = {}
     local talking = signs.speaking(ctx) ~= nil
@@ -403,12 +452,15 @@ local function overview(ctx, ui, station, pilot)
         -- The building itself: it lifts and outlines under the pointer, and a click opens it.
         table.insert(children, ui.target { id = "target_" .. short(id), anchor = "being." .. id, text = text,
             on = "open", payload = { facility = id } })
-        table.insert(key, ui.button { id = "key_" .. short(id), width = 170, text = facility.name, hover = text,
-            on = "open", payload = { facility = id } })
+        -- Its key icon: dark like the rest of the HUD, so the gold signs on the station
+        -- and Launch stand out as the things to press.
+        table.insert(key, kit.button(ui, { id = "key_" .. short(id), width = KEY, size = kit.SIZE.small, icon = key_icon(ctx, id, facility),
+            text = facility.name, hover = text, on = "open", payload = { facility = id } }, "dark"))
     end
-    table.insert(children, ui.row { id = "key", align = "bottom", y = layout.M, width = #key * 182 - 12, gap = 12, children = key })
-    table.insert(children, ui.button { id = "launch", align = "bottom-right", x = layout.M, y = layout.M, width = 200,
-        text = "Launch  [U]", hover = "Fly off from the berth: U, or just fly with W, A, S or D", on = "launch" })
+    table.insert(children, ui.row { id = "key", align = "bottom", y = layout.M, width = #key * (KEY + KEY_GAP) - KEY_GAP, gap = KEY_GAP,
+        children = key })
+    table.insert(children, kit.button(ui, { id = "launch", align = "bottom-right", x = layout.M, y = layout.M, width = LAUNCH,
+        icon = "ship", text = "Launch · U", hover = "Fly off from the berth: U, or just fly with W, A, S or D", on = "launch" }, "primary"))
     return layout.frame(ui, "dock", children)
 end
 

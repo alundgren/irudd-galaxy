@@ -6,6 +6,7 @@
 --
 --   kit.chip(ui, w)        status: dark ink, lantern-gold border (the HUD chip)
 --   kit.pill(ui, w)        a key hint: dark ink pill
+--   kit.plate(ui, w)       the docked station's plate: dark ink, thin gold frame
 --   kit.place(ui, w)       a place: the parchment room panel
 --   kit.sheet(ui, w)       the trade table's sheet, inside a place
 --   kit.heads(ui, cols)    a table's column heads: { { "Ware", 160 }, ... }
@@ -22,6 +23,7 @@
 --   kit.name(name, role)   the name heavy and underlined amber, the role quieter
 --   kit.amount(n, unit, dark) a black amount with a blue + or vermilion - mark
 --   kit.bars(level, of)    signal bars: lit gold, unlit dim
+--   kit.hint(text)         "W · fly ahead": the key heavy with a gold rule, then the rest
 -- Icon names:
 --   kit.ware(ware)         ore, plate, rations
 --   kit.part(socket)       the part for a socket: lens, pods, thrusters, controls
@@ -37,6 +39,7 @@ kit.LOOK = {
     radio = "radio", warning = "warning",
     gain = "gain", loss = "loss", gain_dark = "gain_dark", loss_dark = "loss_dark",
     lit = "lit", unlit = "unlit",
+    key = "key", plate = "plate", plate_name = "plate_name", figure = "figure",
 }
 
 -- Text sizes: a place's title, a surface's own heading, body text and small print
@@ -54,6 +57,7 @@ end
 
 function kit.chip(ui, w) return ui.panel(with(w, kit.LOOK.chip)) end
 function kit.pill(ui, w) return ui.panel(with(w, kit.LOOK.pill)) end
+function kit.plate(ui, w) return ui.panel(with(w, kit.LOOK.plate)) end
 function kit.place(ui, w) return ui.panel(with(w, kit.LOOK.place)) end
 function kit.sheet(ui, w) return ui.panel(with(w, kit.LOOK.sheet)) end
 function kit.bubble(ui, w) return ui.panel(with(w, kit.LOOK.bubble)) end
@@ -147,6 +151,14 @@ function kit.bars(level, of)
     if lit ~= "" then table.insert(spans, { text = lit, look = kit.LOOK.lit }) end
     if unlit ~= "" then table.insert(spans, { text = unlit, look = kit.LOOK.unlit }) end
     return spans
+end
+
+-- Spans: a key hint, "<key> · <what it does>", with the key standing out. A hint with
+-- no key part is one plain span.
+function kit.hint(text)
+    local key, rest = string.match(text, "^(.-) · (.+)$")
+    if not key then return { text } end
+    return { { text = key, look = kit.LOOK.key }, " · " .. rest }
 end
 
 -- The icon for a ware, or the part that goes in a socket.

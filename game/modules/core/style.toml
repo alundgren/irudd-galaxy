@@ -498,6 +498,30 @@ border = "#c9963a"
 border_px = 1
 radius = 22
 pad = 10
+flash = "#5a4466"
+
+# A key in a hint: the key's name heavy white with a gold rule, so the strip reads
+# "key · what it does" at a glance.
+[screen.looks.key]
+text = "#ffffff"
+weight = 700
+underline = "#f2b43c"
+
+# The station's plate, top left while docked: dark ink like the status, with a thin
+# gold frame, so the name never reads as a meter or a place panel.
+[screen.looks.plate]
+fill = "#2a1a2e"
+text = "#ffffff"
+border = "#c9963a"
+border_px = 1
+radius = 12
+pad = 10
+shadow = 4
+
+# A name on a dark surface (the station on its plate): heavy white.
+[screen.looks.plate_name]
+text = "#ffffff"
+weight = 700
 
 # A place: the room panel, parchment with an ink frame and a soft shadow.
 [screen.looks.place]
@@ -508,6 +532,11 @@ border_px = 2
 radius = 14
 pad = 16
 shadow = 6
+
+# A figure in running text (a price, a count): heavy black.
+[screen.looks.figure]
+text = "#000000"
+weight = 700
 
 # A place's heading: large and heavy.
 [screen.looks.heading]

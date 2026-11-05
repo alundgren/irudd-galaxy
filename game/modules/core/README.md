@@ -513,7 +513,18 @@ kind. Each kind of thing has its own look, so a glance tells them apart:
 | A warning | pale vermilion, vermilion frame, warning icon | `kit.warning(ui, w)` |
 | A gain or a loss | a black amount with a blue `+` or vermilion `-` mark (lighter tints on dark) | `spans = kit.amount(64, "cr")`, `kit.amount(n, unit, true)` on dark |
 | A name and a role | the name heavy with an amber rule, the role quieter | `spans = kit.name("Tova Reyes", "Exchange keeper")` |
-| A world label | a small dark tag | `kit.label(ui, w)` |
+| A world label (a station or trader name in flight) | a small dark tag | `kit.label(ui, w)` |
+| The docked station's plate | dark ink, thin gold frame, the name heavy white | `kit.plate(ui, w)`, `look = kit.LOOK.plate_name` |
+| A key in a hint | the key heavy white with a gold rule, then what it does | `spans = kit.hint("W · fly ahead")` |
+| A figure in running text (a price, a count) | heavy black | `{ text = "17 cr", look = kit.LOOK.figure }` |
+
+Which look goes where: the persistent HUD (status, plate, station key, radio, hint
+strip, world labels) is dark ink; places (room panels, the log) are parchment; speech
+is white; the one press that moves you on (Launch, Sell) is gold, quieter verbs (Buy,
+Back, paging) parchment, and the station key's icons dark. Docked, the key sits
+centred along the bottom between the log's book and Launch, clear of both at 960x540.
+Trading, office and site rooms, and the cradle, are `layout.ROOM` wide (45% of
+960x540), so the ship on its cradle stays in view at both window sizes.
 
 Each builder takes the screen's `ui` and a widget table, sets the kind's look and
 returns the widget, so every other widget property still works; `kit.LOOK` names the

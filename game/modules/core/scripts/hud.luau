@@ -6,6 +6,7 @@
 -- whole focus, so the rest steps aside.
 local rules = require("./rules")
 local layout = require("./layout")
+local kit = require("./kit")
 local teach = require("./teach")
 local signs = require("./signs")
 local trade = require("./trade")
@@ -47,12 +48,13 @@ local function where(ctx)
 end
 
 -- Each station wears its name under it while it is in view, as the traders do
--- (traffic.luau): `yield`, so it is left undrawn rather than sit on the HUD.
+-- (traffic.luau), on a small dark tag (kit.label) so it reads as a name, not a panel:
+-- `yield`, so it is left undrawn rather than sit on the HUD.
 local function station_names(ctx, ui, children)
     for _, id in ctx.query("port") do
         local name = ctx.get(id, "port").name
-        table.insert(children, ui.text { id = "name_" .. string.match(id, "%.(%w+)$"), anchor = id .. "_exterior#label",
-            width = #name * 9 + 16, text = name, size = 16, yield = true })
+        table.insert(children, kit.label(ui, { id = "name_" .. string.match(id, "%.(%w+)$"), anchor = id .. "_exterior#label",
+            width = #name * 9 + 16, text = name, size = kit.SIZE.small, yield = true }))
     end
 end
 
@@ -112,11 +114,16 @@ return {
         if space then
             station_names(ctx, ui, children)
             targets(ctx, ui, children)
-            -- One strip at the bottom: the latest message, then the one key still to learn.
-            local bottom = { ui.text { id = "message", width = layout.MESSAGE - 32, text = pilot.message, size = 20 } }
+            -- One dark pill at the bottom (kit.pill): the latest message, flashing when it
+            -- changes, then the one key still to learn, the key itself standing out.
+            local bottom = { ui.text { id = "message", width = layout.MESSAGE - 20, text = pilot.message, size = kit.SIZE.body,
+                cue = "flash" } }
             local key = hint(ctx)
-            if key then table.insert(bottom, ui.text { id = "hints", width = layout.MESSAGE - 32, size = 16, text = key }) end
-            table.insert(children, ui.panel { id = "bottom", align = "bottom", y = layout.M, width = layout.MESSAGE, gap = 6, children = bottom })
+            if key then
+                table.insert(bottom, ui.text { id = "hints", width = layout.MESSAGE - 20, size = kit.SIZE.small, spans = kit.hint(key) })
+            end
+            table.insert(children, kit.pill(ui, { id = "bottom", align = "bottom", y = layout.M, width = layout.MESSAGE, gap = 4,
+                children = bottom }))
         end
         return layout.frame(ui, "hud", children)
     end,
