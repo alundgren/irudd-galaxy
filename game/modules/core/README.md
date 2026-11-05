@@ -516,7 +516,9 @@ went dark out west, past the ice. Will you go and find her?" `Accept` or `Not no
    ship flies slower (11) and turns slower with her in tow.
 3. **The attention stretch: tow her home by hand.** She swings wide on the line. A hard
    knock on something fixed (the ice, a station's hull) slips it: she lies where it
-   slipped, the log says so, and you come alongside and pass it again. `0` casts it off.
+   slipped, the log says so, and you come alongside and pass it again. `0`, or a click
+   on her, casts it off. Lying off a berth she takes the line again the same way as
+   adrift: Space, or a click on her.
    Bumping is never punished otherwise: no damage, nothing lost.
 4. **The choice.** Brought into either station's berth ring, she lies off it, and that
    dockmaster's offer is the office's gold button:

@@ -74,4 +74,28 @@ return {
         assert(last == "Her engine is being mended. Come back to Cinder Kiln after your next trip out.", last)
         assert(salvage.step_text(job(salvage.DONE), names) == nil, "nothing pinned once it is done")
     end,
+
+    every_tow_action_has_a_click_as_well_as_a_key = function()
+        -- A world with the job and the barge only, as salvage.click reads it.
+        local function world(j)
+            j.barge = "core.kettle"
+            return { query = function(c) return c == "salvage" and { "core.kettle_job" } or {} end,
+                get = function(id, c)
+                    if c == "salvage" and id == "core.kettle_job" then return j end
+                    if c == "trader" and id == "core.kettle" then return { name = "Cold Kettle", stopped = true } end
+                    return nil
+                end }
+        end
+        assert(salvage.click(world(job(salvage.ASKED)), "core.kettle") == nil, "before the search: a click does nothing")
+        local adrift = salvage.click(world(job(salvage.SEARCH)), "core.kettle")
+        assert(adrift == "hitch", "adrift: a click passes her a line")
+        local moored, said = salvage.click(world(job(salvage.MOORED, { at = "core.lantern" })), "core.kettle")
+        assert(moored == "hitch", "lying off a berth: a click passes the line again")
+        assert(string.find(said, "click her to pass the line again", 1, true), said)
+        local towing, about = salvage.click(world(job(salvage.SEARCH, { towing = true })), "core.kettle")
+        assert(towing == "cancel", "in tow: a click casts her off, as 0 does")
+        assert(string.find(about, "a click on her casts off", 1, true), about)
+        assert(salvage.click(world(job(salvage.WORKING, { at = "core.lantern" })), "core.kettle") == nil, "handed over: nothing")
+        assert(salvage.click(world(job(salvage.SEARCH)), "core.lamp") == nil, "another trader: nothing")
+    end,
 }

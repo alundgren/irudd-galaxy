@@ -655,9 +655,11 @@ function salvage.verb(ctx, talk)
         return "Hand " .. first(name(ctx, haven.keeper)) .. " " .. haven.need .. " " .. haven.ware .. what
     end
     if job.step ~= salvage.MOORED or haven.offer ~= talk then return nil end
+    -- The press settles her fate, so the button says what it costs, not only who it helps.
     local barge = ctx.get(job.barge, "trader").name
-    if haven.kind == "keep" then return "Moor " .. barge .. " here for " .. first(name(ctx, job.giver)) .. "'s beds" end
-    return "Have " .. barge .. " mended here for " .. first(name(ctx, job.skipper))
+    local skipper = first(name(ctx, job.skipper))
+    if haven.kind == "keep" then return "Keep " .. barge .. " here for good: " .. skipper .. " won't sail her again" end
+    return "Have " .. barge .. " mended for " .. skipper .. ": she sails on"
 end
 
 -- The barge's label suffix and what pointing at her says, while the job has her: nil
@@ -665,11 +667,27 @@ end
 function salvage.tag(ctx, trader_id)
     local _, job = salvage.find(ctx)
     if not job or job.barge ~= trader_id or not ctx.get(trader_id, "trader").stopped then return nil, nil end
-    if job.towing then return " · in tow", "in tow on your line: fly slowly into a berth's ring to bring her in; 0 casts off" end
+    if job.towing then return " · in tow", "in tow on your line: fly slowly into a berth's ring to bring her in; 0 or a click on her casts off" end
     if job.step <= salvage.SEARCH then
         return " · adrift", "adrift, her engine frozen: fly alongside, slow, and press Space or click her to pass a line"
     end
     return nil, nil
+end
+
+-- What a click on the barge does while the job has her, so every tow action has a click
+-- as well as a key: the event it sends ("hitch" passes a line, as Space does; "cancel"
+-- casts one off, as 0 does) and what pointing at her says. Nil, nil when a click on her
+-- does nothing.
+function salvage.click(ctx, trader_id)
+    local _, job = salvage.find(ctx)
+    if not job or job.barge ~= trader_id then return nil, nil end
+    local _, about = salvage.tag(ctx, trader_id)
+    if job.towing then return "cancel", about end
+    if not salvage.hitchable(job) then return nil, nil end
+    if job.step == salvage.MOORED then
+        return "hitch", "lying off the berth: fly alongside, slow, and press Space or click her to pass the line again"
+    end
+    return "hitch", about
 end
 
 return salvage

@@ -25,10 +25,11 @@ local function hint(ctx)
     if ring and ctx.get(ring, "port") and (teach.new(taught, "dock") or salvage.towing(ctx)) then
         return "Space · dock at " .. ctx.get(ring, "port").name
     end
-    -- Beside a barge adrift, Space passes her a line; with one in tow, 0 casts it off.
-    if pilot.near == "barge" and teach.new(taught, "tow") then return "Space · pass her a line" end
+    -- Beside a barge adrift, Space (or a click on her) passes her a line; with one in tow,
+    -- 0 (or a click on her) casts it off.
+    if pilot.near == "barge" and teach.new(taught, "tow") then return "Space or click her · pass her a line" end
     if salvage.towing(ctx) then
-        if teach.new(taught, "cancel") then return "0 · cast off the line" end
+        if teach.new(taught, "cancel") then return "0 or click her · cast off the line" end
         return nil
     end
     if not full and not pilot.mining and teach.new(taught, "mine") then

@@ -66,11 +66,13 @@ local function screen(ctx, ui)
         -- A barge a job has taken off her route says so: adrift, or in tow.
         local tag, about = salvage.tag(ctx, id)
         local name = trader.name .. (tag or "")
-        -- Pointing at a trader names it, label or not. A barge adrift is a click target: a
-        -- click passes her a line (tow.luau), as Space does beside her.
-        if tag == " · adrift" then
+        -- Pointing at a trader names it, label or not. The job's barge is a click target
+        -- while a click on her does something: it passes her a line (tow.luau) as Space
+        -- does, adrift or lying off a berth, and casts it off in tow, as 0 does.
+        local on, said = salvage.click(ctx, id)
+        if on then
             table.insert(children, ui.target { id = "hover_" .. string.sub(id, 6), anchor = id .. "#label",
-                text = trader.name .. ": " .. about, on = "hitch", payload = { barge = id } })
+                text = trader.name .. ": " .. said, on = on, payload = { barge = id } })
         else
             table.insert(children, ui.hover { id = "hover_" .. string.sub(id, 6), anchor = id .. "#label",
                 text = trader.name .. ": " .. (about or trader.about) })
