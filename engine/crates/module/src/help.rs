@@ -287,7 +287,7 @@ pub fn overview(tool: Tool) -> String {
                 ),
                 None if *p == "live" => (
                     "live <command>".to_owned(),
-                    "Read or hot-load a running galaxy play: `galaxy-gm live --help`.".to_owned(),
+                    "Read, play or hot-load a running game: `galaxy-gm live --help`.".to_owned(),
                 ),
                 None => unreachable!("the overview names commands in the table: {p}"),
             })

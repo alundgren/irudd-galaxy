@@ -229,6 +229,7 @@ fn authoring_errors_roll_back_and_stale_advances_do_nothing() {
             .as_object()
             .unwrap()
             .clone(),
+        via: None,
     };
     s.step(&[i]).unwrap();
     assert_eq!(

@@ -115,6 +115,7 @@ impl Screens {
             source: "ui".into(),
             name,
             payload,
+            via: None,
         })
     }
 }

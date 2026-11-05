@@ -1,6 +1,9 @@
 //! `galaxy-gm live ...`: reads a running `galaxy play` and hot-loads modules into it
 //! through the live socket (`galaxy_live`). Each command finds the running games, chooses
-//! one, sends one request and prints its reply with the game it went to.
+//! one, sends one request and prints its reply with the game it went to; `live input`
+//! ([`input`]) holds keys over one connection for as long as its steps run.
+
+mod input;
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -21,6 +24,7 @@ pub(crate) const WATCH_OPTIONS: &[&str] =
     &["game", "entity", "component", "field", "ticks", "every"];
 pub(crate) const SHOT_OPTIONS: &[&str] = &["game", "out"];
 pub(crate) const LOAD_OPTIONS: &[&str] = &["game"];
+pub(crate) const INPUT_OPTIONS: &[&str] = &["game", "follow"];
 
 /// Ticks a watch covers when not told: one second.
 const WATCH_TICKS: u64 = 30;
@@ -39,6 +43,7 @@ pub(crate) fn run(
         "watch" => WATCH_OPTIONS,
         "shot" => SHOT_OPTIONS,
         "load" => LOAD_OPTIONS,
+        "input" => INPUT_OPTIONS,
         other => unreachable!("galaxy-gm has help for `live {other}` but does not run it"),
     };
     if let Some(name) = opts.names().find(|n| *n != "game" && !known.contains(n)) {
@@ -52,13 +57,16 @@ pub(crate) fn run(
             }
         )));
     }
-    if what != "load" && !positional.is_empty() {
+    if !matches!(what, "load" | "input") && !positional.is_empty() {
         return Err(usage(format!(
             "live {what} takes options only, not `{}`",
             positional.join(" ")
         )));
     }
     let cwd = cli::current_dir()?;
+    if what == "input" {
+        return input::run(positional, opts, &cwd, usage);
+    }
     let games = client::games(&galaxy_live::live_dir());
     let text = |name: &str| opts.text(name).map(str::to_owned);
     let count = |name: &str| opts.count(name).map_err(&usage);
@@ -136,7 +144,7 @@ pub(crate) fn run(
     Ok(Output::Json(out))
 }
 
-fn game_json(game: &Game, why: &str) -> Value {
+pub(crate) fn game_json(game: &Game, why: &str) -> Value {
     json!({
         "pid": game.discovery.pid,
         "session": game.discovery.session,
@@ -182,7 +190,7 @@ fn load_dirs(cwd: &Path, positional: &[String]) -> Result<Vec<PathBuf>, LoadArg>
 }
 
 /// A wire error as this command's failure.
-fn failure(e: WireError) -> Failure {
+pub(crate) fn failure(e: WireError) -> Failure {
     let kind = match e.kind.as_str() {
         "usage" => "usage",
         "bad_input" => "bad_input",

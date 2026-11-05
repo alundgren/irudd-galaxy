@@ -30,6 +30,7 @@ fn key(tick: u64, name: &str, down: bool) -> Input {
         source: "keyboard".into(),
         name: format!("effects.{name}"),
         payload,
+        via: None,
     }
 }
 
