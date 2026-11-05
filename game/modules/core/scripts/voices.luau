@@ -32,6 +32,28 @@ function voices.master(left, need, ware, building)
     return "The field's worked out. Good shift."
 end
 
+-- The office keeper's introduction ends on the station's build. Once it is finished
+-- the intro's last line says so, so a first meeting after it never tells of raising it.
+function voices.intro_close(ctx, keeper, station)
+    for _, id in ctx.query("build") do
+        local build = ctx.get(id, "build")
+        if build.station == station and build.done then
+            local intro = ctx.get(keeper .. "_intro", "engine.talk")
+            local line = intro and intro.first or ""
+            while line ~= "" do
+                local said = ctx.get(line, "engine.talk_line")
+                if not said then return end
+                if (said.next or "") == "" then
+                    ctx.patch(line, "engine.talk_line", { text = "Our " .. string.lower(build.name) .. "'s open now. Go and eat." })
+                    return
+                end
+                line = said.next
+            end
+            return
+        end
+    end
+end
+
 -- Sets the current line of every keeper at `station`, given the hold, the credits a
 -- sale just paid and what the station's build still needs, all after the caller's
 -- writes.
@@ -58,6 +80,7 @@ function voices.refresh(ctx, station, hold, sold, need)
                 text = nil -- the fitter's line follows the last fit (cradle.luau)
             else
                 text = voices.master(left, build and need or 0, build and build.ware or "", build and string.lower(build.name) or "")
+                if not build then voices.intro_close(ctx, facility.keeper, station) end
             end
             if text then ctx.patch(facility.keeper .. "_now", "engine.talk_line", { text = text }) end
         end
