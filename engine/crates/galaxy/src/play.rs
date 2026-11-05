@@ -37,7 +37,9 @@ use winit::window::{CursorIcon, Window, WindowId};
 use crate::notes::{self, NoteBox};
 use crate::sim::{Options, bad_modules, load_modules, parse, usage};
 
-/// The window's size, and a shot's, unless `--size` says otherwise.
+/// A shot's size unless `--size` says otherwise, and the play window's normal size: a
+/// window opened without `--size` starts maximized and returns to this size when the
+/// player un-maximizes it.
 const DEFAULT_SIZE: (u32, u32) = (1280, 720);
 /// Ticks `shot` runs when not told: one second.
 const SHOT_TICKS: u64 = 30;
@@ -68,6 +70,13 @@ pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--crop",
     "--reduced-motion",
 ];
+
+/// The play window starts maximized, the way games are played, unless `--size` asks for
+/// an exact size (bots, films and measurements rely on getting it). Only the window
+/// changes: the sim never sees its size.
+fn starts_maximized(options: &Options) -> bool {
+    options.size.is_none()
+}
 
 /// The player's one reduced-motion setting, for the camera and screens alike:
 /// `--reduced-motion`, or `GALAXY_REDUCED_MOTION=1` in the environment.
@@ -933,7 +942,8 @@ impl ApplicationHandler for App {
                 Size::Physical(PhysicalSize::new(64, 64))
             } else {
                 Size::Logical(LogicalSize::new(640.0, 360.0))
-            });
+            })
+            .with_maximized(starts_maximized(&self.options));
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Arc::new(w),
             Err(e) => {
@@ -1610,6 +1620,28 @@ fn crop_round(image: &RgbaImage, cx: f32, cy: f32, half: f32) -> (RgbaImage, [u3
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn play_window_starts_maximized_only_without_an_exact_size() {
+        let opts = |args: &[&str]| {
+            let args: Vec<String> = args.iter().map(|a| (*a).to_owned()).collect();
+            parse(&args, PLAY_OPTIONS).unwrap().1
+        };
+        assert!(starts_maximized(&opts(&["--modules", "m"])));
+        assert!(!starts_maximized(&opts(&[
+            "--modules",
+            "m",
+            "--size",
+            "1280x720"
+        ])));
+        assert!(!starts_maximized(&opts(&[
+            "--modules",
+            "m",
+            "--size",
+            "1280x720",
+            "--physical-size"
+        ])));
+    }
 
     #[test]
     fn saved_play_start_preserves_world_and_recording_and_rejects_other_sources() {

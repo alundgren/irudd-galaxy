@@ -517,7 +517,7 @@ static GAME: &[Command] = &[
             ),
             (
                 "--size <w>x<h>",
-                "the window in logical pixels; 1280x720 by default",
+                "open the window at exactly this size in logical pixels, not maximized;                  without it the window opens maximized and un-maximizes to 1280x720",
             ),
             (
                 "--watch",
