@@ -1,0 +1,70 @@
+about = "A lamp-night string: two poles with a line of paper lanterns hung between them, lit for a celebration"
+palette = { wood = "#8a5232", paper = "#ffcf6b", rose = "#ff8fa3" }
+[[part]]
+name = "pole"
+shape = "strut"
+from = [0, -2.5, 0]
+to = [0, -2.5, 3.0]
+thickness = 0.12
+paint = "wood"
+[[part]]
+name = "pole.2"
+shape = "strut"
+from = [0, 2.5, 0]
+to = [0, 2.5, 3.0]
+thickness = 0.12
+paint = "wood"
+[[part]]
+name = "line"
+shape = "strut"
+from = [0, -2.5, 2.9]
+to = [0, 0, 2.5]
+thickness = 0.03
+paint = "wood"
+[[part]]
+name = "line.2"
+shape = "strut"
+from = [0, 0, 2.5]
+to = [0, 2.5, 2.9]
+thickness = 0.03
+paint = "wood"
+[[part]]
+name = "lantern"
+shape = "sphere"
+radius = 0.2
+sides = 8
+rings = 4
+at = [0, -1.6, 2.5]
+paint = "paper"
+glow = 0.9
+pulse = 4
+pulse_low = 0.6
+[[part]]
+name = "lantern.2"
+shape = "sphere"
+radius = 0.2
+sides = 8
+rings = 4
+at = [0, -0.6, 2.3]
+paint = "rose"
+glow = 0.8
+[[part]]
+name = "lantern.3"
+shape = "sphere"
+radius = 0.2
+sides = 8
+rings = 4
+at = [0, 0.6, 2.3]
+paint = "paper"
+glow = 0.9
+pulse = 5
+pulse_low = 0.6
+[[part]]
+name = "lantern.4"
+shape = "sphere"
+radius = 0.2
+sides = 8
+rings = 4
+at = [0, 1.6, 2.5]
+paint = "rose"
+glow = 0.8

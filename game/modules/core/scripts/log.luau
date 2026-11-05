@@ -10,6 +10,7 @@
 -- KEEP entries are kept; a visit's short line holds at most SHORT characters.
 local log = { KEEP = 60, SHORT = 38 }
 local places = require("./places")
+local project = require("./project")
 
 -- Where an entry belongs: the station the ship is at, on its deck or in one of its
 -- rooms, or "" in flight. The docking's own entry is written on the tick the ship
@@ -164,10 +165,11 @@ function log.summary(ctx, visit)
     return who, line
 end
 
--- What is still waiting: offers made and not answered, and buildings under way at a
--- station you have been to. Each is { kind, who, text }. An offer stays pinned once
--- heard (its gift is marked heard), and a building once its station has been docked
--- at, however much older history the log has dropped since.
+-- What is still waiting: offers made and not answered, buildings under way at a
+-- station you have been to, and the next step of a job someone gave you. Each is
+-- { kind, who, text }. An offer stays pinned once heard (its gift or offer is marked
+-- heard), and a building once its station has been docked at, however much older
+-- history the log has dropped since.
 function log.pinned(ctx, list)
     local pins = {}
     for _, talk in ctx.query("gift") do
@@ -198,12 +200,14 @@ function log.pinned(ctx, list)
             if entry.at == build.station then visited = true end
         end
         local port = ctx.get(build.station, "port")
-        if not build.done and (visited or port.visits > 0) then
+        if not build.done and not build.waiting and (visited or port.visits > 0) then
             table.insert(pins, { kind = "WANTED", who = build.name, where = port.name,
                 text = build.given .. " of " .. build.need .. " " .. build.ware .. " in. Sell " .. build.ware
                     .. " at " .. port.name .. " to build it." })
         end
     end
+    -- A project someone asked for: its offer, then the next thing to do.
+    for _, p in project.pins(ctx, ctx.get("ship", "hold")) do table.insert(pins, p) end
     return pins
 end
 

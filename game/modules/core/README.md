@@ -5,7 +5,8 @@ Every change here follows [the direction doc](../../docs/direction.md); compare 
 Fly a small tug, cut ironstone, ice and rare glassite from the rocks of the reach, dock
 at either of two stations and sell it, then trade between them: Cinder Kiln turns ore into plate,
 and Lantern Dock wants plate to build a galley. Once the galley is built, its
-cook sells rations that the Kiln's crews buy. The hold takes six units of any
+cook sells rations that the Kiln's crews buy, and then asks you to help her build a
+greenhouse: glassite for its panes, the panes carried to her, ice for its beds. The hold takes six units of any
 mix. At the Kiln's fitting cradle, Orrin fits parts bought with what you earn: a
 lens that mines faster, pods for a bigger hold and thrusters for a higher top
 speed, within the hull's power and mass. Five traders fly their own routes across
@@ -411,6 +412,8 @@ to the crate stack. A walk you leave in the middle finishes while you are away.
 - **Galley site** (Lantern Dock): what will be built, how much plate is in, and
   what it will bring. Once built it is the **Galley**, kept by Ines Varga, who
   sells rations.
+- **Greenhouse** (Lantern Dock, once Ines's job is taken on): what it waits on, then
+  how much ice is in. Once built, Noor Hale tends its beds.
 - **Fitting cradle** (Cinder Kiln): Orrin Vale fits parts to the ship (below).
 
 Inside a room its keeper wears a name sign with what they are doing
@@ -449,6 +452,46 @@ sells for 97 cr at the Kiln and 73 at Lantern Dock; the three plate runs earn
 it; a hold of rations earns 24 cr. The galley is built on the third plate
 delivery, about a minute of play after the first sale (88 seconds in the click
 route), with 157 cr in hand; the route ends at 181 cr.
+
+## After the galley: Ines's greenhouse
+
+Once her gift is answered, Ines's next click is an ask (`scripts/project.luau`): the
+crews are tired of plain rations, a greenhouse would give her greens, and Sefa at the
+Kiln can fire its panes. `Accept` or `Not now`; "Not now" (to this and every later
+offer in the job) leaves it until your next docking, even a quick tap. Accepted, Bram
+has a chalk ring and stakes put on the deck where it will stand, and a fourth room,
+the Greenhouse, joins the station's key; it says what it waits on.
+
+The job goes in steps, each an offer in someone's talk. The log pins it while it waits:
+Ines's ask as an `OFFER` once heard, then each next step as a `JOB`, in her terms:
+
+1. Bring 4 glassite to Sefa Lind at Cinder Kiln (glassite grows north-east, past the
+   ore, Ines says). Her offer comes on only with 4 aboard: `Hand it over`. Her act
+   at the hatch becomes `firing Ines's panes`.
+2. Go about your work: the panes are ready on the Kiln's next counted visit
+   (`packing Ines's panes`). Her offer to load them waits while the hold has no room
+   for 4.
+3. Loaded, they are Ines's: the hold chip marks them `4 Ines's`, the exchange lists
+   `Ines's 4 panes`, and no market buys them.
+4. Ines takes them in her galley. The site stops waiting: a scaffold with rib struts
+   and a crate of panes goes up, and two glaziers work it on the deck, one carrying
+   panes from the crates to the frame and back.
+5. 12 ice sold at Lantern Dock's exchange waters its beds (two holds). The sale that
+   completes it raises the greenhouse: a glass dome with glowing beds on the deck,
+   and the station seen from the reach wears its green dome too. Noor Hale, the
+   grower, arrives with her own introduction; her day is tending the beds, then
+   bringing greens to Ines's galley table. Ines thanks you once, and her everyday line
+   becomes about Noor's greens.
+
+Lantern Dock then holds a lamp night (direction doc 3.3, a `happening` in
+`start.toml`): lamp strings hang on the deck, Bram says why ("Every lamp's lit
+tonight, for the greenhouse."), each docking's log line gives the cause, and it lasts
+three later counted dockings there before the strings come down.
+
+Measured on the headless route in `tests/greenhouse.toml` (seed 7): the galley is built
+at tick 2460 and the greenhouse at 4330, 1870 ticks (62 seconds of scripted play) over
+five trips out: glassite, ore while the panes fire, the panes to Lantern Dock, and two
+holds of ice. Hand flying, docking and talk stretch each trip.
 
 ## Fitting the ship
 
@@ -526,8 +569,8 @@ becomes the flight message.
 Once her galley stands and she has introduced herself, Ines thanks you for the
 plate and offers a ration on the house, with `Take it` and `No, thanks` in the
 bubble. Taking it puts one ration in the hold with a receipt in the log; either
-answer ends the offer for good, and her everyday line comes back. While the hold
-is full the offer waits, unanswered, and she says her everyday line instead.
+answer ends the offer for good, and her greenhouse ask follows (below). While the
+hold is full the offer waits, unanswered, and she says her everyday line instead.
 
 Each conversation you hear is one ship log entry that names the speaker and the
 station, with the lines quoted in order and any answer you gave (`You: Take it.`),
@@ -537,8 +580,9 @@ The ship log (`scripts/log.luau` keeps the entries, `scripts/logbook.luau` draws
 is a small book button at the bottom left (`Log`, with a blue `N new` tag when
 something came in since you last looked); L or the book opens it at the top left.
 Pinned at the top is what is still waiting: an offer you heard and haven't answered
-(`OFFER`, under who made it and where, with its answers) and what a station you have
-docked at is building from your deliveries (`WANTED`: `3 of 10 plate in`). Pins
+(`OFFER`, under who made it and where, with its answers), the greenhouse job's next
+step (`JOB`) and what a station you have docked at is building from your deliveries
+(`WANTED`: `3 of 10 plate in`). Pins
 outlast the 60 entries the log keeps: a heard offer is marked on its gift (`heard`),
 and a building's station counts its visits. Below, newest first, is one row per
 visit: `VISIT` (or `HERE` for the one going on now) with the station and Lines, then
@@ -668,7 +712,9 @@ their bubble clears the room's panel at both sizes.
 - **Every change is seen.** Ore arrives in the hold, the rock develops a
   visible cut, and a trade changes credits, the posted stock and price, and for
   ore the crate pile. Plate delivered to the galley site shows as progress, and
-  the finished galley replaces the scaffold. A fit changes the budgets and the
+  the finished galley replaces the scaffold; the greenhouse shows as a staked plot,
+  then a scaffold with glaziers, then a dome, and its lamp night as strings on the
+  deck. A fit changes the budgets and the
   ship's numbers, the lens fills the hold twice as fast, and fitted pods show on
   the hull. The ship log keeps a line for each docking, trade, fit, launch, full
   hold, rock cut down, the galley built and each conversation. Empty sales never create money,
@@ -692,7 +738,7 @@ delivered goods follow the slice's behaviour. All models come from committed `re
 committed. The engine owns flight, collision, steering, travel, walks, talk,
 hovers and the sound mixer. Luau handles player intent, the traders' orders and their labels,
 aim, beam time and extraction, and skiff trips,
-trade rules and pricing, the galley's build, the ship's fit, the radio's tuning, the log
+trade rules and pricing, the galley's build, the greenhouse job, the ship's fit, the radio's tuning, the log
 and the module-styled screens. Each station is one place
 whose set is the station up close; its buildings and skiff stand in it, and each
 of its rooms is a place inside it with its own set, where its keeper lives.
@@ -764,7 +810,15 @@ with the answer, the offer gone), declined (nothing changes hands, a late second
 answer is stale, the offer gone), waiting while the hold is full, and going back
 mid-talk (Back on her unanswered offer and on its first line ends the bubble and
 keeps the offer, a late answer to it is stale, the third time it is taken and
-logged once; inside a room the log stays shut, so it ends no bubble), and
+logged once; inside a room the log stays shut, so it ends no bubble), the
+greenhouse from a finished galley (`greenhouse.toml`: the ask, the plot, glassite
+handed to Sefa and her act, the panes ready on the next counted visit, loaded and
+delivered, the scaffold and glaziers, ice into the beds, the greenhouse built with
+Noor in it, the station's green dome, Ines's thanks and Noor's intro, and the lamp
+night lasting three later counted dockings), its choices (`greenhouse-choices.toml`:
+"Not now" offered again on the next docking, the glassite offer off with 3 aboard and
+on with 5, the panes waiting on a full hold, Ines's panes not sold at the exchange,
+the receipts), and
 the fitting loop (`fit.toml`: the rack stocked and priced on a new game; a part that
 can't be paid for, in the wrong socket or short of power doing nothing; the lens
 bought and fitted with one receipt and Orrin's line, taken off (the flight staying
@@ -775,7 +829,9 @@ then taken off once sold). `log-pins.toml` leaves Ines's offer unanswered, then 
 been dropped, and each launch ends a visit. `tests/log.luau` checks visits (a return
 to the same station with nothing logged between is a new one), the short visit line,
 pins outlasting dropped entries and the open log's width at 960x540, and
-`tests/chip.luau` that every row of the chip fits with all three wares aboard. Play
+`tests/chip.luau` that every row of the chip fits with all three wares aboard, and
+`tests/project.luau` when each greenhouse offer is on, when the panes are ready, the
+`JOB` pin's words and how Ines's panes read in the hold. Play
 records `engine.place_arrived` when a cut or glide lands; scenarios give it by hand
 where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
@@ -879,7 +935,12 @@ hand (`radio-tune.toml`'s inputs to tick 650, resumed for 550). A save from befo
 radio loads and plays without it; start a new game for the radio. A save taken mid-hold, the rock
 turning under the ship (a Mine order at tick 1, saved at 150, resumed for 250), resumes to
 the same hash as an uninterrupted run. A save from before the rocks turned loads and
-plays with its rocks still; its rings, lamps and stars move anyway, as they are drawn only. Resumed or hot
+plays with its rocks still; its rings, lamps and stars move anyway, as they are drawn only.
+A save from before Ines's greenhouse (`trade.inputs` to tick 2475) loads and plays for
+400 ticks with its galley and credits, without the greenhouse; start a new game for it.
+A save taken while the greenhouse goes up (`tests/greenhouse.toml`'s inputs to tick
+3600, glaziers at work) resumes for 800 ticks to the same hash as an uninterrupted run,
+through the ice and the greenhouse built. Resumed or hot
 loaded in flight, the radio cues the channel it was playing once more, so the same
 track fades in without input; docked, off or with no signal it cues nothing. Bot
 input ticks and play's `--ticks` are absolute world ticks, including when resuming.
@@ -888,11 +949,12 @@ installed CLI separately; `radio-resume.toml` gives the resume input directly.
 
 ## One self-critique against the slice
 
-The trade loop is the thinnest one: three goods, one thing to build, one
-milestone. Plate is the only good that builds anything, so after the galley
-opens nothing else grows, and the Kiln's plate margin shrinks run by run until
-visits restock it. The galley's sign sits low on its front so it clears the
-dockmaster's name sign.
+The trade loop is the thinnest one: three goods and two things to build, the galley
+and then Ines's greenhouse. After the lamp night nothing else is asked for, and the
+Kiln's plate margin shrinks run by run until visits restock it. The galley's sign
+sits low on its front so it clears the dockmaster's name sign; the greenhouse's sits
+in front of its dome, clear of the exchange above it. With four rooms the station key
+drops its icons so every name fits whole at 960x540.
 
 The fitting loop is the thinnest one too: one fitter, three parts on one rack, one
 part per socket and no hulls, blueprints or parts ordered from friends. The fit is
@@ -912,13 +974,14 @@ The station view is now the agreed design rather than a deck and a separate
 market room, and the two stations differ in their shapes and paint. Docking
 glides in, buildings lift and outline under the pointer and open their rooms when
 clicked, each room is a staged set its keeper lives in, and Esc and right-click go
-back. The deck itself has no one on it now: everyone is at work indoors. The rooms
+back. The deck has people on it only while the greenhouse goes up (its glaziers);
+otherwise everyone is at work indoors. The rooms
 are lit by the same light as space, with their lamps and walls glowing rather than
 casting light, and their days move only with trades and fits. The key has no news
 ribbons because nothing at a station changes on its own yet.
 The radio is the thinnest one too: two stations, one track each (an 18- and a
 21-second loop), three lines each, no lane beacons, no static at the edges and no
 news. Its ticker swaps to the next line without a fade, the engine hum doesn't yet
-follow thrust; each waits on the engine. Ines's ration is the only offer so far, and
-the only thing anyone gives. Further art and pacing changes wait for a human
+follow thrust; each waits on the engine. Ines's ration and her greenhouse are the
+only offers so far. Further art and pacing changes wait for a human
 playtest.

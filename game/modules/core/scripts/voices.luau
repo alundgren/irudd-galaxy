@@ -4,6 +4,7 @@ local rules = require("./rules")
 local trade = require("./trade")
 local fit = require("./fit")
 local places = require("./places")
+local project = require("./project")
 
 local voices = {}
 
@@ -33,16 +34,19 @@ function voices.master(left, need, ware, building)
     return "The field's worked out. Good shift."
 end
 
--- The office keeper's introduction ends on the station's build. Once it is finished
--- the intro's last line says so, so a first meeting after it never tells of raising it.
--- `finished` names a build the caller has just finished (its reads still see it
--- unfinished); unset, a build already marked done is looked for.
+-- The office keeper's introduction ends on the station's first build. Once it is
+-- finished the intro's last line says so, so a first meeting after it never tells of
+-- raising it. `finished` names a build the caller has just finished (its reads still see
+-- it unfinished); unset, a build already marked done is looked for. Later builds (a
+-- project's) leave the intro as it is.
 function voices.intro_close(ctx, keeper, station, finished)
     local name = finished
-    if not name then
-        for _, id in ctx.query("build") do
-            local build = ctx.get(id, "build")
-            if build.station == station and build.done then name = build.name end
+    for _, id in ctx.query("build") do
+        local build = ctx.get(id, "build")
+        if build.station == station and build.done then
+            if finished then return end -- not the station's first
+            name = build.name
+            break
         end
     end
     if not name then return end
@@ -71,7 +75,10 @@ function voices.refresh(ctx, station, hold, sold, need)
         if facility.station == station and facility.keeper ~= "" then
             local keeper = ctx.get(facility.keeper, "keeper")
             local text
-            if id == exchange then
+            local says = project.line(ctx, facility.keeper, hold, station)
+            if says then
+                text = says
+            elseif id == exchange then
                 local wanted = {}
                 for _, line in trade.lines(ctx, id) do
                     local market = ctx.get(line, "market")
@@ -83,6 +90,8 @@ function voices.refresh(ctx, station, hold, sold, need)
                 text = keeper.idle
             elseif facility.fits then
                 text = nil -- the fitter's line follows the last fit (cradle.luau)
+            elseif ctx.get(id, "build") then
+                text = keeper.idle -- a built site's keeper (the greenhouse's grower)
             else
                 text = voices.master(left, build and need or 0, build and build.ware or "", build and string.lower(build.name) or "")
                 if not build then
@@ -96,6 +105,7 @@ function voices.refresh(ctx, station, hold, sold, need)
         end
     end
     voices.gifts(ctx, station, hold)
+    project.offers(ctx, station, hold)
 end
 
 -- An answered gift's talk is put away and the keeper's everyday talk comes back.
@@ -112,6 +122,10 @@ function voices.retire(ctx)
         local gift = ctx.get(id, "gift")
         if gift.answered and ctx.get(id, "engine.talk").enabled then put_away(ctx, id, gift) end
     end
+    -- A project's offer answered or no longer due gives way to the everyday talk, and
+    -- the next one due comes on (project.offers).
+    local station = places.docked(ctx)
+    if station then project.offers(ctx, station, ctx.get("ship", "hold")) end
 end
 
 -- A keeper's unanswered gift is on offer, in place of their everyday talk, while they

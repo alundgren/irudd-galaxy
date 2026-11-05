@@ -25,8 +25,9 @@ local rules = {
     -- A docking counts as a visit only after the ship has flown this far from the
     -- berth it last left, mined, or docked somewhere else.
     AWAY = 20,
-    -- The goods a hold carries, in the order screens list them.
-    WARES = { "ore", "ice", "glassite", "plate", "rations" },
+    -- The goods a hold carries, in the order screens list them. Panes are only ever
+    -- carried for someone (scripts/project.luau): no market trades them.
+    WARES = { "ore", "ice", "glassite", "plate", "rations", "panes" },
 }
 
 function rules.distance2(a, b)

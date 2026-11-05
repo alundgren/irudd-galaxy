@@ -1,0 +1,8 @@
+about = "Noor Hale, the grower: an earth-brown coat, a sage apron and a wide straw hat"
+palette = { main = "#8a5a3a", trim = "#3b3550", accent = "#8fbf7a", skin = "#b9805e", hair = "#2e1e1a", hat = "#e9c46a" }
+[[part]]
+name = "body"
+use = "figure"
+[[part]]
+name = "face"
+use = "head_noor"

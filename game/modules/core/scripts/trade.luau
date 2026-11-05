@@ -32,11 +32,12 @@ function trade.station_lines(ctx, station)
     return found
 end
 
--- What `station` is still building, if anything: its site's ID and build.
+-- What `station` is still building, if anything: its site's ID and build. A build still
+-- waiting on a project's earlier steps (scripts/project.luau) isn't under way yet.
 function trade.building(ctx, station)
     for _, id in ctx.query("build") do
         local build = ctx.get(id, "build")
-        if build.station == station and not build.done then return id, build end
+        if build.station == station and not build.done and not build.waiting then return id, build end
     end
     return nil, nil
 end

@@ -13,6 +13,7 @@ local undock = require("./launch")
 local kit = require("./kit")
 local layout = require("./layout") -- room panels are layout.ROOM wide: at most about 45% of the view
 local places = require("./places")
+local project = require("./project")
 
 -- On the cradle the ship lies nose to the back left, its sockets turned to the camera.
 local CRADLE_ANGLE = 2.3
@@ -32,11 +33,13 @@ local function moor(ctx, station)
     ctx.patch("ship", "engine.position", { angle = berth.angle })
 end
 
--- The station's buildings, in key order.
+-- The station's buildings, in key order. A hidden one isn't there yet: a project
+-- (scripts/project.luau) stakes it out when the player takes it on.
 local function facilities(ctx, station)
     local list = {}
     for _, id in ctx.query("facility") do
-        if ctx.get(id, "facility").station == station then table.insert(list, id) end
+        local facility = ctx.get(id, "facility")
+        if facility.station == station and not facility.hidden then table.insert(list, id) end
     end
     table.sort(list, function(a, b) return ctx.get(a, "facility").order < ctx.get(b, "facility").order end)
     return list
@@ -58,7 +61,7 @@ local function open(event, ctx)
     if not station then return end
     local id = event.payload.facility or ctx.get(station, "port").exchange
     local facility = ctx.get(id, "facility")
-    if not facility or facility.station ~= station or pilot.room == id then return end
+    if not facility or facility.hidden or facility.station ~= station or pilot.room == id then return end
     signs.hush(ctx) -- leaving a place ends what is being said there
     ctx.patch("ship", "pilot", { room = id, sale = 0, deal = "", chosen_part = "", log_open = false, gliding = true })
     -- The cut: a short dip to the room's title card, and the player is in the room. The
@@ -97,9 +100,29 @@ local function launch(event, ctx)
     if station then undock.launch(ctx, station) end
 end
 
+-- A keeper arriving mid-day starts at the first act of their day, whatever the shared
+-- clock reads: the clock picks an act by its value (each act lasts one unit), so the
+-- day's acts are turned round until the one it picks is the first. `ahead` is how far
+-- the caller has just moved the clock on (its reads still see the old value). Returns
+-- the act to start from.
+local function first_act(ctx, first, ahead)
+    local chain, act = {}, first
+    while act ~= "" and #chain < 16 do
+        table.insert(chain, act)
+        act = ctx.get(act, "engine.act").next or ""
+    end
+    local clock = ctx.get("day", "engine.clock")
+    local shift = clock and ((clock.value or 0) + ahead) % #chain or 0
+    if shift == 0 then return first end
+    local turned = {}
+    for i = 1, #chain do turned[i] = chain[(i - 1 - shift) % #chain + 1] end
+    for i, id in turned do ctx.patch(id, "engine.act", { next = turned[i + 1] or "" }) end
+    return turned[1]
+end
+
 -- The site becomes its room: the finished building on the deck, its room furnished,
 -- its keeper arriving to work in it, and the goods they trade.
-local function build_up(ctx, site, build)
+local function build_up(ctx, site, build, ahead)
     local station = build.station
     ctx.patch(site, "engine.model", { model = build.model })
     ctx.patch(site, "facility", { name = build.name, keeper = build.keeper, offer = build.offer })
@@ -107,13 +130,14 @@ local function build_up(ctx, site, build)
     local keeper = build.keeper
     local act = keeper .. "_act"
     local plan = ctx.get(act, "engine.act")
+    local first = first_act(ctx, act, ahead)
     ctx.put(keeper, "engine.being", {})
     ctx.put(keeper, "engine.location", { place = plan.place, spot = plan.spot })
     ctx.put(keeper, "engine.position", { angle = plan.angle })
     ctx.put(keeper, "engine.model", { model = ctx.get(keeper, "keeper").figure, look = "core.prop" })
     -- The sale that builds it happens in another room; the new keeper's sign goes up
     -- once the player is about again (signs.show).
-    ctx.put(keeper, "engine.life", { clock = "core.day", first = act, speed = 1.6, presentation = "instant", name = "" })
+    ctx.put(keeper, "engine.life", { clock = "core.day", first = first, speed = 1.6, presentation = "instant", name = "" })
     -- Their thanks for the building goes on offer once the introduction is heard; the
     -- sale that built it left room in the hold.
     for _, id in ctx.query("gift") do
@@ -160,8 +184,11 @@ local function sell(event, ctx)
     if #sold == 0 then return end
     local what = table.concat(sold, " and ")
     local text = "Sold " .. what .. " to " .. port.name .. " for " .. earned .. " cr."
+    -- The keeper takes it in: stacks the crates, stokes the kiln. The day moves on before
+    -- a new keeper arrives, so they start their day at its first act.
+    trade.day(ctx)
     if grew then
-        build_up(ctx, site, build)
+        build_up(ctx, site, build, 1)
         text ..= " The " .. string.lower(build.name) .. " is built: " .. ctx.get(build.keeper, "keeper").name .. " " .. build.offer .. " there."
         ctx.record("grown", { station = station, site = site })
     elseif into > 0 then
@@ -169,11 +196,15 @@ local function sell(event, ctx)
             .. (build.given + into) .. " of " .. build.need .. "."
     end
     ctx.put("ship", "hold", hold)
+    if grew then
+        -- A project's build: its people react, and the station holds its happening.
+        local note = project.grown(ctx, site)
+        if note then text ..= " " .. note end
+    end
     local deal = "Sold " .. what .. "." .. (grew and " The " .. string.lower(build.name) .. " is built!" or "")
     ctx.patch("ship", "pilot", { credits = pilot.credits + earned, sale = earned, deal = deal })
     voices.refresh(ctx, station, hold, earned, build and build.need - build.given - into or 0)
     log.add(ctx, text)
-    trade.day(ctx) -- the keeper takes it in: stacks the crates, stokes the kiln
     ctx.record("sold", { units = count, credits = earned, station = station })
 end
 
@@ -354,7 +385,7 @@ local function trade_rows(ctx, ui, station, pilot, children)
     local capacity = fit.hold(ctx)
     -- What you bring to the table: credits and the hold, as the status chip shows them.
     local load = rules.load(hold) .. "/" .. capacity
-    local aboard = " aboard: " .. rules.list(hold)
+    local aboard = " aboard: " .. project.carried(ctx, hold)
     table.insert(children, ui.row { id = "ledger", gap = 8, children = {
         ui.text { id = "ledger_credits", width = 110, icon = "credits", size = kit.SIZE.body, cue = "flash",
             spans = { { text = pilot.credits .. " cr", look = kit.LOOK.figure } } },
@@ -394,6 +425,7 @@ local function office_rows(ctx, ui, station, children)
     end
     for _, id in ctx.query("build") do
         local build = ctx.get(id, "build")
+        if build.waiting then continue end
         local where = ctx.get(build.station, "port").name
         local text = build.done and where .. "'s " .. string.lower(build.name) .. " is open."
             or where .. " is building a " .. string.lower(build.name) .. ": " .. build.given .. " of " .. build.need .. " " .. build.ware .. " in."
@@ -408,12 +440,20 @@ local function office_rows(ctx, ui, station, children)
         spans = { "Ore left in the field: ", { text = left .. " of " .. total, look = kit.LOOK.figure } } })
 end
 
+-- A site's room: what will be built and how far it has got. A site still waiting on a
+-- project's earlier steps says what comes first (`wait`); one under way, what builds it
+-- (`how`; the galley's words in a save from before builds carried them).
 local function site_rows(ui, build, children)
     table.insert(children, ui.text { id = "plan", width = INNER, size = kit.SIZE.body, text = "A " .. string.lower(build.name)
         .. " goes up here once the station has the " .. build.ware .. " for it." })
+    if build.waiting then
+        table.insert(children, ui.text { id = "wait", width = INNER, size = kit.SIZE.body, text = build.wait })
+        return
+    end
     table.insert(children, ui.text { id = "progress", size = 22, icon = kit.ware(build.ware), cue = "flash",
         spans = { { text = build.given .. " of " .. build.need, look = kit.LOOK.figure }, " " .. build.ware .. " in" } })
-    table.insert(children, ui.text { id = "how", width = INNER, size = kit.SIZE.small, text = "Plate sold at the exchange builds it. When it opens, a cook will sell rations here." })
+    local how = build.how ~= "" and build.how or "Plate sold at the exchange builds it. When it opens, a cook will sell rations here."
+    table.insert(children, ui.text { id = "how", width = INNER, size = kit.SIZE.small, text = how })
 end
 
 local function room_panel(ctx, ui, station, pilot)
@@ -443,6 +483,9 @@ local function room_panel(ctx, ui, station, pilot)
             site_rows(ui, site, children)
         elseif #trade.lines(ctx, pilot.room) > 0 then
             trade_rows(ctx, ui, station, pilot, children)
+        elseif site and site.built ~= "" then
+            -- A built room nothing is traded in says what goes on there.
+            table.insert(children, ui.text { id = "built", width = INNER, size = kit.SIZE.body, text = site.built })
         else
             office_rows(ctx, ui, station, children)
         end
@@ -462,6 +505,7 @@ end
 local function about(ctx, id)
     local facility = ctx.get(id, "facility")
     local site = ctx.get(id, "build")
+    if site and site.waiting then return facility.name .. " · " .. facility.offer end
     if site and not site.done then
         return facility.name .. " · " .. site.given .. " of " .. site.need .. " " .. site.ware .. " in"
     end
@@ -479,8 +523,9 @@ end
 
 -- The docked HUD along the bottom: the log's book (logbook.luau) bottom left, the key
 -- centred and Launch bottom right. KEY wide icons, KEY_GAP apart, and a LAUNCH wide
--- button leave the key clear of both at 960x540 with three rooms (direction doc 3.1).
-local KEY, KEY_GAP, LAUNCH = 160, 10, 176
+-- button leave the key clear of both at 960x540 with three rooms (direction doc 3.1);
+-- with four, each is KEY_FOUR wide and shows its name alone, so "Greenhouse" fits unbroken.
+local KEY, KEY_FOUR, KEY_GAP, LAUNCH = 160, 128, 10, 176
 
 local function overview(ctx, ui, station, pilot)
     local port = ctx.get(station, "port")
@@ -495,7 +540,9 @@ local function overview(ctx, ui, station, pilot)
     }
     local key = {}
     local talking = signs.speaking(ctx) ~= nil
-    for _, id in facilities(ctx, station) do
+    local rooms = facilities(ctx, station)
+    local wide = #rooms > 3 and KEY_FOUR or KEY
+    for _, id in rooms do
         local facility = ctx.get(id, "facility")
         local text = about(ctx, id)
         -- Signs rest while the view glides or someone speaks, so they never crowd the
@@ -509,10 +556,11 @@ local function overview(ctx, ui, station, pilot)
             on = "open", payload = { facility = id } })
         -- Its key icon: dark like the rest of the HUD, so the gold signs on the station
         -- and Launch stand out as the things to press.
-        table.insert(key, kit.button(ui, { id = "key_" .. short(id), width = KEY, size = kit.SIZE.small, icon = key_icon(ctx, id, facility),
+        table.insert(key, kit.button(ui, { id = "key_" .. short(id), width = wide, size = kit.SIZE.small,
+            icon = #rooms <= 3 and key_icon(ctx, id, facility) or nil,
             text = facility.name, hover = text, on = "open", payload = { facility = id } }, "dark"))
     end
-    table.insert(children, ui.row { id = "key", align = "bottom", y = layout.M, width = #key * (KEY + KEY_GAP) - KEY_GAP, gap = KEY_GAP,
+    table.insert(children, ui.row { id = "key", align = "bottom", y = layout.M, width = #key * (wide + KEY_GAP) - KEY_GAP, gap = KEY_GAP,
         children = key })
     table.insert(children, kit.button(ui, { id = "launch", align = "bottom-right", x = layout.M, y = layout.M, width = LAUNCH,
         icon = "ship", text = "Launch · U", hover = "Fly off from the berth: U, or just fly with W, A, S or D", on = "launch" }, "primary"))

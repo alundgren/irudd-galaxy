@@ -316,7 +316,9 @@ ore = { left = 4, total = 4, ware = "glassite", stages = "core.glassite core.gla
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = -24, y = -18 }
 "engine.body" = { fixed = true }
-"engine.model" = { model = "core.station", look = "core.station", scale = 1.35 }
+# Its greenhouse is a bare plot until Ines's greenhouse is built (scripts/project.luau),
+# then the station wears its glowing dome (core.station).
+"engine.model" = { model = "core.station_early", look = "core.station", scale = 1.35 }
 # Steam off the kettle cap on its tiers, drifting north-east.
 "engine.emitter" = { recipe = "core.steam", height = 5.2, angle = 60, rate = 0.5 }
 # Its name, under the ring, in flight (scripts/hud.luau).
@@ -523,6 +525,193 @@ gift = { ware = "rations", units = 1, take = "core.lantern_cook_gift_take", inst
 
 [entities.lantern_cook_gift3]
 "engine.talk_line" = { text = "There. It's in your hold." }
+
+# After the galley: Ines's greenhouse (scripts/project.luau). Once her gift is answered
+# she asks for one (Accept / Not now); Sefa at Cinder Kiln fires its panes from glassite
+# the player brings her, ready on the Kiln's next counted visit; the player carries them
+# to Ines as her cargo; glaziers raise it on the deck while ice for its beds is sold at
+# the exchange; then Noor Hale grows greens in it, and Lantern Dock holds a lamp night.
+[entities.greenhouse_job]
+project = { giver = "core.lantern_cook", after = "core.lantern_cook_gift", maker = "core.kiln_trader", maker_act = "core.kiln_trader_act2", maker_state = "stoking the kiln", planner = "core.lantern_master", ware = "glassite", need = 4, cargo = "panes", units = 4, site = "core.lantern_greenhouse", plot = "core.greenhouse_plot", step = 1, exterior = "core.lantern_exterior", exterior_model = "core.station", thanks = "core.lantern_cook_thanks", giver_idle = "Noor's greens go in every pot now." }
+
+# Ines asks, once her gift is answered. "Not now" leaves it for the next docking.
+[entities.greenhouse_ask]
+"engine.talk" = { speaker = "core.lantern_cook", first = "core.greenhouse_ask1", width = 420, x = -150, enabled = false, title = "Ines Varga", subtitle = "Cook" }
+offer = { project = "core.greenhouse_job", step = 1, take = "core.greenhouse_ask_yes", instead = "core.lantern_cook_talk" }
+
+[entities.greenhouse_ask1]
+"engine.talk_line" = { text = "The crews are tired of plain rations.", next = "core.greenhouse_ask2" }
+
+[entities.greenhouse_ask2]
+"engine.talk_line" = { text = "A greenhouse would give me greens.", next = "core.greenhouse_ask3" }
+
+[entities.greenhouse_ask3]
+"engine.talk_line" = { text = "Sefa at the Kiln can fire its panes.", next = "core.greenhouse_ask4" }
+
+[entities.greenhouse_ask4]
+"engine.talk_line" = { text = "Will you help me build one?" }
+
+[entities.greenhouse_ask_yes]
+"engine.talk_choice" = { line = "core.greenhouse_ask4", text = "Accept", next = "core.greenhouse_ask5", order = 1 }
+
+[entities.greenhouse_ask_no]
+"engine.talk_choice" = { line = "core.greenhouse_ask4", text = "Not now", order = 2 }
+
+[entities.greenhouse_ask5]
+"engine.talk_line" = { text = "Thank you! She'll want glassite for them." }
+
+# Sefa takes the glassite for the panes, when the player carries enough.
+[entities.greenhouse_glassite]
+"engine.talk" = { speaker = "core.kiln_trader", first = "core.greenhouse_glassite1", width = 420, x = -150, enabled = false, title = "Sefa Lind", subtitle = "Exchange keeper" }
+offer = { project = "core.greenhouse_job", step = 2, take = "core.greenhouse_glassite_yes", instead = "core.kiln_trader_talk" }
+
+[entities.greenhouse_glassite1]
+"engine.talk_line" = { text = "Ines wants panes for a greenhouse.", next = "core.greenhouse_glassite2" }
+
+[entities.greenhouse_glassite2]
+"engine.talk_line" = { text = "Will you give me 4 glassite for them?" }
+
+[entities.greenhouse_glassite_yes]
+"engine.talk_choice" = { line = "core.greenhouse_glassite2", text = "Hand it over", next = "core.greenhouse_glassite3", order = 1 }
+
+[entities.greenhouse_glassite_no]
+"engine.talk_choice" = { line = "core.greenhouse_glassite2", text = "Not now", order = 2 }
+
+[entities.greenhouse_glassite3]
+"engine.talk_line" = { text = "Into the kiln. Glass cools slowly.", next = "core.greenhouse_glassite4" }
+
+[entities.greenhouse_glassite4]
+"engine.talk_line" = { text = "Come back after your next trip out." }
+
+# Sefa's panes are ready: loading them is an offer, and they stay Ines's.
+[entities.greenhouse_panes]
+"engine.talk" = { speaker = "core.kiln_trader", first = "core.greenhouse_panes1", width = 420, x = -150, enabled = false, title = "Sefa Lind", subtitle = "Exchange keeper" }
+offer = { project = "core.greenhouse_job", step = 4, take = "core.greenhouse_panes_yes", instead = "core.kiln_trader_talk" }
+
+[entities.greenhouse_panes1]
+"engine.talk_line" = { text = "Ines's panes are cool and packed.", next = "core.greenhouse_panes2" }
+
+[entities.greenhouse_panes2]
+"engine.talk_line" = { text = "Will you carry them to her?" }
+
+[entities.greenhouse_panes_yes]
+"engine.talk_choice" = { line = "core.greenhouse_panes2", text = "Load them", next = "core.greenhouse_panes3", order = 1 }
+
+[entities.greenhouse_panes_no]
+"engine.talk_choice" = { line = "core.greenhouse_panes2", text = "Not now", order = 2 }
+
+[entities.greenhouse_panes3]
+"engine.talk_line" = { text = "Mind them: they're hers, not for sale." }
+
+# Ines takes her panes, and the glaziers start.
+[entities.greenhouse_deliver]
+"engine.talk" = { speaker = "core.lantern_cook", first = "core.greenhouse_deliver1", width = 420, x = -150, enabled = false, title = "Ines Varga", subtitle = "Cook" }
+offer = { project = "core.greenhouse_job", step = 5, take = "core.greenhouse_deliver_yes", instead = "core.lantern_cook_talk" }
+
+[entities.greenhouse_deliver1]
+"engine.talk_line" = { text = "You've brought my panes!", next = "core.greenhouse_deliver2" }
+
+[entities.greenhouse_deliver2]
+"engine.talk_line" = { text = "Shall I take them now?" }
+
+[entities.greenhouse_deliver_yes]
+"engine.talk_choice" = { line = "core.greenhouse_deliver2", text = "Hand them over", next = "core.greenhouse_deliver3", order = 1 }
+
+[entities.greenhouse_deliver_no]
+"engine.talk_choice" = { line = "core.greenhouse_deliver2", text = "Not now", order = 2 }
+
+[entities.greenhouse_deliver3]
+"engine.talk_line" = { text = "The glaziers can start right away.", next = "core.greenhouse_deliver4" }
+
+[entities.greenhouse_deliver4]
+"engine.talk_line" = { text = "The beds will want ice to drink." }
+
+# Once it stands, Ines thanks the player, once.
+[entities.lantern_cook_thanks]
+"engine.talk" = { speaker = "core.lantern_cook", first = "core.lantern_cook_thanks1", width = 420, x = -150, story = true, enabled = false, title = "Ines Varga", subtitle = "Cook" }
+
+[entities.lantern_cook_thanks1]
+"engine.talk_line" = { text = "You did it. A greenhouse on our deck!", next = "core.lantern_cook_thanks2" }
+
+[entities.lantern_cook_thanks2]
+"engine.talk_line" = { text = "Noor will bring me greens every day.", next = "core.lantern_cook_thanks3" }
+
+[entities.lantern_cook_thanks3]
+"engine.talk_line" = { text = "Come and eat when you pass by." }
+
+# The greenhouse: not on the station until Ines's job is taken on. Then a staked plot
+# (the job's `plot`), a scaffold with glaziers once her panes are in, and the
+# greenhouse itself once ice for its beds is sold at the exchange (scripts/project.luau).
+[entities.lantern_greenhouse]
+"engine.being" = {}
+"engine.location" = { place = "core.lantern" }
+"engine.position" = { x = -6.2, y = -7.4, angle = -1.5707963267948966 }
+# Signed in front of its dome, clear of the Exchange above it.
+"engine.anchor" = { name = "sign", height = 0.0, x = 4.6 }
+facility = { station = "core.lantern", name = "Greenhouse", keeper = "", offer = "staked out for Ines's panes", order = 4, place = "core.lantern_greenhouse_room", hidden = true }
+build = { station = "core.lantern", ware = "ice", need = 12, name = "Greenhouse", offer = "grows greens", keeper = "core.lantern_grower", model = "core.greenhouse", room_model = "core.lantern_greenhouse_room", site_model = "core.greenhouse_site", waiting = true, wait = "Ines's panes come first: Sefa at Cinder Kiln fires them from glassite.", how = "Ice sold at the exchange waters its beds. When it opens, a grower will keep it.", built = "Noor's beds grow greens for Ines's galley, watered with the ice the station buys." }
+
+# Where the glaziers work while it goes up: one carries panes from the crates to the frame.
+[entities.lantern_glaziers_a]
+"engine.spot" = { place = "core.lantern", name = "glaziers_a" }
+
+[entities.lantern_glaziers_b]
+"engine.spot" = { place = "core.lantern", name = "glaziers_b" }
+
+[entities.lantern_glaziers_c]
+"engine.spot" = { place = "core.lantern", name = "glaziers_c" }
+
+# The grower arrives when the greenhouse is built; until then only their name is known.
+# Their day: tending the beds, then bringing greens to Ines in the galley.
+[entities.lantern_grower]
+keeper = { name = "Noor Hale", idle = "The beds drink a lot of ice.", figure = "core.person_noor" }
+
+[entities.lantern_grower_act]
+"engine.act" = { place = "core.lantern_greenhouse_room", spot = "core.lantern_greenhouse_room_beds", angle = -1.2, state = "tending the beds", next = "core.lantern_grower_act2" }
+
+[entities.lantern_grower_act2]
+"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_table", angle = -1.5707963267948966, state = "bringing greens" }
+
+# Said once: the first click introduces the keeper.
+[entities.lantern_grower_intro]
+"engine.talk" = { speaker = "core.lantern_grower", first = "core.lantern_grower_intro1", width = 420, x = -150, story = true, title = "Noor Hale", subtitle = "Grower" }
+
+[entities.lantern_grower_intro1]
+"engine.talk_line" = { text = "I'm Noor. I grow things.", next = "core.lantern_grower_intro2" }
+
+[entities.lantern_grower_intro2]
+"engine.talk_line" = { text = "Ines sent for me when the glass went up.", next = "core.lantern_grower_intro3" }
+
+[entities.lantern_grower_intro3]
+"engine.talk_line" = { text = "Her pot gets greens every day now." }
+
+# After that, one short line (scripts/voices.luau).
+[entities.lantern_grower_talk]
+"engine.talk" = { speaker = "core.lantern_grower", first = "core.lantern_grower_now", width = 420, x = -150, title = "Noor Hale", subtitle = "Grower" }
+
+[entities.lantern_grower_now]
+"engine.talk_line" = { text = "The beds drink a lot of ice." }
+
+# The greenhouse inside: glass in the back wall, beds of greens, a potting bench. Bare
+# walls and a scaffold until it is built.
+[entities.lantern_greenhouse_room]
+"engine.place" = { parent = "core.lantern", arrival = "core.lantern_greenhouse_room_entry", width = 9, depth = 6 }
+"engine.room" = { title = "Greenhouse · Lantern Dock", fov = 30 }
+"engine.model" = { model = "core.lantern_greenhouse_site_room", look = "core.prop" }
+
+[entities.lantern_greenhouse_room_entry]
+"engine.spot" = { place = "core.lantern_greenhouse_room", name = "entry" }
+
+[entities.lantern_greenhouse_room_beds]
+"engine.spot" = { place = "core.lantern_greenhouse_room", name = "beds" }
+
+[entities.lantern_greenhouse_room_bench]
+"engine.spot" = { place = "core.lantern_greenhouse_room", name = "bench" }
+
+# Lamp night (direction doc 3.3): when the greenhouse is built, Lantern Dock hangs lamp
+# strings on its deck for three dockings, and Bram says why.
+[entities.lantern_lamp_night]
+happening = { station = "core.lantern", site = "core.lantern_greenhouse", speaker = "core.lantern_master", line = "Every lamp's lit tonight, for the greenhouse.", cause = "Lamp night: Lantern Dock lights every lamp for its greenhouse.", props = "lampnight1 lampnight2 lampnight3", at = "-10.5,1.5 10.8,-4.0 -3.8,9.8" }
 
 [entities.lantern_skiff]
 "engine.being" = {}

@@ -62,6 +62,8 @@ ice = "int"
 glassite = "int"
 plate = "int"
 rations = "int"
+# Only ever carried for someone (a project's cargo): no market trades it.
+panes = "int"
 
 [components.held]
 ahead = "bool"
@@ -121,6 +123,15 @@ keeper = "id"
 model = "text"
 # The set its room becomes once built.
 room_model = "text"
+# A project's build (scripts/project.luau) waits on the project's earlier steps: until
+# then it takes nothing, isn't posted or pinned, and its room says `wait`. Once under way
+# it wears `site_model` (the scaffold), and its room says `how` it is built.
+waiting = "bool"
+wait = "text"
+how = "text"
+site_model = "text"
+# What its room says once built, when nothing is traded there ("" for a room that trades).
+built = "text"
 
 [components.facility]
 station = "id"
@@ -133,6 +144,8 @@ order = "int"
 place = "id"
 # A fitting cradle: its room fits parts to the ship (scripts/cradle.luau).
 fits = "bool"
+# Not on the station yet: a project stakes it out when the player takes it on.
+hidden = "bool"
 
 # A part for the ship's fit (scripts/fit.luau): which socket it goes in, what it
 # costs, draws and weighs, and what it adds. `effect` says it in plain words, and
@@ -231,6 +244,62 @@ instead = "id"
 answered = "bool"
 # The offer has been said to the player: the log pins it until it is answered.
 heard = "bool"
+
+# A job someone gives the player, in steps (scripts/project.luau has them): the giver
+# asks once `after` (her gift) is answered; the maker turns `need` `ware` into `units`
+# `cargo` for the giver, ready on her station's next counted visit after `fired`; carried
+# to the giver, it lets `site`'s build start. The planner (the dockmaster) stakes the
+# plot. `maker_act` is the maker's act whose state says what she is doing for it, back to
+# `maker_state` after. When it is done, `exterior` wears `exterior_model`, the giver's
+# `thanks` go on offer and her everyday line becomes `giver_idle`.
+[components.project]
+giver = "id"
+after = "id"
+maker = "id"
+maker_act = "id"
+maker_state = "text"
+planner = "id"
+ware = "text"
+need = "int"
+cargo = "text"
+units = "int"
+site = "id"
+plot = "text"
+step = "int"
+fired = "int"
+exterior = "id"
+exterior_model = "text"
+thanks = "id"
+giver_idle = "text"
+
+# A project's offer, in a talk (the talk entity carries this): on while the project is
+# at `step` and what it needs holds. `take` is the answer that moves the project on; any
+# other sets the offer aside (`later`) until the next docking. `instead` is the
+# speaker's everyday talk, resting while the offer is on. `heard` once said: the log
+# pins it until it is answered.
+[components.offer]
+project = "id"
+step = "int"
+take = "id"
+instead = "id"
+heard = "bool"
+later = "bool"
+
+# Something that happens at a station for a while (direction doc 3.3): its `cause` (the
+# words logged when it begins and on each docking it lasts), the first-person `line` its
+# `speaker` says meanwhile, and how many dockings at the station it has `left`. It starts
+# when `site` is built; `props` (entity names) are hung on the station meanwhile, each at
+# its place in `at` ("x,y" on the station's floor, in the same order), and taken down
+# when it ends.
+[components.happening]
+station = "id"
+site = "id"
+speaker = "id"
+line = "text"
+cause = "text"
+props = "text"
+at = "text"
+left = "int"
 
 [components.skiff]
 a = "id"
