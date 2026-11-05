@@ -1,12 +1,14 @@
 -- The ship's radio: each station broadcasts a channel with a range, and in flight the
--- radio plays one at the bottom right with its signal, a ticker of what the station
--- says, and Prev, Off and Next (R). Once a second it measures every channel and keeps
+-- radio plays one, shown as a slim dark strip at the top left, out of the work area:
+-- the channel and its signal beside Prev, Off and Next (R), and under them a ticker of
+-- what the station says. Once a second it measures every channel and keeps
 -- the one it has until that is clearly lost or another is clearly and steadily
 -- stronger (signal.luau), so it never flickers between stations. Docked, it falls
 -- quiet under the station's own sound. Its music is cued by recorded events
 -- (audio.toml), so the same channel plays the same track in every save.
 local signal = require("./signal")
 local layout = require("./layout")
+local kit = require("./kit")
 
 local function channels(ctx)
     local ids = ctx.query("channel")
@@ -134,19 +136,33 @@ local function panel(ctx, ui, radio)
     if not radio.on then
         name, ticker = "Radio off", "Press On or R to listen again."
     elseif radio.channel ~= "" then
-        name, level = ctx.get(radio.channel, "channel").name, radio.level
+        -- The strip's radio icon says what it is, so the channel goes by its station.
+        name, level = (string.gsub(ctx.get(radio.channel, "channel").name, " radio$", "")), radio.level
         ticker = bits(ctx, radio.channel)[radio.bit] or ""
     end
-    return ui.panel { id = "radio", align = "bottom-right", x = layout.M, y = layout.M, width = layout.RADIO, gap = 8, children = {
-        ui.text { id = "radio_name", text = name, size = 20, height = 26 },
-        ui.text { id = "radio_signal", text = signal.shown(level, radio.on), size = 16 },
-        ui.text { id = "radio_ticker", text = ticker, size = 16, height = 44 },
-        ui.row { id = "radio_buttons", gap = 8, children = {
-            ui.button { id = "radio_prev", text = "Prev", width = 56, height = 44, pad = 6, on = "radio", payload = { tune = "prev" } },
-            ui.button { id = "radio_toggle", text = radio.on and "Off" or "On", width = 48, height = 44, pad = 6, on = "radio", payload = { tune = "toggle" } },
-            ui.button { id = "radio_next", text = "Next · R", width = 96, height = 44, pad = 6, on = "radio", payload = { tune = "next" } },
-        } },
-    } }
+    local inner = layout.RADIO - 16
+    local bars = kit.bars(signal.lit(level, radio.on), #signal.WORDS)
+    table.insert(bars, "  " .. signal.word(level, radio.on))
+    local function control(id, icon, text, width, hover, tune)
+        return kit.button(ui, { id = id, icon = icon, text = text, width = width, height = 44, pad = 6, size = kit.SIZE.small,
+            hover = hover, on = "radio", payload = { tune = tune } }, "dark")
+    end
+    local controls = {
+        control("radio_prev", "prev", "Prev", 76, "The previous channel in range", "prev"),
+        control("radio_toggle", "switch", radio.on and "Off" or "On", 68, radio.on and "Turn the radio off" or "Turn the radio on", "toggle"),
+        control("radio_next", "next", "Next · R", 100, "The next channel in range, then off", "next"),
+    }
+    return ui.panel { id = "radio", look = kit.LOOK.radio, align = "top-left", x = layout.M, y = layout.M,
+        width = layout.RADIO, gap = 4, children = {
+            ui.row { id = "radio_top", gap = 8, children = {
+                ui.column { id = "radio_tuned", width = inner - 76 - 68 - 100 - 12 - 8, gap = 0, children = {
+                    ui.text { id = "radio_name", icon = "radio", text = name, size = kit.SIZE.small },
+                    ui.text { id = "radio_signal", spans = bars, size = kit.SIZE.small },
+                } },
+                ui.row { id = "radio_buttons", gap = 6, children = controls },
+            } },
+            ui.text { id = "radio_ticker", width = inner, text = ticker, size = kit.SIZE.small, cue = "flash" },
+        } }
 end
 
 return {

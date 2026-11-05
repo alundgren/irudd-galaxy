@@ -33,7 +33,7 @@ local function launch(ctx, station)
     ctx.patch("ship", "engine.position", { angle = outward(berth.angle) })
     ctx.put("ship", "engine.body", { mass = 1 })
     ctx.patch("ship", "engine.model", { scale = 1 })
-    log.add(ctx, "Launched from " .. port.name .. ".")
+    log.leave(ctx, "Launched from " .. port.name .. ".")
 end
 
 return { docked = docked, launch = launch }

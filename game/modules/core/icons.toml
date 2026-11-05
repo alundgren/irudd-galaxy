@@ -1,0 +1,32 @@
+# The core's drawn icons (direction doc 1.5): simple shapes in the ink style, tinted
+# with the ink of whatever they sit in (black on light, white on dark) unless painted.
+# Wares, parts and controls each have one, so a row reads at a glance. Pick them by
+# name with `icon = "<name>"` (or kit.icon); kit.luau maps wares and parts to these.
+[icons]
+book = { svg = "icons/book.svg" }
+credits = { svg = "icons/credits.svg", painted = true }
+hold = { svg = "icons/hold.svg" }
+ore = { svg = "icons/ore.svg" }
+ice = { svg = "icons/ice.svg" }
+glassite = { svg = "icons/glassite.svg" }
+plate = { svg = "icons/plate.svg" }
+rations = { svg = "icons/rations.svg" }
+power = { svg = "icons/power.svg" }
+mass = { svg = "icons/mass.svg" }
+dock = { svg = "icons/dock.svg" }
+radio = { svg = "icons/radio.svg" }
+back = { svg = "icons/back.svg" }
+prev = { svg = "icons/prev.svg" }
+next = { svg = "icons/next.svg" }
+switch = { svg = "icons/switch.svg" }
+lens = { svg = "icons/lens.svg" }
+pods = { svg = "icons/pods.svg" }
+thrusters = { svg = "icons/thrusters.svg" }
+controls = { svg = "icons/controls.svg" }
+warning = { svg = "icons/warning.svg" }
+up = { svg = "icons/up.svg" }
+down = { svg = "icons/down.svg" }
+check = { svg = "icons/check.svg" }
+ship = { svg = "icons/ship.svg" }
+station = { svg = "icons/station.svg" }
+pin = { svg = "icons/pin.svg" }

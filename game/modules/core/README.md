@@ -15,9 +15,9 @@ turn and their lamps breathe, steam drifts off the stacks, and the stars drift i
 as you fly. The field is finite (84 ore, 100 ice, 9 glassite); there is no timed
 objective.
 
-Use installed engine/GM 0.7.0 with the world effects (halos, `engine.emitter`,
-`[particles.*]`): this version was authored and verified with `0.7.0-074b385e9087-dev`.
-Older 0.7.0 builds lack the effects and refuse `engine.emitter`. No engine build is needed.
+Use installed engine/GM 0.8.0 or newer: the screen kit needs its named looks, rich
+text spans, drawn icons and UI motion, and the world needs the effects (halos,
+`engine.emitter`, `[particles.*]`). No engine build is needed.
 
 ```sh
 galaxy play --modules game/modules
@@ -201,9 +201,11 @@ and 1.05-1.15 pixels per world unit, the three layers.
 
 Each station broadcasts a channel (`channel` lines in `start.toml`): Lantern Dock
 radio and Cinder Kiln radio, each reaching 80 units, with full signal within the inner
-30% of that. In flight the radio sits at the bottom right: the channel's name, its
-signal as bars and a word that always agree (`|··  Faint`, `||·  Fair`, `|||  Strong`),
-the station's line on a ticker, and Prev, Off (On when off) and Next · R. Prev and Next
+30% of that. In flight the radio is a slim dark strip at the top left, out of the
+work area round the ship: the radio icon and the channel's station, its signal as
+gold bars and a word that always agree (one lit bar `Faint`, two `Fair`, three
+`Strong`), Prev, Off (On when off) and Next · R beside them, and the station's line
+on a ticker under them, which flashes softly when it changes. Prev and Next
 step through the channels in range and then Off; their look never changes. Docked, the
 radio hides and its music fades out under the station's own sound. Reopen a save
 taken in flight and the tuned channel's track fades in again on its own.
@@ -417,32 +419,88 @@ is full the offer waits, unanswered, and she says her everyday line instead.
 
 Each conversation you hear is one ship log entry that names the speaker and the
 station, with the lines quoted in order and any answer you gave (`You: Take it.`),
-even when something else is logged while you are still listening. A line already in the log isn't logged again. The log says it lists newest first.
+even when something else is logged while you are still listening. A line already in the log isn't logged again.
+
+The ship log (`scripts/log.luau` keeps the entries, `scripts/logbook.luau` draws it)
+is a small book button at the bottom left (`Log`, with a blue `N new` tag when
+something came in since you last looked); L or the book opens it at the top left.
+Pinned at the top is what is still waiting: an offer you heard and haven't answered
+(`OFFER`, under who made it and where, with its answers) and what a station you have
+docked at is building from your deliveries (`WANTED`: `3 of 10 plate in`). Pins
+outlast the 60 entries the log keeps: a heard offer is marked on its gift (`heard`),
+and a building's station counts its visits. Below, newest first, is one row per
+visit: `VISIT` (or `HERE` for the one going on now) with the station and Lines, then
+one short line of who you heard and what happened, each thing in its first few words
+and what doesn't fit counted (`Ines Varga · sold 6 ore +2 more`, at most 38
+characters). Every docking is a visit of its own, even back at the same station with
+nothing logged in between: the launch's entry ends the visit (`leaves` on `entry`).
+What happened in flight between two dockings is a `FLIGHT` line. Lines opens a visit
+to show its entries in full and in order, and Hide closes it. Each entry remembers
+where the ship was (`at` on `entry`), and the docking's own entry already belongs to
+the station it docks at. The open log is 380 pixels wide, so at 960x540 it ends short
+of the ship mid-window, moored or flying.
 
 ## Screens
 
-The screens follow the direction doc's screen language (`style.toml`), all with pure
-black text on light surfaces: parchment panels with a warm ink border and rounded
-corners for rooms, the status chip, the station plate, the log, the radio and the hint
-strip; mustard for anything you can press or pick up (orders, signs, the key, Sell,
-Back, Launch, the log button, the part cards); the panel with a dashed frame for a
-button that rests; white bubbles for speech; lantern-gold name signs on the people who
-speak; and cream paper for loose labels. Status sits top right with credits first, the
-small log button (`Log · L`) bottom left, the station plate top left when docked
-(the station's name, `Unclaimed`, as no faction holds a core station yet, and `Docked
-here`), the radio bottom right in flight, and one strip at the bottom in flight: the
-latest message, `Space · Mine` beside the one flight key still to learn (`W · fly
-ahead`), and `Dock at` either station, its posted prices on hover. In flight each
-station wears its name under it while it is in view, a `yield` label like the
-traders'. A trading room is a table with the columns Ware, Price each, Stock and Hold,
-each good's verbs under its row. Each log entry carries its kind as a word (`TALK`,
-`SHIP`), and each receipt a `CONFIRMED` tag. Amounts are black like all text; a gain
-or a loss shows by its sign and its word (`Paid`, `Spent`). The engine's screen style
-has one panel surface and one text colour, so the dark status chip and hint strip of
-the direction wait on the engine, and so do a book icon for the log button, an amber
-name mark on bubbles and a blue or vermilion mark beside an amount. Prices and stock are plain text, never
-buttons, and so are the fitting room's labels (`Empty`, `On the ship`, the sockets'
-names).
+The screens follow the direction doc's screen language through one kit: the looks in
+`style.toml` (`[screen]` and `[screen.looks.*]`), the drawn icons in `icons.toml` and
+`icons/`, and `scripts/kit.luau`, which every script uses to build a surface of a
+kind. Each kind of thing has its own look, so a glance tells them apart:
+
+| Kind | Look | Kit call |
+| --- | --- | --- |
+| Status (the HUD chip) | dark ink, lantern-gold border, white text | `kit.chip(ui, w)` |
+| A key hint | dark ink pill, thin gold frame | `kit.pill(ui, w)` |
+| A place (a room panel, the open log) | parchment, ink frame, soft shadow | `kit.place(ui, w)` |
+| A place's title | large and heavy | `kit.heading(ui, w)` |
+| The trade table | a lighter sheet in the place, ruled column heads | `kit.sheet(ui, w)`, `kit.heads(ui, { { "Ware", 160 }, ... })` |
+| A receipt | dark ticket with a gold `CONFIRMED` tag (or a sky-blue `NOTICE`) | `kit.ticket(ui, w, tag)` |
+| Speech | white bubble with an ink frame, the name on an amber tag | the engine's bubbles get it from `bubble_look`; `kit.bubble(ui, w)` for a panel |
+| A kind word (`JOB`, `OFFER`, `VISIT`) | ink capitals on a flat cream tag | `kit.tag(ui, word, w)` |
+| Buttons | primary mustard; secondary parchment; dark on the radio; resting dashed with its reason | `kit.button(ui, w, "primary" / "secondary" / "dark")`, `resting = "<reason>"` |
+| A warning | pale vermilion, vermilion frame, warning icon | `kit.warning(ui, w)` |
+| A gain or a loss | a black amount with a blue `+` or vermilion `-` mark (lighter tints on dark) | `spans = kit.amount(64, "cr")`, `kit.amount(n, unit, true)` on dark |
+| A name and a role | the name heavy with an amber rule, the role quieter | `spans = kit.name("Tova Reyes", "Exchange keeper")` |
+| A world label | a small dark tag | `kit.label(ui, w)` |
+
+Each builder takes the screen's `ui` and a widget table, sets the kind's look and
+returns the widget, so every other widget property still works; `kit.LOOK` names the
+looks and `kit.SIZE` the text sizes (title 28, heading 20, body 18, small 16). Icons:
+`book`, `credits` (a painted coin), `hold`, `ore`, `plate`, `rations`, `power`, `mass`,
+`dock`, `radio`, `back`, `prev`, `next`, `switch`, the parts `lens`, `pods`,
+`thrusters` and `controls`, and `warning`, `up`, `down`, `check`, `ship`, `station`,
+`pin`. All but the coin take the ink of what they sit in. `kit.ware(ware)` and
+`kit.part(socket)` give a ware's or a socket's part's icon; `kit.icon(ui, name, w)`
+draws one alone. Colours never appear in Luau: a new kind of surface is a new look in
+`style.toml`.
+
+Text is pure black on light and pure white on dark; the state colours of the direction
+doc only mark a shape beside the words. Motion is short and calm (`style.toml`):
+panels fade in over 0.16 s with an 8-pixel rise and out over 0.12 s, a button lifts
+1.5 pixels under the pointer and sinks as much when pressed, and a changed number or
+line (`cue = "flash"`) flashes pale gold, or a lighter plum on dark, for half a second.
+`galaxy play --reduced-motion` settles all of it at once.
+
+Where things sit: the status chip top right (credits with the coin beside the hold
+with the crate, then a row of each ware aboard with its icon; `scripts/chip.luau`
+gives every piece its own width, so all three wares fit and the chip stays two rows
+tall), the log's book bottom left, the radio
+top left in flight, the station plate top left when docked (the station's name,
+`Unclaimed`, as no faction holds a core station yet, and `Docked here`), and one strip
+at the bottom in flight: the latest message, `Space · Mine` beside the one flight key
+still to learn (`W · fly ahead`), and `Dock at` either station, its posted prices on
+hover. In flight each station wears its name under it while it is in view, a `yield`
+label like the traders'. A trading room is a table with the columns Ware, Price each,
+Stock and Hold, each good's verbs under its row, and each receipt a `CONFIRMED` tag.
+Prices and stock are plain text, never buttons, and so are the fitting room's labels
+(`Empty`, `On the ship`, the sockets' names). The rooms, the trade table, the hint
+strip, the station key and the talk around them still wear the base looks; they move
+onto the kit's looks in a later change.
+
+Measured on films of the headless trade route (`tests/trade.inputs`, 145 flight
+frames at each size, probes only): at 1280x720 and at 960x540 the ship is never
+under the radio, the status chip or the log's book (closest 293 and 146 pixels, from
+the radio), and neither is the rock being mined.
 
 ## The look
 
@@ -474,8 +532,8 @@ conversations. Messages report what happened, not how fast it happens.
 
 Each piece of a screen sits against a window edge with a 24-pixel margin
 (`scripts/layout.luau`), so the HUD holds at any window size and display scale:
-the design size is 1280x720 logical pixels, and everything also fits 1024x576
-(1280x720 on a display scaled to 125%). The room cameras frame each keeper so
+the design size is 1280x720 logical pixels, and everything also fits 960x540 (and
+1024x576, 1280x720 on a display scaled to 125%). The room cameras frame each keeper so
 their bubble clears the room's panel at both sizes.
 
 ## Design rules
@@ -571,7 +629,12 @@ can't be paid for, in the wrong socket or short of power doing nothing; the lens
 bought and fitted with one receipt and Orrin's line, taken off (the flight staying
 the locked preset) and fitted again for nothing; the next hold mined two a second; the
 pods making the hold 9, the ship 18 and 162° and its model the podded hull; the pods refused coming off with nine aboard,
-then taken off once sold). Play records
+then taken off once sold). `log-pins.toml` leaves Ines's offer unanswered, then makes
+32 quick launch-and-redock trips: the offer stays marked heard after its entry has
+been dropped, and each launch ends a visit. `tests/log.luau` checks visits (a return
+to the same station with nothing logged between is a new one), the short visit line,
+pins outlasting dropped entries and the open log's width at 960x540, and
+`tests/chip.luau` that every row of the chip fits with all three wares aboard. Play records
 `engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
 give them by hand where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
@@ -709,7 +772,6 @@ key has no news ribbons because nothing at a station changes on its own yet.
 The radio is the thinnest one too: two stations, one track each (an 18- and a
 21-second loop), three lines each, no lane beacons, no static at the edges and no
 news. Its ticker swaps to the next line without a fade, the engine hum doesn't yet
-follow thrust, and the radio shares the status panel's look; each waits on the
-engine. Ines's ration is the only offer so far, and
+follow thrust; each waits on the engine. Ines's ration is the only offer so far, and
 the only thing anyone gives. Further art and pacing changes wait for a human
 playtest.
