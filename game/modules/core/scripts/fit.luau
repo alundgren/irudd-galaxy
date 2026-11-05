@@ -100,15 +100,6 @@ function fit.change_list(p, parts, hull)
     return list
 end
 
--- The same changes in one line: "90 cr · mines 1 to 2 a second, better · power free 3 to 1".
-function fit.changes(p, parts, hull)
-    local words = {}
-    for _, c in fit.change_list(p, parts, hull) do
-        table.insert(words, c.text .. (c.good == nil and "" or c.good and ", better" or ", worse"))
-    end
-    return table.concat(words, " · ")
-end
-
 -- The short form a dragged part shows under "Drop here": its cost and what it gives.
 function fit.note(p)
     return (p.owned and "free" or p.price .. " cr") .. " · " .. fit.effect(p)

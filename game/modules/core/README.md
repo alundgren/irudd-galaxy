@@ -414,7 +414,8 @@ to the crate stack. A walk you leave in the middle finishes while you are away.
 - **Fitting cradle** (Cinder Kiln): Orrin Vale fits parts to the ship (below).
 
 Inside a room its keeper wears a name sign with what they are doing
-(`Tova Reyes · stacking crates`), and the open log hides it; while someone speaks
+(`Tova Reyes · stacking crates`), and the open log hides it. The fitter's also hides while a chosen part's preview
+shows, since their walk to the ship passes under its box. While someone speaks
 only they wear theirs, so a bubble always shows whose words it holds. Station
 names and room names never share a word.
 
@@ -487,7 +488,8 @@ the cutting lens`, then one line per change (`90 cr`, `Mines 1 to 2 a second + b
 `Power free 3 to 1`; a blue + for better, a vermilion - for worse), then `Put back`.
 The panel keeps its keeper's line and budgets, so the click way adds no height and
 the cradle still fits a 960x540 window; the longest preview (five changes) ends above
-the ship on its cradle there. Picking a part up tints every target at
+the ship on its cradle there. `Fit here` has no hover: the box says it all, and at
+960x540 the only room for a hover would be over the box. Picking a part up tints every target at
 once, sky blue with `Drop here` or vermilion with `Cannot drop:` and the
 reason in full: the wrong socket (`it goes in the drill mount`), power (`it needs
 2 power; 1 is free`), credits (`it costs 90 cr; you have 40`), or cargo that
