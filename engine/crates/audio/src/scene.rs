@@ -1,7 +1,8 @@
-use crate::bank::{Cue, Curve, Source};
+use crate::bank::{Cue, Curve, Source, UiSound};
 use crate::mixer::MAX_CHANNELS;
 use crate::{Action, Bank, Bus};
 use galaxy_api::command::Fields;
+use galaxy_api::ui::{UiAction, UiCue};
 use galaxy_api::{WorldView, engine};
 
 /// A new fact as the audio scene hears it: its kind, and the tick and `entity` that seed
@@ -41,6 +42,8 @@ pub struct Scene {
     fade: f32,
     /// The gain and rate last sent for the ambience (0) and each channel (1..).
     tuned: [Option<[f32; 2]>; MAX_CHANNELS + 1],
+    /// The screen-clock time of the last hover sound played.
+    last_hover: Option<f32>,
 }
 
 impl Scene {
@@ -50,7 +53,38 @@ impl Scene {
             ambience: None,
             fade: 1.0,
             tuned: [None; MAX_CHANNELS + 1],
+            last_hover: None,
         }
+    }
+
+    /// The sound a UI cue plays, if the modules give that widget one: a one-shot on the
+    /// sound bus. A hover within `hover_gap` of the last hover sound plays nothing, so a
+    /// pointer swept across a list ticks at most that often.
+    pub fn ui(&mut self, cue: &UiCue) -> Option<(Action, &str)> {
+        let sound = self
+            .bank
+            .ui
+            .sound(cue.action, &cue.kind, cue.look.as_deref())?;
+        if cue.action == UiAction::Hover {
+            if self
+                .last_hover
+                .is_some_and(|last| (cue.time - last).abs() < self.bank.ui.hover_gap)
+            {
+                return None;
+            }
+            self.last_hover = Some(cue.time);
+        }
+        let [pitch, gain] = ui_vary(cue, sound);
+        Some((
+            Action::Play {
+                clip: sound.clip.clone(),
+                bus: Bus::Sound,
+                volume: sound.volume * gain,
+                fade: 0.0,
+                pitch,
+            },
+            &sound.name,
+        ))
     }
 
     pub fn update<'a, H: Into<Heard<'a>>>(
@@ -173,9 +207,23 @@ fn value(world: &impl WorldView, curve: &Curve) -> Option<f64> {
     .filter(|v| v.is_finite())
 }
 
+/// A UI cue's rate and gain, drawn like a fact's from its time, widget and action.
+fn ui_vary(cue: &UiCue, sound: &UiSound) -> [f32; 2] {
+    let heard = Heard {
+        kind: cue.action.name(),
+        tick: u64::from(cue.time.to_bits()),
+        entity: &cue.widget,
+    };
+    draw(&heard, 0, sound.vary_pitch, sound.vary_gain)
+}
+
 /// A cue's random rate and gain: the same fact always gets the same draw, on every OS.
 fn vary(heard: &Heard, index: usize, cue: &Cue) -> [f32; 2] {
-    if cue.vary_pitch == 0.0 && cue.vary_gain == 0.0 {
+    draw(heard, index, cue.vary_pitch, cue.vary_gain)
+}
+
+fn draw(heard: &Heard, index: usize, vary_pitch: f32, vary_gain: f32) -> [f32; 2] {
+    if vary_pitch == 0.0 && vary_gain == 0.0 {
         return [1.0, 1.0];
     }
     // FNV-1a over what identifies the cue, then two SplitMix64 draws.
@@ -199,10 +247,7 @@ fn vary(heard: &Heard, index: usize, cue: &Cue) -> [f32; 2] {
         ((z ^ (z >> 31)) >> 40) as f32 / (1u64 << 24) as f32
     };
     let (a, b) = (draw(), draw());
-    [
-        1.0 + cue.vary_pitch * (2.0 * a - 1.0),
-        1.0 - cue.vary_gain * b,
-    ]
+    [1.0 + vary_pitch * (2.0 * a - 1.0), 1.0 - vary_gain * b]
 }
 
 fn action(cue: &Cue, pitch: f32, gain: f32) -> Action {

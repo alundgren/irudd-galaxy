@@ -133,6 +133,77 @@ the audio table does not create or alter places. Each module maps its own places
 or event kinds, missing files and decoding failures. It decodes every declared sound,
 including unused sounds. The installed `galaxy-gm guide audio` describes this format.
 
+## UI sounds
+
+Screens play module sounds for what the player does to them, from a `[ui]` table:
+
+```toml
+[ui]
+hover_gap = 0.08               # seconds at least between hover sounds, 0..1
+hover = "tick"                 # the pointer enters a button, bubble, drag source or target
+press = { sound = "click", vary_pitch = 0.05 }  # a click on a ready button, bubble, target or speaker
+open = "open"                  # a panel, list or bubble appears
+close = "close"                # ... or goes away
+drag = "lift"                  # a drag source is picked up
+drop = "place"                 # a held value lands on a target that takes it, or back home
+deny = "thud"                  # a resting button is clicked, or a target refuses the value
+[ui.kinds.drag_source]         # button, bubble, target, speaker, drag_source, panel, scroll
+hover = { sound = "lift", vary_gain = 0.3 }
+[ui.looks.chip]                # a look from [screen.looks] in style.toml
+press = "coin"
+```
+
+Each action takes a sound name or `{ sound, vary_pitch, vary_gain }`, varied like an
+event cue. A widget's sound is its look's, else its kind's, else the `[ui]` one; none of
+them means silence. A drag's sounds (drag, drop, and deny on a refusing target) are its
+source's. Like `[screen]`, the scene has one table: the last module by ID with `[ui]`
+supplies it, so a sound module can dress every screen. Check reports unknown sounds,
+keys, kinds and looks and out-of-range numbers.
+
+**Where cues come from.** The view notices each action where it already decides it:
+`click` (press, or deny on a resting button), pickup and release of a drag, a model
+target's or speaker's click, the frame's pointer test that sets the hand cursor
+(hover), and screen motion's record of surfaces coming and going (open, close). A panel,
+list or bubble inside one that stays opens and closes on its own; inside one that comes
+or goes it is part of that one's sound, so a panel arriving with a list in it opens once. A hover
+fires once per thing entered; a widget with an `id` is the same thing when its screen
+re-parents it. Sounds don't depend on motion keys or reduced motion. Each cue
+(`galaxy_api::ui::UiCue`) carries the action, the widget's kind, look and path, and the
+screen clock (tick plus interpolation), and waits in the screens until play takes it
+after drawing that frame. Play sends its sound to the device at once, so a click is
+heard within a frame plus the device buffer, and records the cue. The audio scene
+drops a hover within `hover_gap` of the last hover sound, so sweeping a list ticks at
+most that often; the cue itself is still recorded. Only a view that listens leaves cues:
+check's staged scenes, notes, audit and film make none. The cues never reach the world.
+
+**Offline.** A recording keeps every cue as a `ui_sound` event beside its presentation
+snapshots. `galaxy-gm audio mix` of a scenario with `recording = "recording.json"`
+(instead of `inputs`) runs the recording's world again and starts each cue's sound on
+the mix frame its screen clock names, through the same scene, so the hover gap and
+variation decide exactly as they did live. Its report lists `ui_sounds`: each cue's
+time, action, kind, look, widget and the sound it played (null when silent). `galaxy
+play`'s report counts cues by action, `played` and `silent`, so a run shows at a glance
+which actions have no sound. `crates/gm/tests/ui_sounds.rs` drives every action through
+a detached view, checks each cue, the gap and the world hash, and mixes the recording.
+
+From the repository root (`engine/tests/play/ui-sounds`; sounds from its
+`demo/generate.py`):
+
+```sh
+galaxy-gm check engine/tests/play/ui-sounds/demo
+galaxy play --modules engine/tests/play/ui-sounds --inputs engine/tests/play/ui-sounds-inputs.toml --ticks 130
+# mix.toml: modules = "<repo>/engine/tests/play/ui-sounds", recording = "<session>/recording.json"
+galaxy-gm audio mix mix.toml --out mix.wav --stems stems
+```
+
+The bot hovers and presses the shelf button (the shelf opens), presses the chip (its
+look's coin), the resting Locked (deny), drops the token on the narrow slot (deny) and
+the wide one (drop), sweeps six rows a tick apart, and closes the shelf. That run's play
+report counted 9 hovers (5 played, 4 thinned in the sweep), 3 presses, 2 drags, 2
+denies, 1 drop, 1 open and 1 close; the mix of its recording heard all 19 cues at the
+recorded times, and the sound stem rose from silence to -14 to -24 dBFS RMS within the
+first 20 ms of every played cue, with no limited samples.
+
 ## The mixer
 
 Clips hold immutable stereo frames shared by voices. A voice has its source frame
@@ -204,9 +275,10 @@ again on the next matching event.
 
 Module text, including `audio.toml`, already travels with recordings. Binary sound
 files remain external presentation assets in the module folders; headless replay
-needs none of them and does not open a device. This change adds no recording fields
-and changes no existing world golden hash. `galaxy audio` renders ordinary scripted
-event inputs using those module folders; it does not render a recording or UI clicks.
+needs none of them and does not open a device. No world golden hash depends on audio.
+`galaxy audio` renders ordinary scripted event inputs using those module folders; a
+played session's recording, UI sounds included, mixes through `galaxy-gm audio mix`
+(above).
 
 ## Offline proof and listening
 
@@ -272,6 +344,13 @@ facts would need no module code, but a cue chosen from world state rather than f
 fact can't be read back; the `engine.resumed` event lets the module that chose the music
 choose it again. A separate script sound command would require new presentation command and
 replay plumbing; an event table reuses facts already present and works headless.
+UI sounds as script-recorded facts would put every hover into the world and make sound
+wait for the next tick; cues from the view play on the frame and stay out of hashes.
+Deriving them later from presentation snapshots would miss a press and release within
+one tick and a resting click, which leaves no snapshot change; recording each cue keeps
+the offline mix exact. A table per kind and look in `audio.toml` keeps sounds beside the
+other sounds; putting them on looks in `style.toml` would split one module's sounds
+across two files and give unlooked widgets none.
 A loop that restarts a short clip on each repeating fact relies on the fact's cadence
 and starts with the first result rather than the action; a channel started and stopped
 by facts sounds exactly as long as the action. Following values in Luau would mean

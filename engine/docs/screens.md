@@ -497,6 +497,11 @@ galaxy-gm --build <name> film <session>/recording.json --from 38 --to 52 --out <
 galaxy-gm --build <name> motion sheet <film> --count 12
 ```
 
+**Sound.** Hovers, presses, a resting button's refusal, drags, drops and surfaces coming
+and going are also cues for module sounds, by look and kind, from `[ui]` in
+`audio.toml`; see [UI sounds](audio.md#ui-sounds). Like motion, they never enter the
+world, and a played session records them for an offline mix.
+
 Alternatives: per-widget colours would scatter the theme across scripts and leave no
 whole-theme contrast check. A general SVG library would bring a large dependency for
 features screens don't use. Glyph icons were the earlier route, but the bundled font

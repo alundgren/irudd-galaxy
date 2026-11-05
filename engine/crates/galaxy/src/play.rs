@@ -321,6 +321,8 @@ struct App {
     hot_load_failures: Vec<Value>,
     /// Bot clicks that landed on a resting button: reported with its reason, not clicked.
     resting_clicks: Vec<Value>,
+    /// UI sound cues by action: how many played a sound, and how many had none.
+    ui_sounds: BTreeMap<&'static str, [u64; 2]>,
     /// Every problem the view showed during the session, in the order first seen, so
     /// one a script caused and later cleared still reaches the report.
     problems: Vec<String>,
@@ -650,6 +652,9 @@ impl App {
                 if galaxy_sim::travel::arrival(&self.session.world, true).is_none()
                     && let Some((widget, reason)) = r.view.screens.bot_resting(&click)
                 {
+                    r.view
+                        .screens
+                        .cue_path(galaxy_api::ui::UiAction::Deny, &widget);
                     eprintln!("galaxy: before tick {tick}: {widget}: resting: {reason}");
                     self.resting_clicks
                         .push(json!({"tick": tick, "widget": widget, "resting": reason}));
@@ -740,6 +745,18 @@ impl App {
         self.session.record_presentation(
             serde_json::to_value(&r.view.screens.presentation).expect("finite screen state"),
         );
+        // UI sounds play as soon as the frame that saw the action, and are recorded.
+        let mut sounds = Vec::new();
+        for cue in r.view.screens.take_cues() {
+            let action = cue.action.name();
+            let played = self.audio.ui(&cue);
+            self.ui_sounds.entry(action).or_default()[usize::from(played.is_none())] += 1;
+            sounds.extend(played);
+            self.session.record_ui_sound(cue);
+        }
+        if !sounds.is_empty() {
+            self.audio_output.send(sounds);
+        }
         for problem in r.view.problems() {
             // Capped, so a problem whose wording changes every frame can't grow it forever.
             if self.problems.len() < 200 && !self.problems.contains(&problem) {
@@ -943,6 +960,7 @@ impl ApplicationHandler for App {
             self.session.world.seed,
         );
         view.set_reduced_motion(reduced_motion(&self.options));
+        view.screens.listen(true);
         for problem in view.problems() {
             eprintln!("galaxy: {problem}");
             self.problems.push(problem);
@@ -1319,6 +1337,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         dirs,
         hot_load_failures: Vec::new(),
         resting_clicks: Vec::new(),
+        ui_sounds: BTreeMap::new(),
         problems: Vec::new(),
         started: Instant::now(),
         last: Instant::now(),
@@ -1373,6 +1392,9 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "problems": problems,
         "hot_load_failures": app.hot_load_failures,
         "resting_clicks": app.resting_clicks,
+        "ui_sounds": app.ui_sounds.iter().map(|(action, [played, silent])| {
+            (action.to_string(), json!({ "played": played, "silent": silent }))
+        }).collect::<serde_json::Map<_, _>>(),
         "log": app.session.log,
         "session": app.dir.display().to_string(),
         "notes": app.notes,

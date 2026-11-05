@@ -30,6 +30,11 @@ impl Cues {
         self.next_fact = world.facts.len();
         actions
     }
+
+    /// The sound a UI cue plays, if the modules give it one.
+    pub(crate) fn ui(&mut self, cue: &galaxy_api::ui::UiCue) -> Option<Action> {
+        self.scene.ui(cue).map(|(action, _)| action)
+    }
 }
 
 pub(crate) const OPTIONS: &[&str] = &["--modules", "--seed", "--ticks", "--inputs", "--out"];

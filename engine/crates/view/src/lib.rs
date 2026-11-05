@@ -381,7 +381,9 @@ impl View {
         modules: impl IntoIterator<Item = &'a Module>,
     ) {
         let modules: Vec<_> = modules.into_iter().collect();
+        let listening = self.screens.listening();
         self.screens = screens::Screens::load(&modules);
+        self.screens.listen(listening);
         let assets = Assets::load(modules);
         self.replace(renderer, assets);
     }
@@ -544,12 +546,18 @@ impl View {
         );
         self.eye.view = moment.zoom;
         self.eye.still = moment.still;
+        // A note's frame is a redraw: what it shows already sounded.
+        let listening = self.screens.listening();
+        let waiting = self.screens.take_cues();
+        self.screens.listen(false);
         let scene = self.scene(
             world,
             moment.alpha,
             Vec2::new(moment.width as f32, moment.height as f32) / moment.scale,
             moment.time,
         );
+        self.screens.listen(listening);
+        self.screens.requeue(waiting);
         self.eye = eye;
         self.screens.presentation = screens;
         self.screens.style = screen_style;
@@ -862,11 +870,27 @@ impl View {
         self.targeted = None;
         self.hand = false;
         let Some(point) = self.screens.presentation.pointer.map(Vec2::from) else {
+            self.screens.hover_over(None);
             return;
         };
-        self.targeted = self
-            .target_at(world, alpha, logical, point)
-            .and_then(|found| found.entity);
+        let found = self.target_at(world, alpha, logical, point);
+        let p = &self.screens.presentation;
+        let held = p.drag.is_some() || p.settle.is_some() || p.scroll_grab.is_some();
+        // What a hover sound is for: a clickable widget (a resting button too), or a target.
+        let over = match &found {
+            Some(found) => Some(found.widget.clone()),
+            None if held => None,
+            None => self
+                .screens
+                .hit(point)
+                .filter(|w| {
+                    matches!(w.kind.as_str(), "button" | "drag_source")
+                        || w.kind == "bubble" && w.on.is_some()
+                })
+                .cloned(),
+        };
+        self.screens.hover_over(over.as_ref());
+        self.targeted = found.and_then(|found| found.entity);
         self.hand = self.targeted.is_some()
             || (self.screens.presentation.drag.is_none()
                 && self.screens.hit(point).is_some_and(|w| {

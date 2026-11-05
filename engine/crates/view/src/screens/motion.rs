@@ -3,6 +3,7 @@
 //! All of it is presentation. Its state lives in the presentation snapshot beside scroll
 //! offsets and drags, timed by the screen clock (tick plus interpolation), so a note,
 //! audit and film redraw a mid-fade frame exactly and the world never sees it.
+use galaxy_api::ui::UiAction;
 use galaxy_script::screens::Widget;
 use serde::{Deserialize, Serialize};
 
@@ -79,6 +80,25 @@ pub(super) fn surfaces<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
     }
 }
 
+/// Every panel, scroll and bubble, by key, with the key of the one it sits in (`None` for
+/// the outermost).
+type Nested<'a> = BTreeMap<String, (Option<String>, &'a Widget)>;
+
+fn nested<'a>(b: &'a Boxed, parent: Option<&str>, out: &mut Nested<'a>) {
+    if b.hidden || b.widget.yields {
+        return;
+    }
+    let mut inner = parent.map(str::to_owned);
+    if animated(&b.widget.kind) {
+        let k = key(&b.widget);
+        out.insert(k.clone(), (inner, &b.widget));
+        inner = Some(k);
+    }
+    for c in &b.children {
+        nested(c, inner.as_deref(), out);
+    }
+}
+
 fn cued<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
     if b.hidden {
         return;
@@ -136,7 +156,11 @@ impl Screens {
         let now: BTreeMap<String, &Boxed> = now.into_iter().map(|b| (key(&b.widget), b)).collect();
         let primed = motion.primed;
         motion.primed = true;
-        for k in now.keys() {
+        let mut opened = Vec::new();
+        for (k, b) in &now {
+            if primed && !motion.shown.contains_key(k) {
+                opened.push(b.widget.clone());
+            }
             motion
                 .shown
                 .entry(k.clone())
@@ -148,6 +172,7 @@ impl Screens {
             .filter(|k| !now.contains_key(*k))
             .cloned()
             .collect();
+        let mut closed = Vec::new();
         if !gone.is_empty() {
             let mut before = Vec::new();
             for b in previous {
@@ -155,6 +180,9 @@ impl Screens {
             }
             for k in gone {
                 motion.shown.remove(&k);
+                if let Some(b) = before.iter().find(|b| key(&b.widget) == k) {
+                    closed.push(b.widget.clone());
+                }
                 if !(on && style.motion_out > 0.0) {
                     continue;
                 }
@@ -201,6 +229,37 @@ impl Screens {
             seen.insert(k, cue);
         }
         motion.values = seen;
+        // A panel or list inside one that stays comes and goes on its own; inside one
+        // that comes or goes, it is part of that one's sound.
+        if self.listening() {
+            let (mut was, mut is) = (Nested::new(), Nested::new());
+            for b in previous {
+                nested(b, None, &mut was);
+            }
+            for b in &self.boxes {
+                nested(b, None, &mut is);
+            }
+            let stays = |parent: &Option<String>, other: &Nested| {
+                parent.as_ref().is_some_and(|p| other.contains_key(p))
+            };
+            for (k, (parent, w)) in &is {
+                if stays(parent, &was) && !was.contains_key(k) {
+                    opened.push((*w).clone());
+                }
+            }
+            for (k, (parent, w)) in &was {
+                if stays(parent, &is) && !is.contains_key(k) {
+                    closed.push((*w).clone());
+                }
+            }
+        }
+        // Sounds don't depend on motion: a module without motion keys still hears them.
+        for w in &opened {
+            self.ui_cue(UiAction::Open, w);
+        }
+        for w in &closed {
+            self.ui_cue(UiAction::Close, w);
+        }
     }
 
     /// How far into its arrival a panel is (1 settled), and how far into a cue.

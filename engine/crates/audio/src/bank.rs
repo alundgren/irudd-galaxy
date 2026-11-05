@@ -1,9 +1,10 @@
 use crate::{Bus, Clip, mixer::MAX_CHANNELS};
 use galaxy_api::Registry;
+use galaxy_api::ui::{UI_KINDS, UiAction};
 use galaxy_module::manifest::FieldType;
 use galaxy_module::module::Module;
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path};
 
 fn one() -> f32 {
@@ -18,6 +19,12 @@ fn loop_crossfade() -> f32 {
 fn follow_ramp() -> f32 {
     0.1
 }
+fn hover_gap() -> f32 {
+    0.08
+}
+
+/// What a UI sound key takes, for its error.
+const UI_VALUE: &str = "a sound name, or { sound = \"tick\", vary_pitch = 0.05, vary_gain = 0.2 }";
 
 /// Every key `audio.toml` takes: its table, the key, an example value as TOML and what it
 /// does. `galaxy-gm fields audio` prints it; a test loads a table made of every example.
@@ -167,6 +174,56 @@ pub const FILE_KEYS: &[(&str, &str, &str, &str)] = &[
         "0.1",
         "seconds each change glides over, 0..10; default 0.1",
     ),
+    (
+        "ui",
+        "hover_gap",
+        "0.08",
+        "seconds at least between two hover sounds, 0..1; default 0.08. The last module by ID with [ui] supplies every UI sound",
+    ),
+    (
+        "ui",
+        "hover",
+        "\"tick\"",
+        "the pointer enters a button, bubble, drag source or model target; once per thing entered",
+    ),
+    (
+        "ui",
+        "press",
+        "{ sound = \"click\", vary_pitch = 0.05, vary_gain = 0.2 }",
+        "a click on a ready button, bubble, model target or speaker. Every UI key takes a sound name or this table (ranges as [[events]])",
+    ),
+    ("ui", "open", "\"open\"", "a panel, list or bubble appears"),
+    (
+        "ui",
+        "close",
+        "\"close\"",
+        "a panel, list or bubble goes away",
+    ),
+    ("ui", "drag", "\"lift\"", "a drag source is picked up"),
+    (
+        "ui",
+        "drop",
+        "\"place\"",
+        "a held value is let go on a target that accepts it, or back home",
+    ),
+    (
+        "ui",
+        "deny",
+        "\"thud\"",
+        "a click on a resting button, or a held value let go on a target that refuses it",
+    ),
+    (
+        "ui.kinds.<kind>",
+        "<action>",
+        "\"click\"",
+        "any [ui] action for one widget kind (button, bubble, target, speaker, drag_source, panel, scroll), over [ui]; drag, drop and deny on a drop use the source",
+    ),
+    (
+        "ui.looks.<look>",
+        "<action>",
+        "\"coin\"",
+        "any [ui] action for widgets wearing a [screen.looks] look, over their kind and [ui]",
+    ),
 ];
 
 #[derive(Deserialize, Default)]
@@ -182,6 +239,65 @@ struct Definition {
     crossfade: f32,
     #[serde(default)]
     follow: Vec<Follow>,
+    #[serde(default)]
+    ui: Option<UiDef>,
+}
+
+/// `[ui]`: UI sounds for every widget, with tables per kind and per look over them.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UiDef {
+    #[serde(default = "hover_gap")]
+    hover_gap: f32,
+    #[serde(default)]
+    kinds: BTreeMap<String, UiActions>,
+    #[serde(default)]
+    looks: BTreeMap<String, UiActions>,
+    hover: Option<toml::Value>,
+    press: Option<toml::Value>,
+    open: Option<toml::Value>,
+    close: Option<toml::Value>,
+    drag: Option<toml::Value>,
+    drop: Option<toml::Value>,
+    deny: Option<toml::Value>,
+}
+
+/// One table of UI actions: `[ui]` itself, or a kind's or look's.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UiActions {
+    hover: Option<toml::Value>,
+    press: Option<toml::Value>,
+    open: Option<toml::Value>,
+    close: Option<toml::Value>,
+    drag: Option<toml::Value>,
+    drop: Option<toml::Value>,
+    deny: Option<toml::Value>,
+}
+
+impl UiActions {
+    fn each(self) -> [(UiAction, Option<toml::Value>); 7] {
+        [
+            (UiAction::Hover, self.hover),
+            (UiAction::Press, self.press),
+            (UiAction::Open, self.open),
+            (UiAction::Close, self.close),
+            (UiAction::Drag, self.drag),
+            (UiAction::Drop, self.drop),
+            (UiAction::Deny, self.deny),
+        ]
+    }
+}
+
+/// A UI sound key's table form.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UiSoundTable {
+    sound: String,
+    #[serde(default)]
+    vary_pitch: f32,
+    #[serde(default)]
+    vary_gain: f32,
 }
 
 #[derive(Deserialize)]
@@ -284,6 +400,37 @@ pub(crate) struct Curve {
     pub ramp: f32,
 }
 
+/// One UI action's sound, already checked.
+#[derive(Clone)]
+pub(crate) struct UiSound {
+    /// The full sound ID, for reports.
+    pub name: String,
+    pub clip: Clip,
+    pub volume: f32,
+    pub vary_pitch: f32,
+    pub vary_gain: f32,
+}
+
+type UiTable = BTreeMap<UiAction, UiSound>;
+
+/// The scene's UI sounds: the last module (by ID) with `[ui]` supplies them.
+#[derive(Default)]
+pub(crate) struct UiSounds {
+    pub hover_gap: f32,
+    pub base: UiTable,
+    pub kinds: BTreeMap<String, UiTable>,
+    pub looks: BTreeMap<String, UiTable>,
+}
+
+impl UiSounds {
+    /// A widget's sound for `action`: its look's, else its kind's, else the base one.
+    pub fn sound(&self, action: UiAction, kind: &str, look: Option<&str>) -> Option<&UiSound> {
+        look.and_then(|l| self.looks.get(l)?.get(&action))
+            .or_else(|| self.kinds.get(kind)?.get(&action))
+            .or_else(|| self.base.get(&action))
+    }
+}
+
 /// Loaded presentation assets. Errors are module-prefixed and safe to show as GM findings.
 #[derive(Default)]
 pub struct Bank {
@@ -291,6 +438,7 @@ pub struct Bank {
     pub(crate) events: BTreeMap<String, Vec<Cue>>,
     pub(crate) places: BTreeMap<String, (String, Cue)>,
     pub(crate) follows: Vec<Curve>,
+    pub(crate) ui: UiSounds,
     /// Channel slots by full name (`<module>.<channel>`), in order of first use.
     channels: BTreeMap<String, u8>,
 }
@@ -300,6 +448,8 @@ impl Bank {
         let modules: Vec<_> = modules.into_iter().collect();
         let registry = Registry::new(&modules).ok();
         let mut bank = Self::default();
+        let looks = style_looks(&modules);
+        let mut ui_owner: Option<&str> = None;
         for module in &modules {
             let Some(text) = module.files.get("audio.toml") else {
                 continue;
@@ -457,6 +607,17 @@ impl Bank {
                     Err(e) => bank.problems.push(bad(format!("follow: {e}"))),
                 }
             }
+            if let Some(ui) = def.ui
+                && ui_owner.is_none_or(|owner| owner < module.id())
+            {
+                // Like [screen] in style.toml: the last module by ID supplies them all.
+                ui_owner = Some(module.id());
+                let mut problems = Vec::new();
+                bank.ui = ui_sounds(module, ui, &sounds, &looks, &mut |e| {
+                    problems.push(bad(format!("ui: {e}")))
+                });
+                bank.problems.extend(problems);
+            }
         }
         bank
     }
@@ -572,6 +733,110 @@ impl Bank {
     }
 }
 
+/// Every look any module's `style.toml` names in `[screen.looks]`.
+fn style_looks(modules: &[&Module]) -> BTreeSet<String> {
+    modules
+        .iter()
+        .filter_map(|m| m.files.get("style.toml"))
+        .filter_map(|text| toml::from_str::<toml::Value>(text).ok())
+        .filter_map(|v| v.get("screen")?.get("looks")?.as_table().cloned())
+        .flat_map(|t| t.into_iter().map(|(k, _)| k))
+        .collect()
+}
+
+/// A module's `[ui]`, checked: every sound declared, every kind and look known.
+fn ui_sounds(
+    module: &Module,
+    ui: UiDef,
+    sounds: &BTreeMap<String, (Clip, f32)>,
+    looks: &BTreeSet<String>,
+    bad: &mut dyn FnMut(String),
+) -> UiSounds {
+    let mut hover_gap = ui.hover_gap;
+    if !(hover_gap.is_finite() && (0.0..=1.0).contains(&hover_gap)) {
+        bad("hover_gap must be finite, from 0 to 1 seconds".into());
+        hover_gap = self::hover_gap();
+    }
+    let table = |at: &str, actions: UiActions, bad: &mut dyn FnMut(String)| {
+        let mut table = UiTable::new();
+        for (action, value) in actions.each() {
+            let Some(value) = value else { continue };
+            let key = format!("{at}{}", action.name());
+            let def = match value {
+                toml::Value::String(sound) => UiSoundTable {
+                    sound,
+                    vary_pitch: 0.0,
+                    vary_gain: 0.0,
+                },
+                value => match value.try_into::<UiSoundTable>() {
+                    Ok(def) => def,
+                    Err(e) => {
+                        bad(format!("{key}: {}; give {UI_VALUE}", e.message().trim()));
+                        continue;
+                    }
+                },
+            };
+            if !(0.0..=0.5).contains(&def.vary_pitch) || !(0.0..=1.0).contains(&def.vary_gain) {
+                bad(format!(
+                    "{key}: vary_pitch must be from 0 to 0.5 and vary_gain from 0 to 1"
+                ));
+                continue;
+            }
+            let Some((clip, volume)) = sounds.get(&def.sound) else {
+                bad(format!("{key} references unknown sound `{}`", def.sound));
+                continue;
+            };
+            table.insert(
+                action,
+                UiSound {
+                    name: module.full(&def.sound),
+                    clip: clip.clone(),
+                    volume: *volume,
+                    vary_pitch: def.vary_pitch,
+                    vary_gain: def.vary_gain,
+                },
+            );
+        }
+        table
+    };
+    let base = UiActions {
+        hover: ui.hover,
+        press: ui.press,
+        open: ui.open,
+        close: ui.close,
+        drag: ui.drag,
+        drop: ui.drop,
+        deny: ui.deny,
+    };
+    let mut out = UiSounds {
+        hover_gap,
+        base: table("", base, bad),
+        ..Default::default()
+    };
+    for (kind, actions) in ui.kinds {
+        if !UI_KINDS.contains(&kind.as_str()) {
+            bad(format!(
+                "kinds.{kind}: no such widget kind; use {}",
+                UI_KINDS.join(", ")
+            ));
+            continue;
+        }
+        let t = table(&format!("kinds.{kind}."), actions, bad);
+        out.kinds.insert(kind, t);
+    }
+    for (look, actions) in ui.looks {
+        if !looks.contains(&look) {
+            bad(format!(
+                "looks.{look}: no style.toml declares [screen.looks.{look}]"
+            ));
+            continue;
+        }
+        let t = table(&format!("looks.{look}."), actions, bad);
+        out.looks.insert(look, t);
+    }
+    out
+}
+
 fn seconds(value: f32) -> bool {
     value.is_finite() && (0.0..=60.0).contains(&value)
 }
@@ -583,26 +848,61 @@ mod tests {
     /// Every documented key is one the parser takes, with its example value.
     #[test]
     fn every_file_key_parses_with_its_example() {
+        const TABLES: [&str; 8] = [
+            "",
+            "sounds.<name>",
+            "places",
+            "[[events]]",
+            "[[follow]]",
+            "ui",
+            "ui.kinds.<kind>",
+            "ui.looks.<look>",
+        ];
         let mut text = String::new();
-        for table in ["", "sounds.<name>", "places", "[[events]]", "[[follow]]"] {
+        for table in TABLES {
             text.push_str(&match table {
                 "" => String::new(),
-                "sounds.<name>" => "[sounds.hum]\n".into(),
-                t if t.starts_with('[') => format!("{t}\n"),
-                t => format!("[{t}]\n"),
+                "sounds.<name>" => "[sounds.hum]
+"
+                .into(),
+                "ui.kinds.<kind>" => "[ui.kinds.button]
+"
+                .into(),
+                "ui.looks.<look>" => "[ui.looks.chip]
+"
+                .into(),
+                t if t.starts_with('[') => format!(
+                    "{t}
+"
+                ),
+                t => format!(
+                    "[{t}]
+"
+                ),
             });
             for (_, key, example, _) in FILE_KEYS.iter().filter(|k| k.0 == table) {
-                let key = if *key == "<place>" { "first" } else { key };
-                text.push_str(&format!("{key} = {example}\n"));
+                let key = match *key {
+                    "<place>" => "first",
+                    "<action>" => "press",
+                    key => key,
+                };
+                text.push_str(&format!(
+                    "{key} = {example}
+"
+                ));
             }
         }
-        let def: Definition = toml::from_str(&text).unwrap_or_else(|e| panic!("{e}\n{text}"));
+        let def: Definition = toml::from_str(&text).unwrap_or_else(|e| {
+            panic!(
+                "{e}
+{text}"
+            )
+        });
         assert_eq!(def.events.len(), 1);
         assert_eq!(def.follow.len(), 1);
-        assert!(
-            FILE_KEYS.iter().all(
-                |k| ["", "sounds.<name>", "places", "[[events]]", "[[follow]]"].contains(&k.0)
-            )
-        );
+        let ui = def.ui.expect("[ui]");
+        assert!(ui.press.is_some() && ui.deny.is_some());
+        assert!(ui.kinds["button"].press.is_some() && ui.looks["chip"].press.is_some());
+        assert!(FILE_KEYS.iter().all(|k| TABLES.contains(&k.0)));
     }
 }
