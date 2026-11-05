@@ -52,6 +52,13 @@ return {
         assert(not salvage.wanted(kept, salvage.NEEDS, true, "core.kiln", true), "Mags has no say once Bram has her")
     end,
 
+    only_a_mended_barge_s_skipper_offers_her_fee = function()
+        local done = job(salvage.DONE)
+        assert(salvage.wanted(done, salvage.DONE, true, nil, nil, "mend"), "mended: Hessa pays for the tow")
+        assert(not salvage.wanted(done, salvage.DONE, true, nil, nil, "keep"), "kept for good: no mended-engine fee")
+        assert(not salvage.wanted(done, salvage.DONE, true, nil, nil, nil), "no haven chosen: nothing")
+    end,
+
     the_log_says_what_to_do_next = function()
         local find = salvage.step_text(job(salvage.SEARCH), NAMES)
         assert(find == "Find Cold Kettle, dark out west past the ice, and pass her a line.", find)
