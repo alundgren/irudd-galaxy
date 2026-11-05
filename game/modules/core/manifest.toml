@@ -40,6 +40,9 @@ gliding = "bool"
 latched = "bool"
 auto = "bool"
 approach = "bool"
+# The order named this rock (a click on it): the rig stops when it is cut down rather
+# than moving on, so the player's choice of ware holds.
+chosen = "bool"
 cut_from = "int"
 cut_work = "int"
 gained = "int"

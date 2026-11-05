@@ -189,6 +189,8 @@ local function mine(event, ctx)
         if not target then cut_ahead(ctx, true); return end
         if pilot.mining and pilot.target == target and key then cutter.off(ctx, "Beam off."); return end
         approach(ctx, target, rig and rules.RIG_STANDOFF or 0)
+        -- A rock picked by name is the player's choice of ware: the rig stops with it.
+        ctx.patch("ship", "pilot", { chosen = rock ~= nil })
         return
     end
     if rock ~= nil then
@@ -309,9 +311,12 @@ local function cut(ctx, pilot)
             -- The `hold_full` fact itself is sound.luau's, from the `mined` that filled it.
             table.insert(lines, "Hold full: " .. rules.list(now) .. " aboard.")
         end
+        if left <= 0 and not full and pilot.chosen then
+            table.insert(lines, "The rig stops with the rock you picked: click another, or Space for the nearest.")
+        end
         -- Both beats on one unit log both, the hold's last so it is the message showing.
         log.add_all(ctx, lines)
-        if not full and pilot.auto and #others > 0 then
+        if not full and pilot.auto and not pilot.chosen and #others > 0 then
             -- The rig (or a script's order) moves on to the nearest rock by itself.
             local at = ctx.get("ship", "engine.position")
             table.sort(others, function(a, b)
