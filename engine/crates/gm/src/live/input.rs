@@ -252,7 +252,7 @@ impl Driver {
             "from_tick": self.from_tick,
             "to_tick": self.to_tick,
             "seconds": self.from_tick.map(|f| {
-                (self.to_tick + 1).saturating_sub(f) as f64 / f64::from(TICKS_PER_SECOND)
+                self.to_tick.saturating_sub(f) as f64 / f64::from(TICKS_PER_SECOND)
             }),
             "steps": self.steps,
             "released_at_end": released,

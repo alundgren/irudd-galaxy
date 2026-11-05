@@ -363,8 +363,9 @@ pub static COMMANDS: &[Command] = &[
             (
                 "facts",
                 "each: seq, tick, kind, by (input from keyboard, script <module> <file> \
-              on <event>, engine <service>, start of <module>, hot-load of <module>) and \
-              payload",
+              on <event>, engine <service>, start of <module>, hot-load of <module>; \
+              input from keyboard via live, with via: live, for what galaxy-gm live input \
+              pressed) and payload",
             ),
             (
                 "log",
@@ -527,7 +528,8 @@ pub static COMMANDS: &[Command] = &[
                 meanwhile), tap <key> (0.1 s), wait <seconds>, move <x> <y>, click <x> \
                 <y> (logical pixels from the window's top left). Keys are manifest key \
                 names (w, space, shift, up, 1, f3, mouse_right) or mouse_left; Esc and F8 \
-                are the window's own and stay there. Steps given as arguments (or joined \
+                are the window's own and stay there; a real mouse moving over the window \
+                moves the pointer too. Steps given as arguments (or joined \
                 with ;) run as one timeline and the command returns once they have run. \
                 Without steps it reads lines from stdin, or with --follow <file> lines \
                 added to that file, running each line as it arrives, until a line end: \
@@ -556,7 +558,8 @@ pub static COMMANDS: &[Command] = &[
         output: &[
             (
                 "from_tick, to_tick, seconds",
-                "the first and last tick the steps ran over",
+                "the first and last tick the steps ran over, and the seconds between them \
+                 (hold w 2 is 2)",
             ),
             (
                 "steps",
