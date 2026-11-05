@@ -5,7 +5,7 @@ tick = 30
 name = "core.right"
 payload = { down = true }
 [[input]]
-tick = 54
+tick = 56
 name = "core.right"
 payload = { down = false }
 [[input]]

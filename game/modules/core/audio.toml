@@ -249,6 +249,13 @@ sound = "mine_hum"
 channel = "beam"
 fade = 0.05
 
+# A save resumed (or a hot load) mid-cut: sound.luau records beam_on to bring the hum back.
+[[events]]
+event = "beam_on"
+sound = "mine_hum"
+channel = "beam"
+fade = 0.05
+
 [[events]]
 event = "cut_stop"
 channel = "beam"

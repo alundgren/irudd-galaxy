@@ -124,9 +124,12 @@ local function contact(event, ctx)
     end
 end
 
--- Loops don't come back on their own after a resume or a hot load.
+-- Loops don't come back on their own after a resume or a hot load: the drive's, and
+-- the beam's hum if the beam was cutting.
 local function drive_on(_, ctx)
     if ctx.has("ship", "engine.location") and not docked(ctx) then ctx.record("drive_on", {}) end
+    local pilot = ctx.get("ship", "pilot")
+    if pilot and pilot.mining then ctx.record("beam_on", { rock = pilot.target }) end
 end
 
 return {
