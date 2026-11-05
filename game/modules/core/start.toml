@@ -711,7 +711,7 @@ keeper = { name = "Noor Hale", idle = "The beds drink a lot of ice.", figure = "
 # Lamp night (direction doc 3.3): when the greenhouse is built, Lantern Dock hangs lamp
 # strings on its deck for three dockings, and Bram says why.
 [entities.lantern_lamp_night]
-happening = { station = "core.lantern", site = "core.lantern_greenhouse", speaker = "core.lantern_master", line = "Every lamp's lit tonight, for the greenhouse.", cause = "Lamp night: Lantern Dock lights every lamp for its greenhouse.", props = "lampnight1 lampnight2 lampnight3", at = "-10.5,1.5 10.8,-4.0 -3.8,9.8" }
+happening = { station = "core.lantern", site = "core.lantern_greenhouse", speaker = "core.lantern_master", line = "I've lit every lamp we have tonight, for our greenhouse.", cause = "Lamp night: Lantern Dock lights every lamp for its greenhouse.", props = "lampnight1 lampnight2 lampnight3", at = "-10.5,1.5 10.8,-4.0 -3.8,9.8" }
 
 [entities.lantern_skiff]
 "engine.being" = {}

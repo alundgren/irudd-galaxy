@@ -485,8 +485,8 @@ Ines's ask as an `OFFER` once heard, then each next step as a `JOB`, in her term
    becomes about Noor's greens.
 
 Lantern Dock then holds a lamp night (direction doc 3.3, a `happening` in
-`start.toml`): lamp strings hang on the deck, Bram says why ("Every lamp's lit
-tonight, for the greenhouse."), each docking's log line gives the cause, and it lasts
+`start.toml`): lamp strings hang on the deck, Bram says why ("I've lit every lamp
+we have tonight, for our greenhouse."), each docking's log line gives the cause, and it lasts
 three later counted dockings there before the strings come down.
 
 Measured on the headless route in `tests/greenhouse.toml` (seed 7): the galley is built

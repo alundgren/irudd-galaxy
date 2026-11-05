@@ -636,6 +636,13 @@ entity = "lampnight1"
 component = "engine.model"
 field = "model"
 equals = "core.lamp_string"
+# Bram says why, in his own words.
+[[expect]]
+tick = 4331
+entity = "lantern_master_now"
+component = "engine.talk_line"
+field = "text"
+equals = "I've lit every lamp we have tonight, for our greenhouse."
 [[expect]]
 tick = 4331
 entity = "lantern_cook_thanks"
