@@ -25,7 +25,7 @@
 --   kit.bars(level, of)    signal bars: lit gold, unlit dim
 --   kit.hint(text)         "W · fly ahead": the key heavy with a gold rule, then the rest
 -- Icon names:
---   kit.ware(ware)         ore, plate, rations
+--   kit.ware(ware)         ore, ice, glassite, plate, rations, panes
 --   kit.part(socket)       the part for a socket: lens, pods, thrusters, controls
 local kit = {}
 
@@ -46,7 +46,7 @@ kit.LOOK = {
 -- (the engine's floor is 16).
 kit.SIZE = { title = 28, heading = 20, body = 18, small = 16 }
 
-local WARES = { ore = "ore", ice = "ice", glassite = "glassite", plate = "plate", rations = "rations" }
+local WARES = { ore = "ore", ice = "ice", glassite = "glassite", plate = "plate", rations = "rations", panes = "panes" }
 local SOCKETS = { drill = "lens", hold = "pods", engine = "thrusters", controls = "controls" }
 
 local function with(w, look)

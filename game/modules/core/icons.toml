@@ -10,6 +10,7 @@ ore = { svg = "icons/ore.svg" }
 ice = { svg = "icons/ice.svg" }
 glassite = { svg = "icons/glassite.svg" }
 plate = { svg = "icons/plate.svg" }
+panes = { svg = "icons/panes.svg" }
 rations = { svg = "icons/rations.svg" }
 power = { svg = "icons/power.svg" }
 mass = { svg = "icons/mass.svg" }

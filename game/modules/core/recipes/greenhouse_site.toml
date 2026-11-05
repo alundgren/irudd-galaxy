@@ -1,0 +1,90 @@
+about = "The greenhouse going up: its low wall laid, ribs rising to a crown ring, a scaffold round it and a crate of glass panes waiting to be set"
+palette = { main = "#c98f4a", accent = "#d9774b", rib = "#2f9d86", pane = "#9fe0a0" }
+[[part]]
+name = "floor"
+shape = "box"
+size = [3.6, 3.6, 0.2]
+at = [0, 0, 0.1]
+paint = "trim"
+[[part]]
+name = "wall"
+shape = "cylinder"
+radius = 1.6
+height = 0.5
+sides = 12
+at = [0, 0, 0.2]
+paint = "main"
+[[part]]
+name = "crown"
+shape = "ring"
+radius = 0.35
+tube = 0.08
+at = [0, 0, 2.3]
+paint = "rib"
+[[part]]
+name = "rib"
+shape = "strut"
+from = [1.55, 0, 0.7]
+to = [0.35, 0, 2.3]
+thickness = 0.1
+paint = "rib"
+copies = 6
+[[part]]
+name = "pane_set"
+shape = "box"
+size = [0.08, 0.9, 0.8]
+at = [1.1, 0, 1.15]
+pitch = 0
+paint = "glass"
+[[part]]
+name = "post_a"
+shape = "strut"
+from = [-1.75, -1.75, 0.2]
+to = [-1.75, -1.75, 2.6]
+thickness = 0.16
+paint = "accent"
+[[part]]
+name = "post_b"
+shape = "strut"
+from = [1.75, -1.75, 0.2]
+to = [1.75, -1.75, 2.6]
+thickness = 0.16
+paint = "accent"
+[[part]]
+name = "post_c"
+shape = "strut"
+from = [1.75, 1.75, 0.2]
+to = [1.75, 1.75, 2.6]
+thickness = 0.16
+paint = "accent"
+[[part]]
+name = "post_d"
+shape = "strut"
+from = [-1.75, 1.75, 0.2]
+to = [-1.75, 1.75, 2.6]
+thickness = 0.16
+paint = "accent"
+[[part]]
+name = "walk_front"
+shape = "box"
+size = [0.5, 3.7, 0.08]
+at = [1.75, 0, 1.5]
+paint = "accent"
+[[part]]
+name = "walk_back"
+shape = "box"
+size = [0.5, 3.7, 0.08]
+at = [-1.75, 0, 1.5]
+paint = "accent"
+[[part]]
+name = "crate"
+shape = "box"
+size = [0.8, 1.0, 0.6]
+at = [1.2, -1.2, 0.5]
+paint = "main"
+[[part]]
+name = "panes"
+shape = "box"
+size = [0.7, 0.9, 0.12]
+at = [1.2, -1.2, 0.86]
+paint = "glass"

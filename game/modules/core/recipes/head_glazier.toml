@@ -1,0 +1,32 @@
+about = "The head of a glazier: face, eyes and a teal work cap with a short peak, one node (person_glazier wears it as its face)"
+palette = { main = "#f2b43c", trim = "#3b3550", accent = "#2f9d86", skin = "#d9a67a", hair = "#4a2a22", hat = "#2f9d86" }
+[[part]]
+name = "skin"
+shape = "sphere"
+radius = 0.23
+sides = 10
+rings = 5
+at = [0, 0, 1.86]
+paint = "skin"
+[[part]]
+name = "eyes"
+shape = "box"
+size = [0.03, 0.04, 0.055]
+at = [0.215, 0.08, 1.9]
+mirror = true
+paint = "#2a1a2e"
+[[part]]
+name = "cap"
+shape = "sphere"
+radius = 0.245
+half = true
+sides = 10
+rings = 3
+at = [-0.01, 0, 1.92]
+paint = "hat"
+[[part]]
+name = "peak"
+shape = "box"
+size = [0.18, 0.3, 0.03]
+at = [0.24, 0, 1.97]
+paint = "hat"

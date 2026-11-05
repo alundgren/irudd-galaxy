@@ -1,0 +1,44 @@
+about = "The greenhouse: a glazed dome on a low cream wall, glowing leaf-green with the beds inside, a lantern-green door and a lamp by it"
+palette = { main = "#f4e2c4", accent = "#e7b15a", leaf = "#5cbf5a" }
+[[part]]
+name = "floor"
+shape = "box"
+size = [3.6, 3.6, 0.2]
+at = [0, 0, 0.1]
+paint = "trim"
+[[part]]
+name = "wall"
+shape = "cylinder"
+radius = 1.6
+height = 0.5
+sides = 12
+at = [0, 0, 0.2]
+paint = "main"
+[[part]]
+name = "dome"
+shape = "dome"
+radius = 1.6
+ribs = 6
+at = [0, 0, 0.7]
+glass = "#9fe0a0"
+[[part]]
+name = "beds"
+shape = "sphere"
+radius = 1.0
+half = true
+at = [0, 0, 0.7]
+paint = "leaf"
+glow = 0.55
+pulse = 7
+pulse_low = 0.75
+[[part]]
+name = "door"
+shape = "box"
+size = [0.3, 0.8, 1.2]
+at = [1.55, 0, 0.8]
+paint = "trim"
+[[part]]
+name = "lamp"
+shape = "beacon"
+height = 1.6
+at = [1.5, -1.3, 0.2]

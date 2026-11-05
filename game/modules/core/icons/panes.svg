@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Panes: two framed glass panes leaning together, a glint across each. -->
+  <path fill="currentColor" fill-rule="evenodd" d="M3 6h9v14H3zM5 8v10h5V8zM13 4h8v16h-8zM15 6v12h4V6z"/>
+  <path fill="currentColor" d="M5.6 13.6l3-3 .8.8-3 3zM15.6 11.6l2.6-2.6.8.8-2.6 2.6z"/>
+</svg>

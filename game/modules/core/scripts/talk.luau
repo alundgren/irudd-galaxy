@@ -9,6 +9,7 @@ local trade = require("./trade")
 local rules = require("./rules")
 local fit = require("./fit")
 local places = require("./places")
+local project = require("./project")
 
 -- Who is speaking and where: "Tova Reyes at Lantern Dock".
 local function source(ctx, talk)
@@ -43,6 +44,14 @@ local function sign(ctx, speaker)
     if station then signs.show(ctx, station, pilot.room, pilot.log_open, speaker) end
 end
 
+-- Every keeper's current line at the station the ship is docked at, as it stands now.
+local function refresh(ctx)
+    local station = places.docked(ctx)
+    if not station then return end
+    local _, build = trade.building(ctx, station)
+    voices.refresh(ctx, station, ctx.get("ship", "hold"), 0, build and build.need - build.given or 0)
+end
+
 return {
     on = {
         ["engine.talk_start"] = function(event, ctx)
@@ -67,6 +76,8 @@ return {
             -- An offer once said stays pinned in the log until it is answered (log.pinned).
             local gift = ctx.get(talk, "gift")
             if gift and not gift.heard then ctx.patch(talk, "gift", { heard = true }) end
+            local offer = ctx.get(talk, "offer")
+            if offer and not offer.heard then ctx.patch(talk, "offer", { heard = true }) end
             local id, entry = heard(ctx, talk)
             if logged(ctx, talk, quoted) then
                 if id and not open then ctx.patch(id, "entry", { open = false }) end
@@ -79,7 +90,8 @@ return {
         -- An answer to a line that offers a choice: the line and the answer join the
         -- conversation's entry. A gift taken goes into the hold with its own receipt;
         -- taken or declined, the offer is over, and once the talk ends the keeper's
-        -- everyday talk returns.
+        -- everyday talk returns. A project's offer taken moves the project on, with its
+        -- receipt; "Not now" leaves it for a later docking (project.chosen).
         ["engine.talk_chosen"] = function(event, ctx)
             local talk, line, choice = event.payload.talk, event.payload.line, event.payload.choice
             local answer = ctx.get(choice, "engine.talk_choice")
@@ -105,6 +117,7 @@ return {
                         .. gift.ware .. ": " .. gift.units .. " into the hold."
                 end
             end
+            if not receipt then receipt = project.chosen(ctx, talk, choice, open, ctx.get("ship", "hold")) end
             local id, entry = heard(ctx, talk)
             if id then
                 ctx.patch(id, "entry", { text = entry.text .. " " .. said, open = open })
@@ -114,6 +127,18 @@ return {
                 log.say(ctx, source(ctx, talk) .. ": " .. said .. (receipt and " " .. receipt or ""), talk, open)
             end
         end,
+        -- The day moved on: someone may have come into the room you are in, visiting
+        -- (the grower with greens for the galley), and wears their sign there.
+        ["engine.clock_advanced"] = function(_, ctx)
+            local station = places.docked(ctx)
+            if not station then return end
+            local pilot = ctx.get("ship", "pilot")
+            signs.show(ctx, station, pilot.room, pilot.log_open, signs.speaking(ctx))
+        end,
+        -- A project moved on (an answer's receipt) or a build finished: the keepers'
+        -- lines follow it. The handler that changed it still read the world before.
+        confirmed = function(_, ctx) refresh(ctx) end,
+        grown = function(_, ctx) refresh(ctx) end,
         docked = function(event, ctx)
             local pilot = ctx.get("ship", "pilot")
             local _, build = trade.building(ctx, event.payload.station)

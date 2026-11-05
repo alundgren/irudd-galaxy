@@ -1,0 +1,71 @@
+about = "A greenhouse plot staked out on the deck: a swept floor, four stakes with a string between them, and a chalked ring where the glass will stand"
+palette = { main = "#c98f4a", accent = "#d9774b", chalk = "#fff4dd" }
+[[part]]
+name = "floor"
+shape = "box"
+size = [3.6, 3.6, 0.2]
+at = [0, 0, 0.1]
+paint = "trim"
+[[part]]
+name = "ring"
+shape = "ring"
+radius = 1.5
+tube = 0.06
+at = [0, 0, 0.22]
+paint = "chalk"
+[[part]]
+name = "stake_a"
+shape = "strut"
+from = [-1.5, -1.5, 0.2]
+to = [-1.5, -1.5, 1.2]
+thickness = 0.12
+paint = "accent"
+[[part]]
+name = "stake_b"
+shape = "strut"
+from = [1.5, -1.5, 0.2]
+to = [1.5, -1.5, 1.2]
+thickness = 0.12
+paint = "accent"
+[[part]]
+name = "stake_c"
+shape = "strut"
+from = [1.5, 1.5, 0.2]
+to = [1.5, 1.5, 1.2]
+thickness = 0.12
+paint = "accent"
+[[part]]
+name = "stake_d"
+shape = "strut"
+from = [-1.5, 1.5, 0.2]
+to = [-1.5, 1.5, 1.2]
+thickness = 0.12
+paint = "accent"
+[[part]]
+name = "string_a"
+shape = "strut"
+from = [-1.5, -1.5, 1.0]
+to = [1.5, -1.5, 1.0]
+thickness = 0.03
+paint = "chalk"
+[[part]]
+name = "string_b"
+shape = "strut"
+from = [1.5, -1.5, 1.0]
+to = [1.5, 1.5, 1.0]
+thickness = 0.03
+paint = "chalk"
+[[part]]
+name = "string_c"
+shape = "strut"
+from = [1.5, 1.5, 1.0]
+to = [-1.5, 1.5, 1.0]
+thickness = 0.03
+paint = "chalk"
+[[part]]
+name = "string_d"
+shape = "strut"
+from = [-1.5, 1.5, 1.0]
+to = [-1.5, -1.5, 1.0]
+thickness = 0.03
+paint = "chalk"

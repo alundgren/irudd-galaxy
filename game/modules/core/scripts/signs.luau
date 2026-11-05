@@ -28,7 +28,9 @@ end
 
 -- `room`, `log_open`, `speaking`, `gliding` and `chosen` (the chosen part) are the
 -- values after the calling handler's own writes; `gliding` and `chosen` default to the
--- pilot's. While the view moves no sign is worn. A keeper's sign shows in their own room.
+-- pilot's. While the view moves no sign is worn. A keeper's sign shows in their own room,
+-- and in another room while their day has them visiting it (the grower bringing greens
+-- to the galley).
 --
 -- Only the keeper of the room you are in walks where you can see it (presentation
 -- "states"); everyone else's day moves on at once, out of sight, and leaving a room
@@ -39,11 +41,15 @@ function signs.show(ctx, station, room, log_open, speaking, gliding, chosen)
     local pilot = ctx.get("ship", "pilot")
     if gliding == nil then gliding = pilot.gliding end
     if chosen == nil then chosen = pilot.chosen_part end
+    local inside = room ~= "" and ctx.get(room, "facility")
+    local place = inside and inside.place or ""
     for _, id in ctx.query("facility") do
         local facility = ctx.get(id, "facility")
         local life = facility.keeper ~= "" and ctx.get(facility.keeper, "engine.life")
         if life then
-            local here = facility.station == station and room == id
+            local at = ctx.get(facility.keeper, "engine.location")
+            local visiting = place ~= "" and at ~= nil and at.place == place
+            local here = (facility.station == station and room == id) or visiting
             local heard = (speaking == nil and not log_open) or facility.keeper == speaking
             local previewing = facility.fits and (chosen or "") ~= ""
             local name = here and not gliding and heard and not previewing and ctx.get(facility.keeper, "keeper").name or ""

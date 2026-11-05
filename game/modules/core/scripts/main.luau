@@ -6,6 +6,7 @@ local signs = require("./signs")
 local fit = require("./fit")
 local undock = require("./launch")
 local cutter = require("./cutter")
+local project = require("./project")
 
 -- Which hint each held key teaches.
 local TEACHES = { ahead = "thrust", back = "thrust", left = "turn", right = "turn", boost = "boost" }
@@ -63,7 +64,7 @@ local function cut_ahead(ctx, latched)
     end
     if not near then
         local hold = ctx.get("ship", "hold")
-        message(ctx, rules.worked_out(rules.load(hold), rules.list(hold), cutter.buyers(ctx, hold)))
+        message(ctx, rules.worked_out(rules.load(hold), project.carried(ctx, hold), cutter.buyers(ctx, hold)))
     elseif gap <= cutter.reach(ctx) then
         message(ctx, "Point your nose at the rock to cut it: A or D turns.")
     else
@@ -309,7 +310,7 @@ local function cut(ctx, pilot)
             local now = table.clone(hold)
             now[ware] = (now[ware] or 0) + amount
             -- The `hold_full` fact itself is sound.luau's, from the `mined` that filled it.
-            table.insert(lines, "Hold full: " .. rules.list(now) .. " aboard.")
+            table.insert(lines, "Hold full: " .. project.carried(ctx, now) .. " aboard.")
         end
         if left <= 0 and not full and pilot.chosen then
             table.insert(lines, "The rig stops with the rock you picked: click another, or Space for the nearest.")
@@ -381,7 +382,9 @@ return {
                     end
                 end
             end
-            log.add(ctx, "Docked at " .. port.name .. ".")
+            -- A project's steps that wait on dockings move on, and a happening there counts it.
+            local note = project.arrived(ctx, pilot.station, counted, port.visits + (counted and 1 or 0))
+            log.add(ctx, "Docked at " .. port.name .. "." .. (note and " " .. note or ""))
             ctx.record("docked", { station = pilot.station, counted = counted })
         end,
     },

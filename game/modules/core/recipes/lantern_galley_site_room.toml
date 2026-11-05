@@ -187,3 +187,7 @@ at = [-0.9, 1.6, 0]
 [[marker]]
 name = "spot.table"
 at = [-0.3, 0.3, 0]
+# Where a visitor (the grower with greens) stands once the galley is built.
+[[marker]]
+name = "spot.greens"
+at = [1.5, 1.3, 0]

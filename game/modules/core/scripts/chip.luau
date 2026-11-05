@@ -5,6 +5,7 @@ local rules = require("./rules")
 local layout = require("./layout")
 local kit = require("./kit")
 local fit = require("./fit")
+local project = require("./project")
 
 -- The chip's width inside its padding (style.toml's chip pad is 12). Each widget has
 -- its own width, so nothing is squeezed: credits (CREDITS, room for five digits) and
@@ -15,7 +16,9 @@ local fit = require("./fit")
 -- row, or two-digit counts wrap into fragments.
 -- While the beam cuts, the hold's cell holds a short count (SHORT) and what this cut has
 -- brought in (GAINED, `+N`) beside it, GAINED_GAP apart, in the same HOLD width.
-local chip = { INNER = layout.CHIP - 24, CREDITS = 124, HOLD = 110, WARE = 44, GAP = 12, CARGO_GAP = 6,
+-- Goods carried for someone are marked with whose they are ("4 Ines's", OWNED wide)
+-- while the row has room for it, and on hover always (direction doc 4).
+local chip = { INNER = layout.CHIP - 24, CREDITS = 124, HOLD = 110, WARE = 44, OWNED = 104, GAP = 12, CARGO_GAP = 6,
     SHORT = 62, GAINED = 42, GAINED_GAP = 6 }
 
 function chip.build(ctx, ui)
@@ -25,13 +28,22 @@ function chip.build(ctx, ui)
     -- Credits and the hold, then each ware aboard: an icon and a count apiece, their
     -- names on hover.
     local wares = {}
+    local owner, theirs = project.owner(ctx)
+    local kinds = 0
+    for _, ware in rules.WARES do
+        if (hold[ware] or 0) > 0 then kinds += 1 end
+    end
+    local marked = owner and kinds * (chip.WARE + chip.CARGO_GAP) + chip.OWNED - chip.WARE <= chip.INNER
     for _, ware in rules.WARES do
         if (hold[ware] or 0) > 0 then
-            table.insert(wares, ui.text { id = "cargo_" .. ware, icon = kit.ware(ware), text = tostring(hold[ware]),
-                width = chip.WARE, size = kit.SIZE.body, cue = "flash", hover = hold[ware] .. " " .. ware })
+            local mine = ware ~= theirs or not owner
+            table.insert(wares, ui.text { id = "cargo_" .. ware, icon = kit.ware(ware),
+                text = hold[ware] .. ((not mine and marked) and " " .. owner or ""),
+                width = (not mine and marked) and chip.OWNED or chip.WARE, size = kit.SIZE.body, cue = "flash",
+                hover = mine and hold[ware] .. " " .. ware or owner .. " " .. hold[ware] .. " " .. ware .. ": carried for her" })
         end
     end
-    local hover = "Hold: " .. rules.list(hold) .. " aboard, room for " .. fit.hold(ctx)
+    local hover = "Hold: " .. project.carried(ctx, hold) .. " aboard, room for " .. fit.hold(ctx)
     local count = ui.text { id = "hold", icon = "hold", text = "Hold " .. load .. "/" .. fit.hold(ctx), width = chip.HOLD,
         size = kit.SIZE.body, cue = "flash", hover = hover }
     -- What the beam has cut this time, beside the hold, counting up as each unit lands.
