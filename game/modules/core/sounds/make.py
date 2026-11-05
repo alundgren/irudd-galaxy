@@ -14,6 +14,8 @@ this folder are those processed results. Every clip gets `--remove-dc --peak -1`
     mine_chip1-3, panel_open/close, talk_blip, ui_click
                                               --gain-db 3 --trim-silence
     part_drop                                 --gain-db 5 --trim-silence
+    drive_hum                                 --target-lufs -20 (a prepared loop: no trim)
+    ui_hover, ui_tap, part_lift, part_set     --gain-db 3 --trim-silence
     every other effect                        --target-lufs -18 --trim-silence
 
 mine_hum is one second of sound that repeats exactly every second (whole-hertz partials
@@ -21,6 +23,9 @@ and a one-second periodic noise band), with 0.12 s linear fades at both ends: mi
 plays it on every `mined` fact, once a second, so each copy fades into the next with
 the same phase and the hum sounds continuous for as long as mining goes on. The three
 chips take turns (scripts/sound.luau), so a second's chip is not the last one again.
+
+drive_hum is four seconds that repeat exactly (quarter-hertz partials and periodic noise),
+so it loops on its channel with no seam; its pitch and gain follow the ship's speed.
 """
 
 import sys
@@ -308,6 +313,77 @@ def built():
     return finish(x, fade_out=0.15, cutoff=5000)
 
 
+# Feel pass: the drive, bumps and screen touches ---------------------------------------
+# These draw from their own seeded stream, so adding them leaves every clip above exactly
+# as it was.
+feel = np.random.default_rng(5678)
+
+
+def periodic_noise(seconds, lo, hi, tilt=300.0):
+    """Noise whose every bin is a whole number of cycles in `seconds`: it loops exactly."""
+    n = int(round(seconds * RATE))
+    spec = np.zeros(n // 2 + 1, dtype=complex)
+    hz = np.arange(len(spec)) / seconds
+    keep = (hz >= lo) & (hz <= hi)
+    spec[keep] = np.exp(2j * np.pi * feel.random(keep.sum())) / np.sqrt(np.maximum(hz[keep], 1) / tilt)
+    x = np.fft.irfft(spec, n=n)
+    return x / np.max(np.abs(x))
+
+
+def drive_hum():
+    """The ship's drive: a warm low hum with a slow beat over a soft rumble. Four seconds
+    that repeat exactly (every partial a whole number of quarter hertz, the rumble
+    periodic), so it loops with no seam; its pitch and gain follow the ship's speed."""
+    t = t_axis(4.0)
+    x = np.zeros_like(t)
+    for f, a in ((55.0, 0.55), (110.0, 0.8), (110.5, 0.35), (165.0, 0.25), (220.0, 0.3), (330.0, 0.08), (440.25, 0.04)):
+        x += a * np.sin(2 * np.pi * f * t)
+    x *= 1 + 0.08 * np.sin(2 * np.pi * 0.5 * t)
+    x += 0.55 * periodic_noise(4.0, 60, 520)
+    x += 0.12 * periodic_noise(4.0, 500, 1400, tilt=600.0)
+    return x / np.max(np.abs(x)) * 0.5  # no filtering or fades: they would break the loop
+
+
+def bump():
+    """A soft hull knock: a low thud with a hollow body, no crack, nothing that hurts."""
+    t = t_axis(0.55)
+    x = np.sin(glide(t, 96, 72, 0.1)) * decay(t, 0.09, 0.004)
+    x += 0.4 * np.sin(2 * np.pi * 186 * t) * decay(t, 0.06, 0.004)
+    x += 0.18 * np.sin(2 * np.pi * 311 * t) * decay(t, 0.04, 0.004)
+    x += low(feel.standard_normal(len(t)), 420) * decay(t, 0.025, 0.002) * 0.35
+    return finish(x, fade_out=0.12, cutoff=2500)
+
+
+def ui_hover():
+    """The pointer finds something: the faintest wooden tick."""
+    t = t_axis(0.06)
+    x = np.sin(2 * np.pi * 1240 * t) * decay(t, 0.004, 0.0015) + 0.6 * np.sin(2 * np.pi * 760 * t) * decay(t, 0.007, 0.0015)
+    return finish(x, fade_out=0.015, cutoff=4000)
+
+
+def ui_tap():
+    """A quieter, lower click for parchment and dark buttons (Back, paging, the radio)."""
+    t = t_axis(0.09)
+    x = np.sin(2 * np.pi * 860 * t) * decay(t, 0.006, 0.0008) + 0.8 * np.sin(2 * np.pi * 430 * t) * decay(t, 0.014, 0.0008)
+    return finish(x, fade_out=0.02, cutoff=4000)
+
+
+def part_lift():
+    """A part picked up: a small rising lift with a soft catch."""
+    t = t_axis(0.3)
+    x = np.sin(glide(t, 380, 560, 0.12)) * swell(t, 0.03, 0.06) * 0.6
+    x += band(feel.standard_normal(len(t)), 500, 1600) * swell(t, 0.06, 0.07) * 0.25
+    return finish(x, fade_out=0.06, cutoff=3500)
+
+
+def part_set():
+    """A part let go where it may sit: a light, short settle."""
+    t = t_axis(0.3)
+    x = thump(t, 210, 170, 0.035, lp=800, grit=0.3) * 0.7
+    place(x, tone(t, 700, 0.018, ((1, 1.0), (1.5, 0.3)), 0.001) * 0.3, 0.03)
+    return finish(x, fade_out=0.06, cutoff=3500)
+
+
 SOUNDS = {
     "thrust_on": thrust_on, "thrust_off": thrust_off, "boost": boost,
     "mine_hum": mine_hum, "mine_chip1": mine_chip1, "mine_chip2": mine_chip2, "mine_chip3": mine_chip3, "hold_full": hold_full,
@@ -316,6 +392,8 @@ SOUNDS = {
     "receipt": receipt, "sale_coin": sale_coin, "buy_goods": buy_goods,
     "part_drop": part_drop, "refused": refused,
     "talk_blip": talk_blip, "radio_tune": radio_tune, "built": built,
+    "drive_hum": drive_hum, "bump": bump,
+    "ui_hover": ui_hover, "ui_tap": ui_tap, "part_lift": part_lift, "part_set": part_set,
 }
 
 

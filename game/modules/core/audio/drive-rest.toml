@@ -1,0 +1,5 @@
+# audio mix scenario: the drive at rest, six seconds (galaxy-gm audio mix audio/drive-rest.toml).
+modules = "../.."
+ticks = 180
+seed = 7
+inputs = "drive-rest.inputs"

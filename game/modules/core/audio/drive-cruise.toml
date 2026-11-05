@@ -1,0 +1,5 @@
+# audio mix scenario: the drive cruising north at top speed, six seconds (galaxy-gm audio mix audio/drive-cruise.toml).
+modules = "../.."
+ticks = 180
+seed = 7
+inputs = "drive-cruise.inputs"

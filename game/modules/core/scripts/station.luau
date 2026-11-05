@@ -363,7 +363,7 @@ local function room_panel(ctx, ui, station, pilot)
     end
     -- The panel opens on the side away from its building, so the building stays in view.
     return layout.frame(ui, "room", {
-        ui.panel { id = "room", align = at.x < 0 and "top-right" or "top-left", x = layout.M, y = layout.M,
+        ui.panel { id = "room", look = "room", align = at.x < 0 and "top-right" or "top-left", x = layout.M, y = layout.M,
             width = layout.PANEL, gap = facility.fits and 8 or 12, children = children },
     })
 end
