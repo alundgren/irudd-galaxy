@@ -32,6 +32,7 @@ fn the_test_modules_pass_check() {
         "tests/modules/stroll",
         "tests/modules/tally",
         "tests/play/drift",
+        "tests/play/depth/sky",
         "tests/play/screens",
         "tests/play/rich-screens/rich",
         "tests/play/ui-kit/kit",
@@ -504,6 +505,48 @@ fn check_reads_a_note_that_a_press_rewrites() {
                     && m.contains("/far[")
                     && m.contains(expected)),
             "{out}"
+        );
+    }
+}
+
+#[test]
+fn check_catches_sky_authoring_mistakes() {
+    for (from, to, expected) in [
+        (
+            "density = 0.5\n",
+            "density = 0.5\nspeed = 2.0\n",
+            "unknown field `speed`",
+        ),
+        (
+            "parallax = 0.08\n",
+            "parallax = 1.8\n",
+            "[sky] layers 2: parallax is 1.8; it is 0 to 1",
+        ),
+        (
+            "model = \"sky.hub\"",
+            "model = \"sky.hubb\"",
+            "[sky] landmarks 3 model `sky.hubb` is no model any module has",
+        ),
+        (
+            "shape = \"wash\"",
+            "shape = \"cloud\"",
+            "[sky] landmarks 2: shape is \"cloud\"; it is disc, wash or model",
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let module = dir.path().join("sky");
+        copy(&engine().join("tests/play/depth/sky"), &module);
+        let path = module.join("style.toml");
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains(from), "{from}");
+        std::fs::write(&path, text.replacen(from, to, 1)).unwrap();
+        let (code, out) = gm(&engine(), &["check", module.to_str().unwrap()]);
+        let out = json(&out);
+        assert_eq!(code, 5, "{out}");
+        let found = messages(&out);
+        assert!(
+            found.iter().any(|m| m.contains(expected)),
+            "{expected}: {found:?}"
         );
     }
 }

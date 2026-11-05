@@ -43,6 +43,12 @@ pub struct Scene {
     /// Colour behind everything when there is no backdrop.
     pub clear_color: Color,
     pub backdrop: Option<BackdropHandle>,
+    /// Distant things behind the play layer, drawn after the backdrop in this order
+    /// (far to near) and before [`Scene::meshes`] ([`crate::far`]).
+    pub far: Vec<crate::far::Far>,
+    /// Holds the backdrop's clouds and stars still instead of scrolling them with the
+    /// camera: the player's reduced-motion setting.
+    pub still_sky: bool,
     pub meshes: Vec<MeshInstance>,
     /// Lanes, borders, rings, beams: ribbons in world space.
     pub lines: Vec<Line>,
@@ -67,6 +73,8 @@ impl Scene {
             lights: Lights::default(),
             clear_color: defaults::SKY_BOTTOM,
             backdrop: None,
+            far: Vec::new(),
+            still_sky: false,
             meshes: Vec::new(),
             lines: Vec::new(),
             glows: Vec::new(),
@@ -133,6 +141,9 @@ pub struct MeshInstance {
     pub hatch_scale: f32,
     /// The share of the mesh's glow (self-lit paint) that shows, `0..=1`: a pulsing lamp.
     pub glow: f32,
+    /// A colour the finished paint and ink fade towards, alpha how far: a distant thing
+    /// sinking into the sky's haze. Transparent for none.
+    pub haze: Color,
 }
 
 impl MeshInstance {
@@ -144,6 +155,7 @@ impl MeshInstance {
             morph: 0.0,
             hatch_scale: 0.0,
             glow: 1.0,
+            haze: Color::TRANSPARENT,
         }
     }
 
@@ -181,6 +193,12 @@ impl MeshInstance {
         } else {
             1.0
         };
+        self
+    }
+
+    /// Fades the finished paint and ink `haze.a` of the way to `haze`.
+    pub fn with_haze(mut self, haze: Color) -> Self {
+        self.haze = haze;
         self
     }
 

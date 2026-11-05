@@ -1,5 +1,6 @@
 //! The wgpu renderer: a window or an offscreen target, and one `Scene` per frame.
 
+mod far;
 mod fx;
 mod icons;
 #[cfg(test)]
@@ -9,7 +10,10 @@ mod text;
 use crate::backdrop::Backdrop;
 use crate::camera::Projection;
 use crate::defaults;
-use crate::scene::{BackdropHandle, MAX_POINT_LIGHTS, MeshHandle, Panel, PanelShape, Scene, Text};
+use crate::far::Far;
+use crate::scene::{
+    BackdropHandle, MAX_POINT_LIGHTS, MeshHandle, MeshInstance, Panel, PanelShape, Scene, Text,
+};
 use crate::style::Ink;
 use bytemuck::{Pod, Zeroable};
 use fx::FxVertex;
@@ -249,6 +253,8 @@ struct InstanceGpu {
     /// x: morph weight, y: hatch scale (0 for the instance's own), z: the share of its
     /// glow that shows.
     morph: [f32; 4],
+    /// rgb: the haze a distant thing fades towards, a: how far.
+    haze: [f32; 4],
 }
 
 #[repr(C)]
@@ -368,6 +374,9 @@ struct Pipelines {
     fx: wgpu::RenderPipeline,
     gradient: wgpu::RenderPipeline,
     blobs: wgpu::RenderPipeline,
+    far_field: wgpu::RenderPipeline,
+    far_shape: wgpu::RenderPipeline,
+    depth_reset: wgpu::RenderPipeline,
     panels: wgpu::RenderPipeline,
     antialias: wgpu::RenderPipeline,
 }
@@ -423,6 +432,9 @@ pub struct Renderer {
     globals_bind: wgpu::BindGroup,
     instances: Growable,
     instances_bind: wgpu::BindGroup,
+    far_globals: wgpu::Buffer,
+    far_items: Growable,
+    far_bind: wgpu::BindGroup,
     fx_vertices: Growable,
     fx_indices: Growable,
     screen: wgpu::Buffer,
@@ -667,6 +679,14 @@ impl Renderer {
         let storage = wgpu::BufferUsages::STORAGE;
         let instances = Growable::new(&device, "instances", storage, 64 * 1024);
         let instances_bind = bind(&device, &layouts.instances, &[&instances.buf]);
+        let far_globals = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("far globals"),
+            size: std::mem::size_of::<far::FarGlobalsGpu>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let far_items = Growable::new(&device, "far items", storage, 4 * 1024);
+        let far_bind = bind(&device, &layouts.sky, &[&far_globals, &far_items.buf]);
         let screen = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("screen"),
             size: 16,
@@ -744,6 +764,9 @@ impl Renderer {
             globals_bind,
             instances,
             instances_bind,
+            far_globals,
+            far_items,
+            far_bind,
             screen,
             panels,
             panels_bind,
@@ -1120,6 +1143,44 @@ impl Renderer {
             .expect("just created")
     }
 
+    /// Draws mesh runs, cel shaded then inked, with the globals and instances bound.
+    fn draw_runs(&self, pass: &mut wgpu::RenderPass<'_>, runs: &[(u32, u32, u32)]) {
+        for pipeline in [&self.pipelines.mesh, &self.pipelines.outline] {
+            pass.set_pipeline(pipeline);
+            for &(mesh, start, count) in runs {
+                let Some(m) = self.meshes.get(mesh as usize).and_then(|s| s.mesh.as_ref()) else {
+                    continue;
+                };
+                pass.set_vertex_buffer(0, m.vertices.slice(..));
+                pass.set_index_buffer(m.indices.slice(..), wgpu::IndexFormat::Uint32);
+                pass.draw_indexed(0..m.index_count, 0, start..start + count);
+            }
+        }
+    }
+
+    /// Appends `meshes` that can be drawn to `gpu`, grouped by mesh, and returns the
+    /// runs to draw: `(mesh index, first instance, count)`.
+    fn runs(&self, meshes: &[MeshInstance], gpu: &mut Vec<InstanceGpu>) -> Vec<(u32, u32, u32)> {
+        let mut order: Vec<usize> = (0..meshes.len())
+            .filter(|&i| {
+                let m = &meshes[i];
+                m.transform.is_finite() && self.mesh(m.mesh).is_some_and(|g| g.index_count > 0)
+            })
+            .collect();
+        order.sort_by_key(|&i| meshes[i].mesh.index);
+        let mut runs: Vec<(u32, u32, u32)> = Vec::new();
+        for &i in &order {
+            let inst = &meshes[i];
+            gpu.push(instance_gpu(inst, self.scale));
+            let k = gpu.len() as u32 - 1;
+            match runs.last_mut() {
+                Some(r) if r.0 == inst.mesh.index => r.2 += 1,
+                _ => runs.push((inst.mesh.index, k, 1)),
+            }
+        }
+        runs
+    }
+
     /// Uploads per-frame data and records the world and overlay passes.
     fn encode(
         &mut self,
@@ -1179,57 +1240,18 @@ impl Renderer {
             }),
         );
 
-        // Mesh instances, grouped by mesh.
-        let mut order: Vec<usize> = (0..scene.meshes.len())
-            .filter(|&i| {
-                let m = &scene.meshes[i];
-                m.transform.is_finite() && self.mesh(m.mesh).is_some_and(|g| g.index_count > 0)
+        // Mesh instances, grouped by mesh: the play layer's, then each group of distant
+        // meshes' after them.
+        let mut gpu_instances = Vec::with_capacity(scene.meshes.len());
+        let runs = self.runs(&scene.meshes, &mut gpu_instances);
+        let far_runs: Vec<Vec<(u32, u32, u32)>> = scene
+            .far
+            .iter()
+            .map(|f| match f {
+                Far::Meshes(m) => self.runs(m, &mut gpu_instances),
+                _ => Vec::new(),
             })
             .collect();
-        order.sort_by_key(|&i| scene.meshes[i].mesh.index);
-        let mut gpu_instances = Vec::with_capacity(order.len());
-        let mut runs: Vec<(u32, u32, u32)> = Vec::new();
-        for &i in &order {
-            let inst = &scene.meshes[i];
-            let model = inst.transform;
-            let m3 = Mat3::from_mat4(model);
-            let normal = if m3.determinant().abs() > 1e-12 {
-                Mat4::from_mat3(m3.inverse().transpose())
-            } else {
-                model
-            };
-            let mat = &inst.material;
-            gpu_instances.push(InstanceGpu {
-                model: model.to_cols_array_2d(),
-                normal: normal.to_cols_array_2d(),
-                tint: mat.tint.to_array(),
-                shadow: [
-                    mat.shadow.r,
-                    mat.shadow.g,
-                    mat.shadow.b,
-                    mat.bands.clamp(2, 3) as f32,
-                ],
-                highlight: [
-                    mat.highlight.r,
-                    mat.highlight.g,
-                    mat.highlight.b,
-                    mat.hatch.clamp(0.0, 1.0),
-                ],
-                outline: [
-                    mat.outline.r,
-                    mat.outline.g,
-                    mat.outline.b,
-                    mat.outline_px.clamp(0.0, 32.0) * self.scale,
-                ],
-                emissive: mat.emissive.to_array(),
-                morph: [inst.morph, inst.hatch_scale, inst.glow, 0.0],
-            });
-            let k = gpu_instances.len() as u32 - 1;
-            match runs.last_mut() {
-                Some(r) if r.0 == inst.mesh.index => r.2 += 1,
-                _ => runs.push((inst.mesh.index, k, 1)),
-            }
-        }
         if self.instances.write(
             &self.device,
             &self.queue,
@@ -1265,17 +1287,23 @@ impl Renderer {
             .unwrap_or(&self.fallback_sky);
         let src = &sky.source;
         let tile = src.tile;
+        // Reduced motion holds the clouds and stars still.
+        let scroll = if scene.still_sky {
+            Vec2::ZERO
+        } else {
+            cam.target.truncate()
+        };
         let sky_gpu = SkyGpu {
             top: src.top.to_array(),
             bottom: src.bottom.to_array(),
             clouds: [
-                cam.target.x * CLOUD_PARALLAX,
-                -cam.target.y * CLOUD_PARALLAX,
+                scroll.x * CLOUD_PARALLAX,
+                -scroll.y * CLOUD_PARALLAX,
                 tile,
                 self.scale,
             ],
             // Each star scrolls by this times its layer's parallax.
-            stars: [cam.target.x, -cam.target.y, 0.0, 0.0],
+            stars: [scroll.x, -scroll.y, 0.0, 0.0],
             counts: [
                 (logical.x / tile).ceil() + 2.0,
                 (logical.y / tile).ceil() + 2.0,
@@ -1288,6 +1316,25 @@ impl Renderer {
             .write_buffer(&sky.sky, 0, bytemuck::bytes_of(&sky_gpu));
         let sky_blobs = (src.clouds.len() + src.stars.len()) as u32;
         let sky_instances = sky_blobs * sky_gpu.counts[0] as u32 * sky_gpu.counts[1] as u32;
+
+        // Distant things.
+        let (far_gpu, far_index) = far::items(&scene.far, cam, logical);
+        let raster = Vec2::new(self.raster.0 as f32, self.raster.1 as f32);
+        self.queue.write_buffer(
+            &self.far_globals,
+            0,
+            bytemuck::bytes_of(&far::globals(cam, &scene.lights, logical, raster)),
+        );
+        if self
+            .far_items
+            .write(&self.device, &self.queue, bytemuck::cast_slice(&far_gpu))
+        {
+            self.far_bind = bind(
+                &self.device,
+                &self.layouts.sky,
+                &[&self.far_globals, &self.far_items.buf],
+            );
+        }
 
         // Overlay: layer 0, then each upper layer above it.
         let overlay = &scene.overlay;
@@ -1411,21 +1458,37 @@ impl Renderer {
                 }
             }
 
+            // Distant things, far to near. Each group of distant meshes is drawn with
+            // its own depth, then the depth goes back to far so what comes after,
+            // and the play layer, draw over it.
+            for (item, (index, far_runs)) in scene.far.iter().zip(far_index.iter().zip(&far_runs)) {
+                match (item, index) {
+                    (Far::Field(_), Some(k)) => {
+                        pass.set_pipeline(&self.pipelines.far_field);
+                        pass.set_bind_group(0, &self.far_bind, &[]);
+                        pass.draw(0..3, *k..*k + 1);
+                    }
+                    (Far::Shape(_), Some(k)) => {
+                        pass.set_pipeline(&self.pipelines.far_shape);
+                        pass.set_bind_group(0, &self.far_bind, &[]);
+                        pass.draw(0..6, *k..*k + 1);
+                    }
+                    (Far::Meshes(_), _) if !far_runs.is_empty() => {
+                        pass.set_bind_group(0, &self.globals_bind, &[]);
+                        pass.set_bind_group(1, &self.instances_bind, &[]);
+                        self.draw_runs(&mut pass, far_runs);
+                        pass.set_pipeline(&self.pipelines.depth_reset);
+                        pass.set_bind_group(0, &self.far_bind, &[]);
+                        pass.draw(0..3, 0..1);
+                    }
+                    _ => {}
+                }
+            }
+
             pass.set_bind_group(0, &self.globals_bind, &[]);
             if !runs.is_empty() {
                 pass.set_bind_group(1, &self.instances_bind, &[]);
-                for pipeline in [&self.pipelines.mesh, &self.pipelines.outline] {
-                    pass.set_pipeline(pipeline);
-                    for &(mesh, start, count) in &runs {
-                        let Some(m) = self.meshes.get(mesh as usize).and_then(|s| s.mesh.as_ref())
-                        else {
-                            continue;
-                        };
-                        pass.set_vertex_buffer(0, m.vertices.slice(..));
-                        pass.set_index_buffer(m.indices.slice(..), wgpu::IndexFormat::Uint32);
-                        pass.draw_indexed(0..m.index_count, 0, start..start + count);
-                    }
-                }
+                self.draw_runs(&mut pass, &runs);
             }
         }
         // Keep sample coverage through geometry, ink and effects. Resolve only
@@ -1660,6 +1723,50 @@ fn panel_gpu(p: &Panel, scale: f32) -> PanelGpu {
     }
 }
 
+/// One mesh instance as the mesh shader reads it; outline widths become physical pixels
+/// at UI `scale`.
+fn instance_gpu(inst: &MeshInstance, scale: f32) -> InstanceGpu {
+    let model = inst.transform;
+    let m3 = Mat3::from_mat4(model);
+    let normal = if m3.determinant().abs() > 1e-12 {
+        Mat4::from_mat3(m3.inverse().transpose())
+    } else {
+        model
+    };
+    let mat = &inst.material;
+    let haze = if inst.haze.a.is_finite() {
+        inst.haze.with_alpha(inst.haze.a.clamp(0.0, 1.0))
+    } else {
+        galaxy_mesh::Color::TRANSPARENT
+    };
+    InstanceGpu {
+        model: model.to_cols_array_2d(),
+        normal: normal.to_cols_array_2d(),
+        tint: mat.tint.to_array(),
+        shadow: [
+            mat.shadow.r,
+            mat.shadow.g,
+            mat.shadow.b,
+            mat.bands.clamp(2, 3) as f32,
+        ],
+        highlight: [
+            mat.highlight.r,
+            mat.highlight.g,
+            mat.highlight.b,
+            mat.hatch.clamp(0.0, 1.0),
+        ],
+        outline: [
+            mat.outline.r,
+            mat.outline.g,
+            mat.outline.b,
+            mat.outline_px.clamp(0.0, 32.0) * scale,
+        ],
+        emissive: mat.emissive.to_array(),
+        morph: [inst.morph, inst.hatch_scale, inst.glow, 0.0],
+        haze: haze.to_array(),
+    }
+}
+
 fn make_backdrop(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
@@ -1891,6 +1998,7 @@ fn create_pipelines(
         "backdrop.wgsl",
         include_str!("../shaders/backdrop.wgsl").into(),
     );
+    let far_src = module("far.wgsl", include_str!("../shaders/far.wgsl").into());
     let ui_src = module("ui.wgsl", include_str!("../shaders/ui.wgsl").into());
     let ink_src = module("ink.wgsl", ink_shader_source(samples));
     let antialias_src = module(
@@ -2100,6 +2208,57 @@ fn create_pipelines(
             cull: None,
             depth: depth(false, wgpu::CompareFunction::Always),
             blend: premul,
+            samples,
+            formats: &surface,
+        }),
+        far_field: make(Spec {
+            label: "far fields",
+            layout: &sky_layout,
+            module: &far_src,
+            vs: "vs_field",
+            fs: "fs_field",
+            buffers: &[],
+            cull: None,
+            depth: depth(false, wgpu::CompareFunction::Always),
+            blend: premul,
+            samples,
+            formats: &surface,
+        }),
+        far_shape: make(Spec {
+            label: "far shapes",
+            layout: &sky_layout,
+            module: &far_src,
+            vs: "vs_shape",
+            fs: "fs_shape",
+            buffers: &[],
+            cull: None,
+            depth: depth(false, wgpu::CompareFunction::Always),
+            blend: premul,
+            samples,
+            formats: &surface,
+        }),
+        // Writes far depth everywhere and keeps the colour.
+        depth_reset: make(Spec {
+            label: "depth reset",
+            layout: &sky_layout,
+            module: &far_src,
+            vs: "vs_depth_reset",
+            fs: "fs_depth_reset",
+            buffers: &[],
+            cull: None,
+            depth: depth(true, wgpu::CompareFunction::Always),
+            blend: Some(wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::Zero,
+                    dst_factor: wgpu::BlendFactor::One,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                alpha: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::Zero,
+                    dst_factor: wgpu::BlendFactor::One,
+                    operation: wgpu::BlendOperation::Add,
+                },
+            }),
             samples,
             formats: &surface,
         }),

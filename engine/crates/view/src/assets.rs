@@ -131,6 +131,23 @@ impl Assets {
                 out.particles.insert(format!("{id}.{name}"), recipe);
             }
         }
+        // The sky's models and looks must be ones some module has.
+        if let Some(id) = scene_wide.get("sky").and_then(|ids| ids.last()) {
+            for (place, model, look) in out.sky.names() {
+                if !model.is_empty() && !out.models.contains_key(model) {
+                    out.problems.push(format!(
+                        "{id}: {STYLE}: [sky] {place} model `{model}` is no model any module \
+                         has (`<module>.<name>` is models/<name>.gltf in that module)"
+                    ));
+                }
+                if !look.is_empty() && !out.looks.contains_key(look) {
+                    out.problems.push(format!(
+                        "{id}: {STYLE}: [sky] {place} look `{look}` is no look in any \
+                         module's style.toml"
+                    ));
+                }
+            }
+        }
         out.conflicts = scene_wide
             .into_iter()
             .filter(|(_, ids)| ids.len() > 1)
@@ -213,6 +230,34 @@ mod tests {
         assert!(all.contains("aa: models/broken.gltf"), "{all}");
         assert!(all.contains("bb: style.toml: [looks.x]"), "{all}");
         assert_eq!(assets.sky.stars, 3, "bb's style failed, so aa's sky stands");
+    }
+
+    #[test]
+    fn the_sky_names_models_and_looks_some_module_has() {
+        let cube = cube();
+        let a = module(
+            "aa",
+            &[
+                ("models/cube.gltf", &cube),
+                (
+                    "style.toml",
+                    "[looks.far]\nhatch = 0.2\n\
+                     [[sky.layers]]\nshape = \"model\"\nmodel = \"aa.cube\"\nlook = \"aa.far\"\n\
+                     [[sky.landmarks]]\nshape = \"model\"\nmodel = \"aa.gone\"\n\
+                     [[sky.landmarks]]\nshape = \"model\"\nmodel = \"aa.cube\"\nlook = \"aa.nope\"\n",
+                ),
+            ],
+        );
+        let assets = Assets::load([&a]);
+        assert_eq!(
+            assets.problems,
+            [
+                "aa: style.toml: [sky] landmarks 1 model `aa.gone` is no model any module has \
+                 (`<module>.<name>` is models/<name>.gltf in that module)",
+                "aa: style.toml: [sky] landmarks 2 look `aa.nope` is no look in any module's \
+                 style.toml",
+            ]
+        );
     }
 
     #[test]

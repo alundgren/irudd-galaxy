@@ -13,6 +13,7 @@ pub mod assets;
 pub mod builds;
 pub mod course;
 pub mod effects;
+pub mod far;
 pub mod film;
 pub mod glide;
 pub mod hovers;
@@ -687,6 +688,28 @@ impl View {
         scene.backdrop = Some(self.sky);
         scene.clear_color = self.assets.sky.bottom;
         let place = travel::place(world, alpha);
+        // The sky's layers and landmarks, behind the play layer. Not in a room, which
+        // has its own walls and camera.
+        scene.still_sky = self.eye.still;
+        let in_room = place.is_some_and(|p| world.component(p, galaxy_api::engine::ROOM).is_some());
+        if !in_room {
+            let models = far::Models {
+                handles: &self.handles,
+                looks: &self.assets.looks,
+                reach: &self.reach,
+            };
+            let view = camera_holder(world).map_or(CameraSpec::default().view, |(_, s)| s.view);
+            let frame = far::Frame {
+                camera,
+                logical,
+                seed: self.seed,
+                still: self.eye.still,
+                unit: view / logical.y.max(1.0),
+            };
+            let (items, missing) = far::items(&self.assets.sky, &scene.ink, &models, &frame);
+            scene.far = items;
+            self.missing.extend(missing);
+        }
         // Game time at this frame, for parts that move on their own.
         let seconds = (world.tick as f64 - 1.0 + alpha as f64).max(0.0) / 30.0;
         let mut drawn = BTreeMap::new();

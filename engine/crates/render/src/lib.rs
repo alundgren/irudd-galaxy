@@ -11,6 +11,7 @@ pub mod backdrop;
 pub mod camera;
 pub mod defaults;
 pub mod effects;
+pub mod far;
 mod renderer;
 mod rng;
 pub mod scene;
