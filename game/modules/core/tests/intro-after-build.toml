@@ -1,6 +1,7 @@
 # Bram first met just after the galley is finished: the fortieth plate is sold at Lantern
 # Dock, then the office opens and his introduction plays before any other trade or
-# docking. It ends on the galley being open, not on raising it. The route is the one in
+# docking. Who built it is his news, said first in place of his greeting, and his
+# introduction ends on the galley being open, not on raising it. The route is the one in
 # tests/trade.toml up to that sale.
 seed = 7
 ticks = 6396
@@ -138,11 +139,23 @@ tick = 6366
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_master_intro" }
+[[expect]]
+tick = 6366
+entity = "lantern_master_intro"
+component = "engine.talk"
+field = "current"
+equals = "core.lantern_master_intro_news"
+[[expect]]
+tick = 6366
+entity = "lantern_master_intro_news"
+component = "engine.talk_line"
+field = "text"
+equals = "Your plate built our galley."
 [[input]]
 tick = 6371
 name = "engine.talk_next"
 source = "talk"
-payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro_news" }
 [[input]]
 tick = 6376
 name = "engine.talk_next"
