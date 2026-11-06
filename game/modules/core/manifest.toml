@@ -97,6 +97,12 @@ empty = { type = "text", default = "" }
 # How fast the beam cuts this rock, times the ship's own rate: the big seams are rich,
 # soft stone (1.5), so choosing one pays; the rest cut at the ship's rate (1).
 rich = { type = "number", default = 1.0 }
+# How warm the stone under the hand cutter's beam has run: seconds of beam, less what it
+# has cooled off the beam since (rules.HEAT). Warm stone cuts fast, glazed stone slowly.
+heat = { type = "number", default = 0.0 }
+# A small spall beside a seam, where a hand rests the beam while the seam cools: the rig
+# and a script's order never move on to one by themselves (a click still cuts it).
+spall = { type = "bool", default = false }
 
 [components.port]
 name = "text"
@@ -460,6 +466,11 @@ dock = "int"
 cancel = "int"
 talk = "int"
 tow = "int"
+# Moving the beam off a glazed rock onto another (the hint retires after a few).
+swap = "int"
+# Sefa's word on what to watch while cutting: 0 not yet said, 1 said and still the
+# message line under the beam, 2 heard out (scripts/main.luau, cutter.told).
+heat = "int"
 
 [keys]
 w = "ahead"

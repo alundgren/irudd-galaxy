@@ -1,0 +1,143 @@
+# Cutting takes judgment (rules.HEAT). A scripted order flies the ship to the east seam
+# (rock5) and is cancelled as it gets there; then the pilot cuts by hand with clicks. The
+# first hand beam brings Sefa's word on what to watch. The seam warms and cuts fast,
+# then glazes (its look, the beam's and the line all say so); the pilot turns onto the
+# seam's spall (rock10) and cuts that while the seam cools back to cold, then turns back
+# to the seam and fills the hold: 18 seconds of cutting from the first click, against
+# 26 for clicking the seam once and waiting (cutting-wait.toml).
+seed = 7
+ticks = 760
+
+[[input]]
+tick = 1
+name = "core.mine"
+payload = { rock = "core.rock5" }
+[[input]]
+tick = 150
+name = "core.cancel"
+payload = { down = true }
+[[input]]
+tick = 170
+name = "core.mine"
+source = "ui"
+payload = { rock = "core.rock5" }
+[[input]]
+tick = 345
+name = "core.right"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 361
+name = "core.right"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 365
+name = "core.mine"
+source = "ui"
+payload = { rock = "core.rock10" }
+[[input]]
+tick = 540
+name = "core.left"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 556
+name = "core.left"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 560
+name = "core.mine"
+source = "ui"
+payload = { rock = "core.rock5" }
+[[expect]]
+tick = 171
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Sefa on the radio: \"Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.\""
+[[expect]]
+tick = 171
+entity = "ship"
+component = "pilot"
+field = "latched"
+equals = true
+[[expect]]
+tick = 240
+entity = "rock5"
+component = "engine.model"
+field = "look"
+equals = "core.rock_warm"
+[[expect]]
+tick = 300
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Sefa on the radio: \"Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.\""
+[[expect]]
+tick = 330
+entity = "rock5"
+component = "engine.model"
+field = "look"
+equals = "core.rock_glazed"
+[[expect]]
+tick = 330
+entity = "ship"
+component = "engine.beam"
+field = "look"
+equals = "core.cutter_glazed"
+[[expect]]
+tick = 330
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "The stone glazes and the beam skates: put it on another rock while this one cools."
+[[expect]]
+tick = 330
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 10
+[[expect]]
+tick = 366
+entity = "ship"
+component = "pilot"
+field = "target"
+equals = "core.rock10"
+[[expect]]
+tick = 366
+entity = "ship"
+component = "taught"
+field = "swap"
+equals = 1
+[[expect]]
+tick = 420
+entity = "rock5"
+component = "engine.model"
+field = "look"
+equals = "core.rock"
+[[expect]]
+tick = 420
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "+1 ore · hold 11 of 24 · cold stone, it warms as you cut"
+[[expect]]
+tick = 690
+entity = "ship"
+component = "hold"
+field = "ore"
+at_most = 23
+[[expect]]
+tick = 720
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 24
+[[expect]]
+tick = 720
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Hold full: 24 ore aboard."

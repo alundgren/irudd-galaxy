@@ -56,11 +56,24 @@ local function kick(ctx, share)
         shake_seconds = 0.35, shake_tick = ctx.tick })
 end
 
+-- What Sefa at Cinder Kiln says on the radio the first time the hand beam comes on,
+-- before the stone has warmed: what to watch while cutting.
+local WATCH = "Sefa on the radio: \"Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.\""
+
+-- The hand beam comes on: `cutter.on`, and the first time Sefa says what to watch.
+local function hand_on(ctx, rock, latched)
+    cutter.on(ctx, rock, latched)
+    if ctx.get("ship", "taught").heat == 0 then
+        ctx.patch("ship", "taught", { heat = 1 })
+        log.add(ctx, WATCH)
+    end
+end
+
 -- Starts the beam on the rock in the nose's sights, or says why there is none.
 local function cut_ahead(ctx, latched)
     local sighted, near, gap = cutter.sighted(ctx)
     if sighted then
-        cutter.on(ctx, sighted, latched)
+        hand_on(ctx, sighted, latched)
         return true
     end
     if not near then
@@ -203,7 +216,7 @@ local function mine(event, ctx)
     if rock ~= nil then
         -- A click on a rock: the beam cuts it while the ship holds steady, as Space does.
         if cutter.can_cut(ctx, rock) then
-            cutter.on(ctx, rock, true)
+            hand_on(ctx, rock, true)
         else
             local at = ctx.get("ship", "engine.position")
             local centre, radius = cutter.rock(ctx, rock)
@@ -247,6 +260,11 @@ local function dock(event, ctx)
     message(ctx, "Fly into " .. name .. "'s berth ring, the glowing ring off its dock, and the clamps take you in.")
 end
 
+-- What the pilot hears the moment the stone under a hand beam glazes.
+local GLAZED = "The stone glazes and the beam skates: put it on another rock while this one cools."
+
+local told = cutter.told
+
 -- One second of the beam on its rock: what it has cut lands in the hold.
 local function cut(ctx, pilot)
     local rock = pilot.target
@@ -261,18 +279,30 @@ local function cut(ctx, pilot)
         cutter.off(ctx, rig and "The rock is out of the rig's reach." or "The beam slipped off the rock.")
         return
     end
-    -- The ship may have drifted nearer or further: the chips fly the beam's new length.
-    local look = cutter.look(ctx, rock)
+    -- The second's beam time is banked at the rate the stone's heat gave it, and by hand
+    -- it warms the stone (rules.HEAT).
+    local ware = cutter.ware(ore)
+    local was = rules.phase(ware, ore.heat)
+    local work, phase = cutter.bank(ctx, pilot)
+    local steady = cutter.steady(ctx, pilot.auto)
+    -- The ship may have drifted nearer or further, and the stone may have glazed: the beam
+    -- shows it, and its chips fly the beam's new length.
+    local look = cutter.look(ctx, rock, phase)
     if ctx.get("ship", "engine.beam").look ~= look then ctx.patch("ship", "engine.beam", { look = look }) end
     local hold = ctx.get("ship", "hold")
     local capacity = fit.hold(ctx)
-    local due, rest = rules.cut(pilot.cut_work + cutter.work(ctx, rock, ctx.tick - pilot.cut_from))
+    local due, rest = rules.cut(work)
     local amount = rules.transfer(rules.load(hold), ore.left, capacity, due)
-    if amount <= 0 then return end
+    local turned = not steady and phase ~= was
+    if amount <= 0 then
+        local fields = { cut_work = work, cut_from = ctx.tick }
+        if turned and phase == "glazed" then fields.message = GLAZED end
+        ctx.patch("ship", "pilot", fields)
+        if turned and phase == "glazed" then told(ctx) end
+        return
+    end
     local load = rules.load(hold) + amount
     local left = ore.left - amount
-    -- Each rock yields its own ware: ore, ice or glassite.
-    local ware = ore.ware ~= "" and ore.ware or "ore"
     ctx.patch("ship", "hold", { [ware] = (hold[ware] or 0) + amount })
     ctx.patch(rock, "ore", { left = left })
     -- The rock shrinks as it is mined; one with stages also changes model as it goes,
@@ -281,13 +311,24 @@ local function cut(ctx, pilot)
     ctx.record("mined", { rock = rock, units = amount })
     local full = load >= capacity
     -- A full hold is the work itself: the fitter counts them (fit.verdict, part `holds`).
-    ctx.patch("ship", "pilot", { cut_work = rest, cut_from = ctx.tick, gained = pilot.gained + amount, away = true,
-        holds = pilot.holds + (full and 1 or 0), message = "+" .. amount .. " " .. ware .. " · hold " .. load .. " of " .. capacity .. ((ore.rich or 1) > 1 and " · rich seam" or "") })
+    -- The count says what the stone under a hand beam is doing; just after the first beam
+    -- comes on, the line about it stays up until the stone first glazes (told).
+    local line = "+" .. amount .. " " .. ware .. " · hold " .. load .. " of " .. capacity .. ((ore.rich or 1) > 1 and " · rich seam" or "")
+        .. (steady and "" or " · " .. rules.FEEL[phase])
+    local fields = { cut_work = rest, cut_from = ctx.tick, gained = pilot.gained + amount, away = true,
+        holds = pilot.holds + (full and 1 or 0), message = line }
+    if turned and phase == "glazed" then
+        fields.message = GLAZED
+        told(ctx)
+    elseif not steady and ctx.get("ship", "taught").heat == 1 then
+        fields.message = nil
+    end
+    ctx.patch("ship", "pilot", fields)
     if left > 0 then
         -- The unit itself: a fistful of stone breaks off the cut and flies to the ship.
         local lx, ly, back = cutter.landing(ctx, rock)
         local chunk = ({ ["core.cutter_near"] = "core.chunk_near", ["core.cutter"] = "core.chunk",
-            ["core.cutter_far"] = "core.chunk_far" })[look] or "core.reach_chunk"
+            ["core.cutter_far"] = "core.chunk_far", ["core.cutter_glazed"] = "core.chunk" })[look] or "core.reach_chunk"
         ctx.put(rock, "engine.burst", { recipe = chunk, tick = ctx.tick, target = "core.ship", x = lx, y = ly,
             height = cutter.HEIGHT, angle = back })
     else
@@ -308,9 +349,11 @@ local function cut(ctx, pilot)
             -- The count is of rocks holding this rock's ware; the rig moves on to any.
             local alike = 0
             for _, id in cutter.rocks(ctx) do
+                local o = ctx.get(id, "ore")
                 if id ~= rock then
-                    table.insert(others, id)
-                    local o = ctx.get(id, "ore")
+                    -- A seam's spall is somewhere for a hand to rest the beam: an order
+                    -- moves on to a real rock, never to it by itself.
+                    if not o.spall then table.insert(others, id) end
                     if (o.ware ~= "" and o.ware or "ore") == ware then alike += 1 end
                 end
             end
@@ -408,6 +451,13 @@ return {
     },
     cadence = function(ctx)
         local pilot = ctx.get("ship", "pilot")
+        -- Every rock off the beam cools a second's worth, docked or not.
+        for _, id in ctx.query("ore") do
+            local ore = ctx.get(id, "ore")
+            if ore.heat > 0 and not (pilot.mining and pilot.target == id) then
+                cutter.set_heat(ctx, id, ore, rules.cooled(cutter.ware(ore), ore.heat, 1))
+            end
+        end
         if not space(ctx) then return end
         local at = ctx.get("ship", "engine.position")
         -- Every rock can be pointed at and clicked: it publishes an anchor for the HUD.

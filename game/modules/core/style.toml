@@ -211,6 +211,30 @@ flicker = 0.2
 flicker_rate = 6.0
 impact = ["core.sparks", "core.chips_far", "core.cut_dust"]
 
+# On glazed stone the hand beam skates: paler, flickering, its sparks thrown wide and no
+# chips coming back up it.
+[beams.cutter_glazed]
+color = "#ffe2c4"
+width = 0.3
+glow = 1.0
+glow_size = 1.2
+flicker = 0.45
+flicker_rate = 9.0
+impact = ["core.skate"]
+
+[particles.skate]
+shape = "spark"
+blend = "add"
+color = "#fff4dd"
+end_color = "#ff8fa3"
+rate = 50.0
+life = 0.35
+speed = 12.0
+spread = 300.0
+direction = 0.0
+size = 0.12
+drag = 3.0
+
 # The reach rig: a longer, steadier teal beam that pulls its chips the whole way in.
 [beams.reach]
 color = "#7fd6e0"
@@ -460,6 +484,142 @@ hatch = 0.8
 shadow = "#b7a0f0"
 halo = 0.7
 halo_size = 1.6
+
+# A rock's heat under the hand cutter (scripts/rules.luau, rules.HEAT): warm stone takes
+# a warmer shadow and breathes a few embers; glazed stone goes rosier still and shimmers
+# all over, so the rock to move the beam off reads at a glance. The words under the beam
+# say the same (never colour alone).
+[looks.rock_warm]
+outline_px = 3.0
+hatch = 0.8
+shadow = "#e0a8d8"
+highlight = "#fff0dc"
+
+[looks.rock_glazed]
+outline_px = 3.0
+hatch = 0.5
+shadow = "#f2a0b4"
+highlight = "#ffe2c4"
+
+[looks.ice_warm]
+outline_px = 3.0
+hatch = 0.4
+shadow = "#a8a0e8"
+highlight = "#fff8ec"
+
+[looks.ice_glazed]
+outline_px = 3.0
+hatch = 0.25
+shadow = "#c8a8e8"
+highlight = "#fff0e0"
+
+[looks.glassite_warm]
+outline_px = 3.0
+hatch = 0.6
+shadow = "#d0a8f0"
+halo = 1.2
+halo_size = 1.8
+
+[looks.glassite_glazed]
+outline_px = 3.0
+hatch = 0.4
+shadow = "#eaa8d8"
+halo = 1.8
+halo_size = 2.0
+
+# Warm stone: a few soft embers lift off the rock.
+[particles.warm_ore]
+shape = "dot"
+blend = "add"
+color = "#ffcf6b"
+end_color = "#d9774b"
+size = 0.3
+end_size = 0.1
+life = 1.2
+life_jitter = 0.4
+rate = 5.0
+speed = 1.6
+speed_jitter = 0.5
+spread = 360.0
+drag = 1.0
+
+[particles.warm_ice]
+shape = "puff"
+blend = "paint"
+color = "#fff4dd"
+end_color = "#cff3ee"
+size = 0.4
+end_size = 1.2
+life = 1.4
+life_jitter = 0.4
+rate = 3.0
+speed = 1.2
+speed_jitter = 0.4
+spread = 360.0
+drag = 0.8
+
+[particles.warm_glassite]
+shape = "spark"
+blend = "add"
+color = "#ffd8f0"
+end_color = "#6b4aa0"
+size = 0.2
+end_size = 0.05
+life = 0.8
+life_jitter = 0.4
+rate = 6.0
+speed = 2.0
+speed_jitter = 0.5
+spread = 360.0
+drag = 1.5
+
+# Glazed stone: a busy shimmer all round the rock, warmer and brighter than warm.
+[particles.glazed_ore]
+shape = "dot"
+blend = "add"
+color = "#fff4dd"
+end_color = "#ee7a5a"
+size = 0.45
+end_size = 0.15
+life = 1.0
+life_jitter = 0.4
+rate = 22.0
+speed = 2.6
+speed_jitter = 0.6
+spread = 360.0
+drag = 1.2
+
+# Ice slumps soft: wet steam rolls off it.
+[particles.glazed_ice]
+shape = "puff"
+blend = "paint"
+color = "#fff4dd"
+end_color = "#b9a6d9"
+size = 0.6
+end_size = 2.0
+life = 1.8
+life_jitter = 0.3
+rate = 10.0
+speed = 1.8
+speed_jitter = 0.5
+spread = 360.0
+drag = 0.6
+
+# Glassite crazes: bright glints all over the crystal.
+[particles.glazed_glassite]
+shape = "spark"
+blend = "add"
+color = "#ffffff"
+end_color = "#ff8fa3"
+size = 0.3
+end_size = 0.08
+life = 0.6
+life_jitter = 0.4
+rate = 24.0
+speed = 3.0
+speed_jitter = 0.6
+spread = 360.0
+drag = 2.0
 
 [looks.prop]
 outline_px = 2.5

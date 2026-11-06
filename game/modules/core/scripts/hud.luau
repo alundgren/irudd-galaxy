@@ -32,6 +32,13 @@ local function hint(ctx)
         if teach.new(taught, "cancel") then return "0 or click her · cast off the line" end
         return nil
     end
+    -- Under a hand beam the stone has glazed: the move is to another rock.
+    if pilot.mining and not pilot.auto and not cutter.has(ctx, cutter.RIG) and teach.new(taught, "swap") then
+        local ore = ctx.get(pilot.target, "ore")
+        if ore and rules.phase(cutter.ware(ore), ore.heat) == "glazed" then
+            return "Click another rock, or turn onto one · this one has glazed, let it cool"
+        end
+    end
     if not full and not pilot.mining and teach.new(taught, "mine") then
         if pilot.near == "aim" then return "Hold Space · cut the rock ahead" end
         if pilot.near == "reach" then return "A or D · point your nose at the rock" end

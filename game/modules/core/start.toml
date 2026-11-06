@@ -96,6 +96,32 @@ ore = { left = 6, total = 6 }
 "engine.model" = { model = "core.rock_lump", look = "core.rock", scale = 1.1 }
 ore = { left = 14, total = 14 }
 
+# Each rich seam has a small spall broken off beside it, within the cutter's reach from
+# beside the seam: somewhere to put the beam while the seam cools (rules.HEAT).
+[entities.rock10]
+"engine.spin" = { rate = 4 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 57.8, y = -45.4 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.7 }
+ore = { left = 6, total = 6, spall = true }
+
+[entities.rock11]
+"engine.spin" = { rate = -3.5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 74.7, y = 15.1 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.7 }
+ore = { left = 6, total = 6, spall = true }
+
+[entities.rock12]
+"engine.spin" = { rate = 3 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -75.8, y = 17.7 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.7 }
+ore = { left = 6, total = 6, spall = true }
+
 # The ice drift, far out west of Lantern Dock: pale floes, wide and tall. Lantern Dock
 # buys ice.
 [entities.rock9]
@@ -1383,7 +1409,7 @@ part = { name = "Tuned thrusters", socket = "engine", price = 9000, power = 2, m
 # aims the beam itself, cuts from far off and flies the ship out to a rock; the docking
 # jets fly it into a berth from anywhere.
 [entities.rig]
-part = { name = "Reach rig", socket = "rack", price = 15000, holds = 100, order = 4, effect = "click a rock, or press Space, and she flies out and cuts it from 16 units off, aiming herself", said = "She'll stand off now and pull the stone in herself." }
+part = { name = "Reach rig", socket = "rack", price = 15000, holds = 100, order = 4, effect = "click a rock, or press Space, and she flies out and cuts it from 16 units off, aiming herself, her beam held steady: no rock runs warm or glazes under it", said = "She'll stand off now and pull the stone in herself. Steady, mind: a good hand on a warm rock still cuts faster." }
 
 [entities.jets]
 part = { name = "Docking jets", socket = "rack", price = 30000, holds = 200, order = 5, effect = "press E or click a station, and they fly her into its berth from anywhere", said = "Point her home and let the jets do the berthing." }
