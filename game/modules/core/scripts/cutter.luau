@@ -62,7 +62,7 @@ function cutter.show_heat(ctx, rock, ware, phase)
     else
         -- Over the rock's top, not inside it: a big seam stands taller than a small rock.
         local model = ctx.get(rock, "engine.model")
-        local height = 1.2 * ((model and model.scale) or 1)
+        local height = 2.0 * ((model and model.scale) or 1)
         ctx.put(rock, "engine.emitter", { recipe = "core." .. phase .. "_" .. ware, height = height })
     end
 end
