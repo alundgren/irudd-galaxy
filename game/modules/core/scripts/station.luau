@@ -64,14 +64,6 @@ local function open(event, ctx)
     local facility = ctx.get(id, "facility")
     if not facility or facility.hidden or facility.station ~= station or pilot.room == id then return end
     signs.hush(ctx) -- leaving a place ends what is being said there
-    -- Coming into the room of a project's giver once her build stands: her ask waits for a
-    -- later visit than the one that first finds it open (project.offers, after this).
-    local job_id, job = project.find(ctx)
-    local site = ctx.get(id, "build")
-    if job and facility.keeper == job.giver and site and site.done and job.entered < 2 then
-        ctx.patch(job_id, "project", { entered = job.entered + 1 })
-        ctx.record("heard", {})
-    end
     ctx.patch("ship", "pilot", { room = id, sale = 0, deal = "", chosen_part = "", log_open = false, gliding = true })
     -- The cut: a short dip to the room's title card, and the player is in the room. The
     -- ship comes too: on the cradle it is the thing being fitted, elsewhere it waits out
@@ -195,7 +187,10 @@ local function sell(event, ctx)
                 grew = build.given + building >= build.need
                 -- The first of it: the keeper waiting on it has a word to say, until heard.
                 local first = build.given == 0 and building > 0 and not grew and (build.first_word or "") ~= ""
-                ctx.patch(site, "build", { given = build.given + building, done = grew, first_due = first or build.first_due })
+                -- Built, it notes the station's counted visits: the giver's next ask waits
+                -- for one more (project.lived).
+                ctx.patch(site, "build", { given = build.given + building, done = grew, first_due = first or build.first_due,
+                    opened = grew and port.visits or build.opened })
             end
             local prices, stock = rules.walk(line, units - building)
             earned += rules.total(prices)

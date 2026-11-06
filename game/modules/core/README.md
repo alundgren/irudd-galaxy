@@ -646,9 +646,10 @@ with the docking rings and the hand cutting, that is some five minutes.
 
 The galley is lived in before she asks for more. Once her gift is answered on the visit
 that first finds it open, she says "Look at them eat. Come by again; I've an idea
-brewing.", and Bram doesn't send you to her yet. Come back into her galley on a later
-visit (leave the room and return, or fly out and back) and her next click is an ask
-(`scripts/project.luau`, `project.entered`): the crews are tired of plain rations, a greenhouse would give her greens, and Sefa at the
+brewing.", and Bram doesn't send you to her yet. Fly out and dock at Lantern Dock again,
+a counted visit since the galley opened (`build.opened`; a quick launch-and-redock
+tap doesn't count), and her next click is an ask (`scripts/project.luau`): the crews are
+tired of plain rations, a greenhouse would give her greens, and Sefa at the
 Kiln can fire its panes. `Accept` or `Not now`; "Not now" (to this and every later
 offer in the job) leaves it until your next docking, even a quick tap. Accepted, Bram
 has a chalk ring and stakes put on the deck where it will stand, and a fourth room,
@@ -1198,8 +1199,8 @@ kept; `history-hessa-seated.toml`, Hessa seated at Ines's table in her seated fi
 `tests/history.luau` folds news in front of an introduction, once, past what was heard;
 `tests/places.luau` dresses a being for a posed act and back), the galley lived in
 before Ines asks for more (`galley-lived.toml`: the crews at her table, her thanks, no
-ask on the visit that first finds it open, her line and Bram's meanwhile, and the ask on
-a later visit), Ines's first-plate word heard at the site (`first-plate.toml`: her
+ask on the visit that first finds it open, nor after stepping out and straight back in,
+her line and Bram's meanwhile, and the ask once flown out and docked again), Ines's first-plate word heard at the site (`first-plate.toml`: her
 everyday line leads with it after the first sale, then counts on alone once heard), and
 the fitting loop (`fit.toml`: ore runs that leave the lens one hold out of reach, the
 rack stocked and priced; a part that can't be paid for, in the wrong socket or short of power doing nothing; the lens

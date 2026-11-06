@@ -146,6 +146,9 @@ first_word = "text"
 # Whether that word is still to be said: the first delivery sets it, and the keeper says
 # it with their everyday line until it has been heard.
 first_due = "bool"
+# Its station's counted visits when it opened. A project's giver asks for more only once
+# the station has had a counted visit since: the player has flown out and come back.
+opened = "int"
 # The keeper's introduction for a first meeting only once it is built: the first of a
 # chain of talk lines as long as the introduction, whose texts replace those of its
 # lines not yet heard, line for line from the end ("" keeps it as it is). Lines already
@@ -311,9 +314,6 @@ exterior = "id"
 exterior_model = "text"
 thanks = "id"
 giver_idle = "text"
-# How often the player has come into the giver's room since her build opened. Her ask
-# waits for a later visit than the one that first finds it open (scripts/project.luau).
-entered = "int"
 
 # A project's offer, in a talk (the talk entity carries this): on while the project is
 # at `step` and what it needs holds. `take` is the answer that moves the project on; any

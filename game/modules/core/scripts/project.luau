@@ -131,19 +131,22 @@ local function heard(ctx, job_id)
     return false
 end
 
--- Whether the giver's own build is lived in: it stands, and the player has come back to
--- her room after the visit that first found it open (station.luau counts them). Her ask
--- for more waits on it, so the player sees it working first. A giver with no build of
--- her own, or an ask already said, waits on nothing.
-function project.lived(done, entered, said)
-    return said or not done or entered >= 2
+-- Whether the giver's own build is lived in: it stands, and its station has had a
+-- counted visit since it opened (`visits` now, `opened` then): the player has flown out
+-- and come back to find it working. Her ask for more waits on it. A giver with no build
+-- of her own, or an ask already said, waits on nothing.
+function project.lived(done, visits, opened, said)
+    return said or not done or visits > opened
 end
 
 local function lived(ctx, job_id, job)
     for _, id in ctx.query("facility") do
         if ctx.get(id, "facility").keeper == job.giver then
             local build = ctx.get(id, "build")
-            if build then return project.lived(build.done, job.entered, heard(ctx, job_id)) end
+            if build then
+                local visits = ctx.get(build.station, "port").visits
+                return project.lived(build.done, visits, build.opened, heard(ctx, job_id))
+            end
         end
     end
     return true
@@ -181,7 +184,7 @@ function project.line(ctx, keeper, hold, station)
         end
     elseif keeper == job.giver then
         if step == project.ASKED and not asked(ctx, job_id, job) then
-            -- Her galley at work, before she asks for more: come back and she will.
+            -- Her galley at work, before she asks for more: fly out, come back, and she will.
             local gift = job.after ~= "" and ctx.get(job.after, "gift")
             if not gift or gift.answered then return "Look at them eat. Come by again; I've an idea brewing." end
         elseif step == project.ACCEPTED then

@@ -2,10 +2,11 @@
 # The sale that builds it seats two crews at her table, eating, and her thanks begin with
 # what the player made happen. Once her gift is answered she doesn't ask for the
 # greenhouse on that first visit: she says to come by again, and Bram doesn't send the
-# player to her yet. Back in her galley on a later visit, she asks. The route is
+# player to her yet. Stepping out and straight back in doesn't count; once the player
+# has flown out and docked again, a counted visit, she asks. The route is
 # greenhouse.toml's up to her gift taken, on the first visit to the open galley.
 seed = 7
-ticks = 6350
+ticks = 6625
 
 [[input]]
 tick = 1
@@ -220,7 +221,7 @@ entity = "lantern_master_now"
 component = "engine.talk_line"
 field = "text"
 equals = "Your plate built our galley. The field still holds 113 ore."
-# Out to the station and back into her galley: a later visit, and she asks.
+# Out to the station and straight back into her galley: seconds of clicks, not a visit.
 [[input]]
 tick = 6333
 name = "core.close"
@@ -235,18 +236,65 @@ source = "travel"
 payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6338 }
 [[expect]]
 tick = 6343
-entity = "greenhouse_job"
-component = "project"
-field = "entered"
-equals = 2
+entity = "greenhouse_ask"
+component = "engine.talk"
+field = "enabled"
+equals = false
+# Flown out past the berth and docked again: a counted visit since the galley opened, and
+# back in her galley she asks.
+[[input]]
+tick = 6346
+name = "core.close"
+[[input]]
+tick = 6351
+name = "core.launch"
+[[input]]
+tick = 6361
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 6421
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 6431
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 6604
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6537 }
 [[expect]]
-tick = 6343
+tick = 6610
+entity = "lantern"
+component = "port"
+field = "visits"
+equals = 4
+[[expect]]
+tick = 6610
+entity = "lantern_galley"
+component = "build"
+field = "opened"
+equals = 3
+[[input]]
+tick = 6615
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 6618
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6615 }
+[[expect]]
+tick = 6620
 entity = "greenhouse_ask"
 component = "engine.talk"
 field = "enabled"
 equals = true
 [[expect]]
-tick = 6343
+tick = 6620
 entity = "lantern_master_now"
 component = "engine.talk_line"
 field = "text"
