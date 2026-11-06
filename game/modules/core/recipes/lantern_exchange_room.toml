@@ -181,9 +181,12 @@ at = [-1.6, 5.6, 0]
 [[marker]]
 name = "spot.counter"
 at = [-2.3, 2.0, 0]
+# Where the keeper stacks crates: past the counter's open right end, behind the crate
+# stack. Her walk there from the counter is a straight line, so both spots sit behind the
+# counter and the walk never passes through it.
 [[marker]]
 name = "spot.pile"
-at = [-0.6, 0.2, 0]
+at = [0.6, 2.0, 0]
 [[marker]]
 name = "spot.shelf"
 at = [-0.5, 2.3, 0]
