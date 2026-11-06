@@ -230,7 +230,8 @@ function voices.gifts(ctx, station, hold)
         local gift = ctx.get(id, "gift")
         local talk = ctx.get(id, "engine.talk")
         if gift.answered then
-            if talk.enabled then put_away(ctx, id, gift) end
+            -- Still saying the answer: put away once it ends (voices.retire).
+            if talk.enabled and not talk.active then put_away(ctx, id, gift) end
         elseif places.of(ctx, talk.speaker) == station and not waiting_on(ctx, talk.speaker) then
             local room = fit.hold(ctx) - rules.load(hold) >= gift.units
             if talk.enabled ~= room then
