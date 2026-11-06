@@ -429,7 +429,7 @@ keeper = { name = "Tova Reyes", idle = "Empty hold? The ore floats north-east of
 "engine.act" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_counter", angle = -1.5707963267948966, state = "buys ore, ice and plate", next = "core.lantern_trader_act2" }
 
 [entities.lantern_trader_act2]
-"engine.act" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_pile", angle = -1.75, state = "stacking crates" }
+"engine.act" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_pile", angle = -2.3, state = "stacking crates" }
 
 
 
