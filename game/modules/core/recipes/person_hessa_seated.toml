@@ -1,0 +1,9 @@
+about = "Hessa Kell seated at a table: person_hessa's coat and cap on the seated figure"
+palette = { main = "#8f3040", trim = "#3b3550", accent = "#c98f4a", skin = "#c99172", hair = "#b8b0a8", hat = "#3fa7a0" }
+[[part]]
+name = "body"
+use = "figure_seated"
+[[part]]
+name = "face"
+use = "head_hessa"
+at = [0, 0, -0.18]

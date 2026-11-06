@@ -89,4 +89,22 @@ function places.go(ctx, who, act)
     ctx.patch(who, "engine.life", { first = turned[1] })
 end
 
+-- A being resting at an act with a model of its own (`pose`: a seated figure at a table)
+-- wears it while there, and its keeper figure again once its day moves on. Only for
+-- beings whose changes show at once: one walking keeps the figure it walks in.
+function places.dress(ctx)
+    local posed = {}
+    for _, id in ctx.query("pose") do posed[ctx.get(id, "pose").model] = true end
+    for _, who in ctx.query("keeper") do
+        local life = ctx.get(who, "engine.life")
+        local model = life and life.presentation == "instant" and ctx.get(who, "engine.model")
+        if model then
+            local pose = (life.current or "") ~= "" and ctx.get(life.current, "pose")
+            local figure = ctx.get(who, "keeper").figure or ""
+            local want = pose and pose.model or (posed[model.model] and figure ~= "" and figure) or model.model
+            if want ~= model.model then ctx.patch(who, "engine.model", { model = want }) end
+        end
+    end
+end
+
 return places

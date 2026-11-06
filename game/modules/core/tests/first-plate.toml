@@ -1,0 +1,146 @@
+# Ines's word on the first plate is heard, whichever way the player meets it
+# (scripts/station.luau, voices.luau, talk.luau). The sale's log entry has it, but a
+# player who goes to the site and clicks her heard only the plate still to come ("27
+# plate to go"). Now her everyday line leads with it until it is heard, then counts on
+# alone. The route is ines.toml's: she is met at the bare site, 13 plate are sold into
+# the galley, and the player comes back to the site and clicks her.
+seed = 7
+ticks = 2790
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 960
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1737
+name = "core.open"
+[[input]]
+tick = 1742
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1747
+name = "core.sell"
+[[input]]
+tick = 1757
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1777
+name = "core.launch"
+[[input]]
+tick = 1787
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2638
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 2641
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2638 }
+[[input]]
+tick = 2648
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_intro" }
+[[input]]
+tick = 2649
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
+[[input]]
+tick = 2650
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
+[[input]]
+tick = 2651
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
+[[input]]
+tick = 2658
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_talk" }
+[[input]]
+tick = 2659
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_talk", line = "core.lantern_cook_now" }
+[[input]]
+tick = 2668
+name = "core.close"
+[[input]]
+tick = 2698
+name = "core.open"
+[[input]]
+tick = 2708
+name = "core.sell"
+[[input]]
+tick = 2718
+name = "core.launch"
+[[input]]
+tick = 2723
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2768
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+
+[[input]]
+tick = 2771
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2768 }
+# Back at the site after the first plate: her word comes first.
+[[expect]]
+tick = 2779
+entity = "lantern_galley"
+component = "build"
+field = "first_due"
+equals = true
+[[expect]]
+tick = 2779
+entity = "lantern_cook_now"
+component = "engine.talk_line"
+field = "text"
+equals = "That's the first of it! I can almost hear the stove. 27 plate to go, and the crews eat hot."
+[[input]]
+tick = 2780
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_talk" }
+[[input]]
+tick = 2781
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_talk", line = "core.lantern_cook_now" }
+# Heard once, it gives way to the count alone.
+[[expect]]
+tick = 2783
+entity = "lantern_galley"
+component = "build"
+field = "first_due"
+equals = false
+[[expect]]
+tick = 2783
+entity = "lantern_cook_now"
+component = "engine.talk_line"
+field = "text"
+equals = "27 plate to go, and the crews eat hot."

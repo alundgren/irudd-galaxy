@@ -131,6 +131,10 @@ function voices.refresh(ctx, station, hold, sold, need)
                 -- Their building still going up (`need` is after this sale; at 0 it is built).
                 local left = (build and build.keeper == site.keeper) and need or site.need - site.given
                 text = voices.waiting(left, site.need, site.ware, keeper.idle)
+                -- The first of it just went in (this sale, which still reads none given) or
+                -- has yet to be heard: they say so first, until the player hears it.
+                local first = site.first_due or (site.given == 0 and left < site.need)
+                if first and left > 0 and (site.first_word or "") ~= "" then text = site.first_word .. " " .. text end
             elseif id == exchange then
                 local wanted = {}
                 for _, line in trade.lines(ctx, id) do

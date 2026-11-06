@@ -122,13 +122,6 @@ function project.carried(ctx, hold)
     return project.list(hold, cargo or "", owner)
 end
 
--- The giver is ready to ask once her gift is answered (or she has none).
-local function asked(ctx, job)
-    if job.after == "" then return true end
-    local gift = ctx.get(job.after, "gift")
-    return gift == nil or gift.answered
-end
-
 -- Whether the giver's ask has been said to the player.
 local function heard(ctx, job_id)
     for _, id in ctx.query("offer") do
@@ -136,6 +129,34 @@ local function heard(ctx, job_id)
         if offer.project == job_id and offer.step == project.ASKED and offer.heard then return true end
     end
     return false
+end
+
+-- Whether the giver's own build is lived in: it stands, and the player has come back to
+-- her room after the visit that first found it open (station.luau counts them). Her ask
+-- for more waits on it, so the player sees it working first. A giver with no build of
+-- her own, or an ask already said, waits on nothing.
+function project.lived(done, entered, said)
+    return said or not done or entered >= 2
+end
+
+local function lived(ctx, job_id, job)
+    for _, id in ctx.query("facility") do
+        if ctx.get(id, "facility").keeper == job.giver then
+            local build = ctx.get(id, "build")
+            if build then return project.lived(build.done, job.entered, heard(ctx, job_id)) end
+        end
+    end
+    return true
+end
+
+-- The giver is ready to ask once her gift is answered (or she has none) and her build is
+-- lived in.
+local function asked(ctx, job_id, job)
+    if job.after ~= "" then
+        local gift = ctx.get(job.after, "gift")
+        if gift and not gift.answered then return false end
+    end
+    return lived(ctx, job_id, job)
 end
 
 -- A keeper's everyday line while the project needs something said, or nil for their
@@ -159,7 +180,11 @@ function project.line(ctx, keeper, hold, station)
             return "Make room for " .. job.units .. " " .. job.cargo .. " and they're yours."
         end
     elseif keeper == job.giver then
-        if step == project.ACCEPTED then
+        if step == project.ASKED and not asked(ctx, job_id, job) then
+            -- Her galley at work, before she asks for more: come back and she will.
+            local gift = job.after ~= "" and ctx.get(job.after, "gift")
+            if not gift or gift.answered then return "Look at them eat. Come by again; I've an idea brewing." end
+        elseif step == project.ACCEPTED then
             return "Glassite grows out north-east, past the ore."
         elseif step == project.FIRING or step == project.READY then
             return "I can almost taste the greens."
@@ -167,7 +192,7 @@ function project.line(ctx, keeper, hold, station)
             return "The beds will drink ice; Tova takes it."
         end
     elseif keeper == job.planner then
-        if step == project.ASKED and asked(ctx, job) then
+        if step == project.ASKED and asked(ctx, job_id, job) then
             -- Heard her out already ("Not now"): he doesn't send the player to ask.
             if heard(ctx, job_id) then return "Ines told you her plan? There's room on the deck for it." end
             return "Ines has plans for the galley. Ask her."
@@ -247,7 +272,7 @@ function project.offers(ctx, station, hold, job)
     job = job or now
     if not job then return end
     local room = fit.hold(ctx) - rules.load(hold)
-    local ready = asked(ctx, job)
+    local ready = asked(ctx, job_id, job)
     local on_for, instead_of = {}, {}
     for _, id in ctx.query("offer") do
         local offer = ctx.get(id, "offer")

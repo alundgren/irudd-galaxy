@@ -83,6 +83,17 @@ return {
             -- An offer once said stays pinned in the log until it is answered (log.pinned).
             local gift = ctx.get(talk, "gift")
             if gift and not gift.heard then ctx.patch(talk, "gift", { heard = true }) end
+            -- A keeper's first word on their building, said with their everyday line, is
+            -- said once: heard, it gives way to the line alone (`heard` below).
+            if line == spoken.speaker .. "_now" then
+                for _, id in ctx.query("build") do
+                    local build = ctx.get(id, "build")
+                    if build.keeper == spoken.speaker and build.first_due then
+                        ctx.patch(id, "build", { first_due = false })
+                        ctx.record("heard", {})
+                    end
+                end
+            end
             local offer = ctx.get(talk, "offer")
             if offer and not offer.heard then
                 ctx.patch(talk, "offer", { heard = true })
@@ -116,8 +127,12 @@ return {
                 local taken = choice == gift.take and fit.hold(ctx) - rules.load(hold) >= gift.units
                 local over = taken or choice ~= gift.take
                 ctx.patch(talk, "gift", { answered = over, heard = true, taken = taken })
-                -- What she asks next remembers whether you took it.
-                if over then project.gifted(ctx, talk, taken) end
+                -- What she asks next remembers whether you took it, and her everyday line
+                -- follows the answer (`heard` below).
+                if over then
+                    project.gifted(ctx, talk, taken)
+                    ctx.record("heard", {})
+                end
                 if over then
                     if not open then
                         ctx.patch(talk, "engine.talk", { enabled = false })

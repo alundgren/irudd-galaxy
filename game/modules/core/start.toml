@@ -575,7 +575,7 @@ keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them.",
 gift = { ware = "rations", units = 1, take = "core.lantern_cook_gift_take", instead = "core.lantern_cook_talk" }
 
 [entities.lantern_cook_gift1]
-"engine.talk_line" = { text = "Thanks again for the plate.", next = "core.lantern_cook_gift2" }
+"engine.talk_line" = { text = "Hear them? Crews at my table, eating hot. Your plate did that.", next = "core.lantern_cook_gift2" }
 
 [entities.lantern_cook_gift2]
 "engine.talk_line" = { text = "Will you take a ration, on the house?" }
@@ -941,8 +941,10 @@ keeper = { name = "Hessa Kell", idle = "Thirty years I've hauled ice.", figure =
 [entities.kettle_skipper_act]
 "engine.act" = { place = "core.lantern_greenhouse_room", spot = "core.lantern_greenhouse_room_bench", angle = -1.9, state = "watching the pipes go in", next = "core.kettle_skipper_act2" }
 
+# Seated on the stool at the front of Ines's table, in her seated figure.
 [entities.kettle_skipper_act2]
-"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_table", angle = -1.9, state = "eating at Ines's table" }
+"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_seat", angle = 0.56, state = "eating at Ines's table" }
+pose = { model = "core.person_hessa_seated" }
 
 [entities.kettle_skipper_kiln]
 "engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_visitor", angle = -1.2, state = "waiting on her engine" }
@@ -1077,6 +1079,25 @@ skiff = { a = "core.lantern_skiff_a_spot", b = "core.lantern_skiff_b_spot" }
 
 [entities.lantern_galley_room_table]
 "engine.spot" = { place = "core.lantern_galley_room", name = "table" }
+
+# Seats at Ines's table once the galley is open: two crews eat there, and a guest
+# (the skipper, if she stays) sits at its front.
+[entities.lantern_galley_room_crew_a]
+"engine.spot" = { place = "core.lantern_galley_room", name = "crew_a" }
+
+[entities.lantern_galley_room_crew_b]
+"engine.spot" = { place = "core.lantern_galley_room", name = "crew_b" }
+
+[entities.lantern_galley_room_seat]
+"engine.spot" = { place = "core.lantern_galley_room", name = "seat" }
+
+# The crews eating hot at Ines's table, from the sale that builds the galley on
+# (station.luau build_up), facing the table.
+[entities.lantern_crew1]
+diner = { site = "core.lantern_galley", spot = "core.lantern_galley_room_crew_a", angle = -3.08, model = "core.person_crew_seated" }
+
+[entities.lantern_crew2]
+diner = { site = "core.lantern_galley", spot = "core.lantern_galley_room_crew_b", angle = -0.79, model = "core.person_crew2_seated" }
 
 # The grower stands here with the greens, clear of Ines at her hatch.
 [entities.lantern_galley_room_greens]

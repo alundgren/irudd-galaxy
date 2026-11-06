@@ -621,11 +621,14 @@ table, eating hot."), and her everyday line counts the plate still to come (`27 
 to go, and the crews eat hot.`). Plate sold at Lantern Dock goes into the galley at the
 posted price, without filling the stock, until 40 are in. The first of it brings her
 word into the sale's log entry (`Ines Varga, from the site: "That's the first of it! I
-can almost hear the stove."`). The sale that completes it turns the scaffold into the
-galley, with Ines at her stove and hatch, and opens rations, a new good and a return
-cargo for the Kiln run. She is introduced once: met only after it is built, her
-introduction says the galley is built instead (`build.met`), and either way her thanks
-come next. An introduction left midway is picked up at the first line not yet heard,
+can almost hear the stove."`), and her everyday line at the site leads with it until
+you hear it there (`build.first_due`): "That's the first of it! I can almost hear the
+stove. 27 plate to go, and the crews eat hot." The sale that completes it turns the
+scaffold into the galley, with Ines at her stove and hatch and two crews seated at her
+table, eating (`diner`), and opens rations, a new good and a return cargo for the Kiln
+run. She is introduced once: met only after it is built, her introduction says the
+galley is built instead (`build.met`), and either way her thanks come next: "Hear
+them? Crews at my table, eating hot. Your plate did that." An introduction left midway is picked up at the first line not yet heard,
 built or not; what was heard stays heard, so "I'm Ines" is said once. The Kiln's
 exchange posts its rations price from
 the start, and Sefa mentions her crews would pay for them.
@@ -641,8 +644,11 @@ with the docking rings and the hand cutting, that is some five minutes.
 
 ## After the galley: Ines's greenhouse
 
-Once her gift is answered, Ines's next click is an ask (`scripts/project.luau`): the
-crews are tired of plain rations, a greenhouse would give her greens, and Sefa at the
+The galley is lived in before she asks for more. Once her gift is answered on the visit
+that first finds it open, she says "Look at them eat. Come by again; I've an idea
+brewing.", and Bram doesn't send you to her yet. Come back into her galley on a later
+visit (leave the room and return, or fly out and back) and her next click is an ask
+(`scripts/project.luau`, `project.entered`): the crews are tired of plain rations, a greenhouse would give her greens, and Sefa at the
 Kiln can fire its panes. `Accept` or `Not now`; "Not now" (to this and every later
 offer in the job) leaves it until your next docking, even a quick tap. Accepted, Bram
 has a chalk ring and stakes put on the deck where it will stand, and a fourth room,
@@ -733,7 +739,8 @@ target stock goes from 90 to 135). Supper is held on the deck for Hessa, with ta
 lamp strings, for three counted dockings (a `happening`: Ines: "Hessa eats with us
 tonight. Noor picked the greens."). Noor thanks you ("Look at the beds! They're in
 bloom."), and Hessa stays aboard: her day is minding the tanks in the greenhouse, then
-eating at Ines's table. It starts a room apart from Noor's, so no room has three signs
+eating at Ines's table, seated on the stool at its front with the crews (her act's
+`pose` dresses her in a seated figure while she is there). It starts a room apart from Noor's, so no room has three signs
 at once.
 
 **The payoff, mended:** Hessa waits in Mags's office. Her story, then her fee:
@@ -1146,7 +1153,7 @@ before it is built, visits restocking, the galley built with its keeper and her
 sign, rations bought and sold, visit and docking counts), Ines at the bare site
 (`ines.toml`: there from the start, her introduction on why she wants the galley, her
 line counting the plate to come and her thanks not yet on offer, her word on the first
-plate in the sale's log entry, and no second introduction once it stands), her
+plate in the sale's log entry and her everyday line, and no second introduction once it stands), her
 introduction left after its first line (`ines-left.toml`: once the galley stands a
 click picks up at her second line, said the built way, and the log holds "I'm Ines"
 once), back (a building clicked cuts into its room, Esc, right-click and B cut back out to the station, Esc shuts the log, signs worn only in their keeper's own room and resting while the view moves, launching from a room), and
@@ -1186,8 +1193,13 @@ fee taken; `history-ines.toml`, Ines after Noor's whole ask and `Not now`;
 `history-bram.toml`, Bram's unheard introduction after the keep choice, starting with
 the barge, the greeting left out, the rest heard on, his last line on the galley your
 plate built; `history-room.toml`, Bram walking from his desk to the porthole as she is
-kept; `tests/history.luau` folds news in front of an introduction, once, past what was
-heard), and
+kept; `history-hessa-seated.toml`, Hessa seated at Ines's table in her seated figure;
+`tests/history.luau` folds news in front of an introduction, once, past what was heard;
+`tests/places.luau` dresses a being for a posed act and back), the galley lived in
+before Ines asks for more (`galley-lived.toml`: the crews at her table, her thanks, no
+ask on the visit that first finds it open, her line and Bram's meanwhile, and the ask on
+a later visit), Ines's first-plate word heard at the site (`first-plate.toml`: her
+everyday line leads with it after the first sale, then counts on alone once heard), and
 the fitting loop (`fit.toml`: ore runs that leave the lens one hold out of reach, the
 rack stocked and priced; a part that can't be paid for, in the wrong socket or short of power doing nothing; the lens
 bought and fitted with one receipt and Orrin's line, taken off (the flight staying

@@ -123,6 +123,26 @@ name = "core.open"
 [[input]]
 tick = 6296
 name = "core.sell"
+# A first look into the open galley, then back to the exchange: Ines asks for more on a
+# later visit than the one that first finds it open (project.lived).
+[[input]]
+tick = 6299
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 6302
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6299 }
+[[input]]
+tick = 6305
+name = "core.open"
+payload = { facility = "core.lantern_exchange" }
+[[input]]
+tick = 6308
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 6305 }
 [[input]]
 tick = 6316
 name = "core.open"

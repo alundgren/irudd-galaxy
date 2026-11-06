@@ -1,0 +1,748 @@
+# Kept for good, Hessa's day takes her to Ines's table, and her sign says she is eating
+# there: she sits on the stool at its front in her seated figure (an act with a `pose`,
+# scripts/places.luau), beside the crews, rather than standing idle in front of it. The
+# route is kettle.toml's, to the bloom, with Hessa at her meal.
+seed = 7
+ticks = 25310
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 960
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1737
+name = "core.open"
+[[input]]
+tick = 1742
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1747
+name = "core.sell"
+[[input]]
+tick = 1757
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1777
+name = "core.launch"
+[[input]]
+tick = 1787
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2638
+name = "core.open"
+[[input]]
+tick = 2648
+name = "core.sell"
+[[input]]
+tick = 2658
+name = "core.launch"
+[[input]]
+tick = 2663
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2708
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 2713
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+[[input]]
+tick = 2718
+name = "core.close"
+[[input]]
+tick = 2778
+name = "core.launch"
+[[input]]
+tick = 2788
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 3626
+name = "core.open"
+[[input]]
+tick = 3636
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 3656
+name = "core.launch"
+[[input]]
+tick = 3666
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 4517
+name = "core.open"
+[[input]]
+tick = 4527
+name = "core.sell"
+[[input]]
+tick = 4547
+name = "core.launch"
+[[input]]
+tick = 4557
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 5395
+name = "core.open"
+[[input]]
+tick = 5405
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 5425
+name = "core.launch"
+[[input]]
+tick = 5435
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 6126
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6059 }
+[[input]]
+tick = 6286
+name = "core.open"
+[[input]]
+tick = 6296
+name = "core.sell"
+[[input]]
+tick = 6299
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 6302
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6299 }
+[[input]]
+tick = 6305
+name = "core.open"
+payload = { facility = "core.lantern_exchange" }
+[[input]]
+tick = 6308
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 6305 }
+[[input]]
+tick = 6316
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 6319
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6316 }
+[[input]]
+tick = 6321
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_intro" }
+[[input]]
+tick = 6322
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
+[[input]]
+tick = 6323
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
+[[input]]
+tick = 6324
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
+[[input]]
+tick = 6326
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_gift" }
+[[input]]
+tick = 6327
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift1" }
+[[input]]
+tick = 6328
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift2", choice = "core.lantern_cook_gift_take" }
+[[input]]
+tick = 6329
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift3" }
+[[input]]
+tick = 6330
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.greenhouse_ask" }
+[[input]]
+tick = 6331
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask1" }
+[[input]]
+tick = 6332
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask2" }
+[[input]]
+tick = 6333
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask3" }
+[[input]]
+tick = 6334
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask4", choice = "core.greenhouse_ask_yes" }
+[[input]]
+tick = 6335
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask5" }
+[[input]]
+tick = 6338
+name = "core.close"
+[[input]]
+tick = 6341
+name = "core.launch"
+[[input]]
+tick = 6346
+name = "core.mine"
+source = "script"
+payload = { rock = "core.glassite1" }
+[[input]]
+tick = 7654
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 8503
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 8470 }
+[[input]]
+tick = 8513
+name = "core.open"
+[[input]]
+tick = 8514
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 8513 }
+[[input]]
+tick = 8515
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.kiln_trader_intro" }
+[[input]]
+tick = 8516
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro1" }
+[[input]]
+tick = 8517
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro2" }
+[[input]]
+tick = 8518
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro3" }
+[[input]]
+tick = 8519
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.greenhouse_glassite" }
+[[input]]
+tick = 8520
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite1" }
+[[input]]
+tick = 8521
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite2", choice = "core.greenhouse_glassite_yes" }
+[[input]]
+tick = 8522
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite3" }
+[[input]]
+tick = 8523
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite4" }
+[[input]]
+tick = 8529
+name = "core.sell"
+[[input]]
+tick = 8533
+name = "core.launch"
+[[input]]
+tick = 8538
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 9485
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 9921
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 9887 }
+[[input]]
+tick = 9926
+name = "core.open"
+[[input]]
+tick = 9927
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 9926 }
+[[input]]
+tick = 9931
+name = "core.sell"
+[[input]]
+tick = 9933
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.greenhouse_panes" }
+[[input]]
+tick = 9934
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_panes", line = "core.greenhouse_panes1" }
+[[input]]
+tick = 9935
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.greenhouse_panes", line = "core.greenhouse_panes2", choice = "core.greenhouse_panes_yes" }
+[[input]]
+tick = 9936
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_panes", line = "core.greenhouse_panes3" }
+[[input]]
+tick = 9941
+name = "core.launch"
+[[input]]
+tick = 9946
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 10602
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 10570 }
+[[input]]
+tick = 10607
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 10608
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 10607 }
+[[input]]
+tick = 10610
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.greenhouse_deliver" }
+[[input]]
+tick = 10611
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver1" }
+[[input]]
+tick = 10612
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver2", choice = "core.greenhouse_deliver_yes" }
+[[input]]
+tick = 10613
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver3" }
+[[input]]
+tick = 10614
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver4" }
+[[input]]
+tick = 10619
+name = "core.close"
+[[input]]
+tick = 10622
+name = "core.launch"
+[[input]]
+tick = 10627
+name = "core.mine"
+source = "script"
+payload = { rock = "core.ice1" }
+[[input]]
+tick = 11569
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 12076
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 12046 }
+[[input]]
+tick = 12081
+name = "core.open"
+[[input]]
+tick = 12082
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 12081 }
+[[input]]
+tick = 12086
+name = "core.sell"
+[[input]]
+tick = 12091
+name = "core.launch"
+[[input]]
+tick = 12096
+name = "core.mine"
+source = "script"
+payload = { rock = "core.ice2" }
+[[input]]
+tick = 13019
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 13553
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 13523 }
+[[input]]
+tick = 13558
+name = "core.open"
+[[input]]
+tick = 13559
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 13558 }
+[[input]]
+tick = 13563
+name = "core.sell"
+[[input]]
+tick = 13568
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 13569
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 13568 }
+[[input]]
+tick = 13571
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_thanks" }
+[[input]]
+tick = 13572
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_thanks", line = "core.lantern_cook_thanks1" }
+[[input]]
+tick = 13573
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_thanks", line = "core.lantern_cook_thanks2" }
+[[input]]
+tick = 13574
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_thanks", line = "core.lantern_cook_thanks3" }
+[[input]]
+tick = 13578
+name = "core.open"
+payload = { facility = "core.lantern_greenhouse" }
+[[input]]
+tick = 13579
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_greenhouse_room", start_tick = 13578 }
+[[input]]
+tick = 13581
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_grower_intro" }
+[[input]]
+tick = 13582
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_grower_intro", line = "core.lantern_grower_intro1" }
+[[input]]
+tick = 13583
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_grower_intro", line = "core.lantern_grower_intro2" }
+[[input]]
+tick = 13584
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_grower_intro", line = "core.lantern_grower_intro3" }
+[[input]]
+tick = 13588
+name = "core.close"
+[[input]]
+tick = 13589
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 13588 }
+[[input]]
+tick = 13590
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 13591
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 13590 }
+[[input]]
+tick = 13592
+name = "core.buy"
+payload = { ware = "rations", units = 1 }
+[[input]]
+tick = 13595
+name = "core.launch"
+[[input]]
+tick = 13598
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 14371
+name = "core.launch"
+[[input]]
+tick = 14376
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 15212
+name = "core.launch"
+[[input]]
+tick = 15217
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 16000
+name = "core.launch"
+[[input]]
+tick = 16005
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 16841
+name = "core.launch"
+[[input]]
+tick = 16846
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 17629
+name = "core.launch"
+[[input]]
+tick = 17634
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 18275
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 18278
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 18275 }
+[[input]]
+tick = 18279
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.kettle_ask" }
+[[input]]
+tick = 18280
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kettle_ask", line = "core.kettle_ask1" }
+[[input]]
+tick = 18281
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kettle_ask", line = "core.kettle_ask2" }
+[[input]]
+tick = 18282
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kettle_ask", line = "core.kettle_ask3" }
+[[input]]
+tick = 18283
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.kettle_ask", line = "core.kettle_ask4", choice = "core.kettle_ask_yes" }
+[[input]]
+tick = 18284
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kettle_ask", line = "core.kettle_ask5" }
+[[input]]
+tick = 18285
+name = "core.launch"
+[[input]]
+tick = 18290
+name = "core.hitch"
+source = "script"
+[[input]]
+tick = 18858
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 19960
+name = "core.open"
+payload = { facility = "core.lantern_office" }
+[[input]]
+tick = 19963
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 19960 }
+[[input]]
+tick = 19964
+name = "core.hand"
+source = "ui"
+payload = { talk = "core.kettle_moor_lantern" }
+[[input]]
+tick = 19990
+name = "core.launch"
+[[input]]
+tick = 19995
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 20693
+name = "core.open"
+payload = { facility = "core.kiln_exchange" }
+[[input]]
+tick = 20696
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 20693 }
+[[input]]
+tick = 20697
+name = "core.buy"
+payload = { ware = "plate", units = 12 }
+[[input]]
+tick = 20698
+name = "core.launch"
+[[input]]
+tick = 20703
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 21539
+name = "core.open"
+payload = { facility = "core.lantern_office" }
+[[input]]
+tick = 21542
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 21539 }
+[[input]]
+tick = 21543
+name = "core.hand"
+source = "ui"
+payload = { talk = "core.kettle_plate" }
+[[input]]
+tick = 21569
+name = "core.launch"
+[[input]]
+tick = 21574
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 22513
+name = "core.launch"
+[[input]]
+tick = 22518
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 23418
+name = "core.launch"
+[[input]]
+tick = 23423
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 24362
+name = "core.launch"
+[[input]]
+tick = 24367
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+
+[[expect]]
+tick = 25300
+entity = "kettle_skipper"
+component = "engine.being"
+field = "state"
+equals = "eating at Ines's table"
+[[expect]]
+tick = 25300
+entity = "kettle_skipper"
+component = "engine.location"
+field = "spot"
+equals = "core.lantern_galley_room_seat"
+[[expect]]
+tick = 25300
+entity = "kettle_skipper"
+component = "engine.model"
+field = "model"
+equals = "core.person_hessa_seated"
+[[expect]]
+tick = 25300
+entity = "lantern_crew1"
+component = "engine.location"
+field = "place"
+equals = "core.lantern_galley_room"
