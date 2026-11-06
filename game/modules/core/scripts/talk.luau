@@ -83,6 +83,9 @@ return {
             -- An offer once said stays pinned in the log until it is answered (log.pinned).
             local gift = ctx.get(talk, "gift")
             if gift and not gift.heard then ctx.patch(talk, "gift", { heard = true }) end
+            -- News heard in an introduction isn't said again in the everyday line, which
+            -- follows it (`heard` below: voices.refresh).
+            if line == spoken.speaker .. "_intro_news" then ctx.record("heard", {}) end
             -- A keeper's first word on their building, said with their everyday line, is
             -- said once: heard, it gives way to the line alone (`heard` below).
             if line == spoken.speaker .. "_now" then

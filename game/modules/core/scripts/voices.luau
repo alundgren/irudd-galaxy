@@ -80,14 +80,14 @@ end
 -- finished the intro's last line says so, so a first meeting after it never tells of
 -- raising it. `finished` names a build the caller has just finished (its reads still see
 -- it unfinished); unset, a build already marked done is looked for. Later builds (a
--- project's) leave the intro as it is.
-function voices.intro_close(ctx, keeper, station, finished, ware)
+-- project's) leave the intro as it is. Who built it is history, said first (refresh).
+function voices.intro_close(ctx, keeper, station, finished)
     local name = finished
     for _, id in ctx.query("build") do
         local build = ctx.get(id, "build")
         if build.station == station and build.done then
             if finished then return end -- not the station's first
-            name, ware = build.name, build.ware
+            name = build.name
             break
         end
     end
@@ -98,10 +98,7 @@ function voices.intro_close(ctx, keeper, station, finished, ware)
         local said = ctx.get(line, "engine.talk_line")
         if not said then return end
         if (said.next or "") == "" then
-            -- The player's deliveries built it: it is theirs to name.
-            local text = ware and "Your " .. ware .. " built our " .. string.lower(name) .. ". Go and eat there."
-                or "Our " .. string.lower(name) .. "'s open now. Go and eat."
-            ctx.patch(line, "engine.talk_line", { text = text })
+            ctx.patch(line, "engine.talk_line", { text = "Our " .. string.lower(name) .. "'s open now. Go and eat." })
             return
         end
         line = said.next
@@ -118,12 +115,15 @@ function voices.refresh(ctx, station, hold, sold, need)
     for _, id in ctx.query("facility") do
         local facility = ctx.get(id, "facility")
         if facility.station == station and facility.keeper ~= "" then
-            local keeper = ctx.get(facility.keeper, "keeper")
-            -- What they have to say about the player's doings comes before an introduction
-            -- they haven't given yet.
-            history.fold(ctx, facility.keeper, salvage.news(ctx, facility.keeper) or project.news(ctx, facility.keeper))
+            local who = facility.keeper
+            local keeper = ctx.get(who, "keeper")
+            -- What they have to say about the player's doings (`memory`): the jobs' news,
+            -- else the history their everyday talk carries, found below.
+            local memory = salvage.news(ctx, who) or project.news(ctx, who)
             local text
-            local says = project.line(ctx, facility.keeper, hold, station)
+            local says = project.line(ctx, who, hold, station)
+            -- A job's line heard already as news in their introduction gives way to their own.
+            if history.told(ctx, who, says) then says = nil end
             local site = ctx.get(id, "build")
             if says then
                 text = says
@@ -132,9 +132,17 @@ function voices.refresh(ctx, station, hold, sold, need)
                 local left = (build and build.keeper == site.keeper) and need or site.need - site.given
                 text = voices.waiting(left, site.need, site.ware, keeper.idle)
                 -- The first of it just went in (this sale, which still reads none given) or
-                -- has yet to be heard: they say so first, until the player hears it.
+                -- has yet to be heard: they say so first, until the player hears it, in
+                -- their introduction or here.
                 local first = site.first_due or (site.given == 0 and left < site.need)
-                if first and left > 0 and (site.first_word or "") ~= "" then text = site.first_word .. " " .. text end
+                if first and history.told(ctx, who, site.first_word) then
+                    first = false
+                    if site.first_due then ctx.patch(id, "build", { first_due = false }) end
+                end
+                if first and left > 0 and (site.first_word or "") ~= "" then
+                    text = site.first_word .. " " .. text
+                    memory = memory or site.first_word
+                end
             elseif id == exchange then
                 local wanted = {}
                 for _, line in trade.lines(ctx, id) do
@@ -142,8 +150,10 @@ function voices.refresh(ctx, station, hold, sold, need)
                     if market.role == "buys" then wanted[market.ware] = hold[market.ware] end
                 end
                 local list = rules.list(wanted)
-                text = voices.trader(list == "nothing" and "" or list, sold,
-                    remembered(ctx, facility.keeper, station) or keeper.idle)
+                local remembers = remembered(ctx, who, station)
+                memory = memory or remembers
+                if history.told(ctx, who, remembers) then remembers = nil end
+                text = voices.trader(list == "nothing" and "" or list, sold, remembers or keeper.idle)
             elseif #trade.lines(ctx, id) > 0 then
                 text = keeper.idle
             elseif facility.fits then
@@ -153,15 +163,19 @@ function voices.refresh(ctx, station, hold, sold, need)
             else
                 local made = voices.made(ctx, station)
                 if build and need <= 0 then made = "Your " .. build.ware .. " built our " .. string.lower(build.name) .. "." end
+                if made ~= "" then memory = memory or made end
+                if history.told(ctx, who, made) then made = "" end
                 text = voices.master(left, build and need or 0, build and build.ware or "", build and string.lower(build.name) or "", made)
                 if not build then
-                    voices.intro_close(ctx, facility.keeper, station)
+                    voices.intro_close(ctx, who, station)
                 elseif need <= 0 then
                     -- This very sale finished it.
-                    voices.intro_close(ctx, facility.keeper, station, build.name, build.ware)
+                    voices.intro_close(ctx, who, station, build.name)
                 end
             end
-            if text then ctx.patch(facility.keeper .. "_now", "engine.talk_line", { text = text }) end
+            -- History comes before an introduction they haven't given yet.
+            history.fold(ctx, who, memory)
+            if text then ctx.patch(who .. "_now", "engine.talk_line", { text = text }) end
         end
     end
     -- Someone aboard who keeps no room (a barge's skipper) says their own line too.

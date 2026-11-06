@@ -205,6 +205,20 @@ local function owner(ctx, act)
     return nil
 end
 
+-- The other dockmaster, whose haven didn't get the barge, on where the player took her.
+local function elsewhere(ctx, job, haven)
+    local barge = ctx.get(job.barge, "trader").name
+    local skipper = first(name(ctx, job.skipper))
+    if haven.kind == "keep" then return first(name(ctx, haven.keeper)) .. " kept " .. barge .. " for good. " .. skipper .. "'s grounded." end
+    if job.step < salvage.THANKED then return "You took " .. barge .. " to the Kiln. Fair: she's " .. skipper .. "'s." end
+    return skipper .. "'s hauling again. " .. first(name(ctx, job.giver)) .. "'s beds will get their ice."
+end
+
+-- The fitter who would have mended her, once she is kept instead.
+local function passed_over(ctx, job, haven)
+    return first(name(ctx, haven.keeper)) .. " kept " .. ctx.get(job.barge, "trader").name .. "? I'd have had her purring."
+end
+
 -- The skipper's introduction once her barge is taken in. She was towed home by the player
 -- and has told her story over the radio already, so she starts with what was chosen for
 -- her barge, in her own words, and its last line follows the work.
@@ -229,6 +243,9 @@ end
 -- A keeper's next line, said once until something newer replaces it: the fitter's line
 -- otherwise follows the last fit (cradle.luau), so the barge is news to him only then.
 local function remark(ctx, keeper, text)
+    -- Met only later, they say it first in their introduction instead (salvage.news).
+    local intro = keeper and ctx.get(keeper .. "_intro", "engine.talk")
+    if intro and not intro.seen then return end
     if keeper and ctx.get(keeper .. "_now", "engine.talk_line") then
         ctx.patch(keeper .. "_now", "engine.talk_line", { text = text })
     end
@@ -421,8 +438,7 @@ local function take(ctx, id, job, hid, haven)
         for _, h in ctx.query("haven") do
             local other = ctx.get(h, "haven")
             if other.job == id and other.kind == "mend" then
-                remark(ctx, owner(ctx, other.act), first(name(ctx, haven.keeper)) .. " kept " .. trader
-                    .. "? I'd have had her purring.")
+                remark(ctx, owner(ctx, other.act), passed_over(ctx, job, haven))
             end
         end
         ctx.patch(barge, "trader", { about = "moored off " .. port_name(ctx, haven.station) .. " for good, waiting on her pipes" })
@@ -654,10 +670,7 @@ function salvage.line(ctx, keeper, station)
             if kind == "keep" then return barge .. "'s our cistern now. " .. skipper .. " checks her every hour." end
         elseif haven then
             -- The other dockmaster hears where you took her.
-            local keeps = first(name(ctx, haven.keeper))
-            if kind == "keep" then return keeps .. " kept " .. barge .. " for good. " .. skipper .. "'s grounded." end
-            if step < salvage.THANKED then return "You took " .. barge .. " to the Kiln. Fair: she's " .. skipper .. "'s." end
-            return skipper .. "'s hauling again. " .. giver .. "'s beds will get their ice."
+            return elsewhere(ctx, job, haven)
         end
     end
     if haven and haven.act == keeper .. "_act2" then
@@ -711,6 +724,17 @@ function salvage.news(ctx, keeper)
     if haven.kind == "mend" and owner(ctx, haven.act) == keeper then
         if job.step < salvage.DONE then return first(name(ctx, haven.keeper)) .. " says you towed " .. barge .. " in for me to mend." end
         return barge .. "'s engine purrs again. My pump, your tow."
+    end
+    -- The other haven's dockmaster, and on keep the fitter passed over, say what they say
+    -- in their everyday talk.
+    for _, h in ctx.query("haven") do
+        local other = ctx.get(h, "haven")
+        if other.job == id and h ~= job.haven then
+            if keeper == other.keeper then return elsewhere(ctx, job, haven) end
+            if haven.kind == "keep" and other.kind == "mend" and owner(ctx, other.act) == keeper then
+                return passed_over(ctx, job, haven)
+            end
+        end
     end
     return nil
 end

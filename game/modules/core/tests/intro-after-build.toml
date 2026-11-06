@@ -176,4 +176,4 @@ tick = 6396
 entity = "lantern_master_intro5"
 component = "engine.talk_line"
 field = "text"
-equals = "Your plate built our galley. Go and eat there."
+equals = "Our galley's open now. Go and eat."

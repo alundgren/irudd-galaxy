@@ -1,12 +1,11 @@
 -- An office keeper met for the first time after their station's build is finished
--- says the player's deliveries built it (scripts/voices.luau), not that it is still being
--- raised.
+-- says it is open (scripts/voices.luau), not that it is still being raised.
 local voices = require("../scripts/voices")
 
 -- A world with a keeper's three-line intro and one build, recording patches.
 local function world(done)
     local w = {
-        ["core.galley"] = { build = { station = "core.lantern", name = "Galley", ware = "plate", done = done } },
+        ["core.galley"] = { build = { station = "core.lantern", name = "Galley", done = done } },
         ["core.bram_intro"] = { ["engine.talk"] = { first = "core.bram_intro1" } },
         ["core.bram_intro1"] = { ["engine.talk_line"] = { text = "Welcome.", next = "core.bram_intro2" } },
         ["core.bram_intro2"] = { ["engine.talk_line"] = { text = "I'm Bram.", next = "core.bram_intro3" } },
@@ -34,7 +33,7 @@ return {
         voices.intro_close(ctx, "core.bram", "core.lantern")
         assert(#patched == 1, "one line changed")
         assert(patched[1].id == "core.bram_intro3", "the intro's last line")
-        assert(patched[1].fields.text == "Your plate built our galley. Go and eat there.", patched[1].fields.text)
+        assert(patched[1].fields.text == "Our galley's open now. Go and eat.", patched[1].fields.text)
     end,
 
     an_unfinished_build_leaves_the_intro_as_written = function()
@@ -46,9 +45,9 @@ return {
     a_build_finished_by_this_very_sale_closes_the_intro_on_it_being_open = function()
         -- The sale's reads still see the build unfinished; the caller names it.
         local ctx, patched = world(false)
-        voices.intro_close(ctx, "core.bram", "core.lantern", "Galley", "plate")
+        voices.intro_close(ctx, "core.bram", "core.lantern", "Galley")
         assert(#patched == 1 and patched[1].id == "core.bram_intro3", "the intro's last line")
-        assert(patched[1].fields.text == "Your plate built our galley. Go and eat there.", patched[1].fields.text)
+        assert(patched[1].fields.text == "Our galley's open now. Go and eat.", patched[1].fields.text)
     end,
 
     another_station_s_build_leaves_the_intro_as_written = function()

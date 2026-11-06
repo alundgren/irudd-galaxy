@@ -98,6 +98,26 @@ return {
         assert(w["core.bram_intro_news"] == nil, "no news line")
     end,
 
+    news_counts_as_told_once_heard = function()
+        local ctx, w = world()
+        local line = "Your plate built our galley."
+        assert(not history.told(ctx, "core.bram", line), "nothing told yet")
+        history.fold(ctx, "core.bram", line)
+        assert(not history.told(ctx, "core.bram", line), "still to come")
+        hear(w)
+        assert(history.told(ctx, "core.bram", line), "heard as news")
+        assert(not history.told(ctx, "core.bram", "Something else."), "only that line")
+    end,
+
+    unfolding_takes_back_news_not_yet_heard = function()
+        local ctx, w = world()
+        history.fold(ctx, "core.bram", "Cold Kettle's moored off our berth for good now.")
+        local first = history.unfold(ctx, "core.bram")
+        assert(first == "core.bram_intro2", tostring(first))
+        assert(said(w) == "I'm Bram. | We both buy ore.", said(w))
+        assert(history.unfold(ctx, "core.bram") == "core.bram_intro2", "nothing more to take back")
+    end,
+
     a_retold_introduction_keeps_what_was_heard = function()
         local ctx, w = world()
         hear(w)

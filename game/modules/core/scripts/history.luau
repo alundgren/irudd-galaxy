@@ -31,6 +31,29 @@ function history.fold(ctx, keeper, text)
     ctx.patch(id, "engine.talk", { first = news })
 end
 
+-- Whether `text` was told in `keeper`'s introduction as news and the player has heard it
+-- there: their everyday talk doesn't say it again.
+function history.told(ctx, keeper, text)
+    if not text or text == "" then return false end
+    local news = keeper .. "_intro_news"
+    local told = ctx.get(news, "engine.talk_line")
+    if not told or told.text ~= text then return false end
+    local intro = ctx.get(keeper .. "_intro", "engine.talk")
+    return intro ~= nil and (intro.seen or intro.first ~= news)
+end
+
+-- Takes news not yet heard out of `keeper`'s introduction again (an introduction about to
+-- be said another way); returns its first line not yet heard.
+function history.unfold(ctx, keeper)
+    local id = keeper .. "_intro"
+    local intro = ctx.get(id, "engine.talk")
+    local news = keeper .. "_intro_news"
+    if not intro or intro.first ~= news then return intro and intro.first end
+    local rest = ctx.get(news, "engine.talk_line").next or ""
+    ctx.patch(id, "engine.talk", { first = rest })
+    return rest
+end
+
 -- Says `keeper`'s unheard introduction the way `texts` has it, line for line from the end,
 -- so the lines already heard stay heard and only the rest is said the new way.
 function history.retell(ctx, keeper, texts)

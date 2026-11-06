@@ -15,6 +15,7 @@ local layout = require("./layout") -- room panels are layout.ROOM wide: at most 
 local places = require("./places")
 local project = require("./project")
 local salvage = require("./salvage")
+local history = require("./history")
 
 -- On the cradle the ship lies nose to the back left, its sockets turned to the camera.
 local CRADLE_ANGLE = 2.3
@@ -125,6 +126,9 @@ local function build_up(ctx, site, build, ahead)
     -- the met chain's last lines, line for line with what is left.
     local intro = ctx.get(keeper .. "_intro", "engine.talk")
     if intro and not intro.seen and (build.met or "") ~= "" then
+        -- News of the build going up, not yet heard, is past: the met lines say it is built.
+        intro = table.clone(intro)
+        intro.first = history.unfold(ctx, keeper)
         local function length(from)
             local n = 0
             while from and from ~= "" do
@@ -189,7 +193,7 @@ local function sell(event, ctx)
                 local first = build.given == 0 and building > 0 and not grew and (build.first_word or "") ~= ""
                 -- Built, it notes the station's counted visits: the giver's next ask waits
                 -- for one more (project.lived).
-                ctx.patch(site, "build", { given = build.given + building, done = grew, first_due = first or build.first_due,
+                ctx.patch(site, "build", { given = build.given + building, done = grew, first_due = first or (build.first_due and not grew),
                     opened = grew and port.visits or build.opened })
             end
             local prices, stock = rules.walk(line, units - building)

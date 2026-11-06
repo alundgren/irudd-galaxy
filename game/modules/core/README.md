@@ -865,8 +865,11 @@ heard. Met only after it, a keeper says it first, folded in front of what is lef
 their introduction, and the line that greets a stranger (`keeper.greeting`: Bram's
 "Welcome to Lantern Dock.", Mags's "You're at Cinder Kiln.") is left out: Bram met after
 keeping Cold Kettle starts "Cold Kettle's moored off our berth for good now." and goes on
-with who he is. News is told once; newer news replaces news not yet heard. Which keepers
-have news, and of what (`salvage.news`, `project.news`):
+with who he is. News is told once; newer news replaces news not yet heard, and a line
+heard as news isn't said again as their everyday line. A keeper with no job news who
+remembers something in their everyday talk (below) says that first instead: Ines's word
+on the first plate, Tova's line about what your wares built, Bram's "Your plate built our
+galley." Which keepers have news, and of what (`salvage.news`, `project.news`):
 
 | Who | After | First line |
 | --- | --- | --- |
@@ -874,6 +877,8 @@ have news, and of what (`salvage.news`, `project.news`):
 | Bram | the greenhouse taken on, then built | "I've staked out Ines's greenhouse plot for you." "Your greenhouse is the pride of our deck." |
 | Mags | towing her in, sending her to be mended, mended, sailing | "Cold Kettle's at Orrin's quay now, on your say." "Orrin's mended Cold Kettle. Hessa's waiting on you." "Cold Kettle sails again, thanks to your tow." |
 | Orrin | her engine, mended | "Mags says you towed Cold Kettle in for me to mend." "Cold Kettle's engine purrs again. My pump, your tow." |
+| Orrin | Cold Kettle kept instead | "Bram kept Cold Kettle? I'd have had her purring." |
+| the other dockmaster | where you took her | Mags: "Bram kept Cold Kettle for good. Hessa's grounded."; Bram: "You took Cold Kettle to the Kiln. Fair: she's Hessa's." |
 | Sefa | the panes, from firing to the greenhouse | "Ines's panes are in the kiln, from your glassite." through "My glass is in Ines's greenhouse, from your glassite." |
 
 Hessa has told her story over the radio by the time she is aboard, so her introduction
@@ -883,8 +888,8 @@ sooner have sailed her." (once they bloom, "Noor's beds bloom on her tanks. ..."
 "You brought my Kettle to the Kiln to be mended." ... "Noor's beds can wait. I want her
 sailing." (once mended, "Noor's beds waited for their ice. Bless you."). Noor's
 introduction names your part ("Ines says you carried the glass, and the ice for the
-beds."), and Bram's last line, once the galley stands, is "Your plate built our galley.
-Go and eat there."
+beds."), and Bram's last line, once the galley stands, is "Our galley's open now. Go and
+eat." (who built it he says first).
 
 Everyday lines remember too, below anything more pressing (what you carry that they buy,
 a job's next step): Bram's field line once the galley stands starts "Your plate built
@@ -1193,11 +1198,14 @@ Ines's table with no fee; `history-hessa-mend.toml`, her introduction once the K
 her, her sign in Mags's office at once, its last line once mended, her line after the
 fee taken; `history-ines.toml`, Ines after Noor's whole ask and `Not now`;
 `history-bram.toml`, Bram's unheard introduction after the keep choice, starting with
-the barge, the greeting left out, the rest heard on, his last line on the galley your
-plate built; `history-room.toml`, Bram walking from his desk to the porthole as she is
-kept; `history-hessa-seated.toml`, Hessa seated at Ines's table in her seated figure;
-`tests/history.luau` folds news in front of an introduction, once, past what was heard;
-`tests/places.luau` dresses a being for a posed act and back), the galley lived in
+the barge, the greeting left out, the rest heard on, his last line on the galley open;
+`history-first-plate.toml`, Ines met only after the first plate, starting with her word
+on it and saying it once; `history-tova.toml`, Tova met only after the galley is built
+through her exchange, starting with the galley your plate built and saying it once;
+`history-room.toml`, Bram walking from his desk to the porthole as she is kept;
+`history-hessa-seated.toml`, Hessa seated at Ines's table in her seated figure;
+`tests/history.luau` folds news in front of an introduction, once, past what was heard,
+and keeps it out of everyday talk once heard; `tests/places.luau` dresses a being for a posed act and back), the galley lived in
 before Ines asks for more (`galley-lived.toml`: the crews at her table, her thanks, no
 ask on the visit that first finds it open, nor after stepping out and straight back in,
 her line and Bram's meanwhile, and the ask once flown out and docked again), Ines's first-plate word heard at the site (`first-plate.toml`: her

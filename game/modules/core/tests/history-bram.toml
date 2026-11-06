@@ -725,10 +725,10 @@ entity = "lantern_master_intro"
 component = "engine.talk"
 field = "seen"
 equals = true
-# His introduction's last line is about the galley the player's plate built.
+# His introduction's last line is about the galley standing (the barge is his news).
 [[expect]]
 tick = 20255
 entity = "lantern_master_intro5"
 component = "engine.talk_line"
 field = "text"
-equals = "Your plate built our galley. Go and eat there."
+equals = "Our galley's open now. Go and eat."
