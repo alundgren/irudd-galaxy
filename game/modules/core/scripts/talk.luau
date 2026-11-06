@@ -11,6 +11,7 @@ local fit = require("./fit")
 local places = require("./places")
 local project = require("./project")
 local salvage = require("./salvage")
+local rumour = require("./rumour")
 
 -- Who is speaking and where: "Tova Reyes at Lantern Dock".
 local function source(ctx, talk)
@@ -78,7 +79,7 @@ return {
             if open and not spoken.seen and talk == spoken.speaker .. "_intro" then
                 ctx.patch(talk, "engine.talk", { first = said.next })
             end
-            if not open then voices.retire(ctx) end
+            if not open then voices.retire(ctx, talk) end
             local quoted = "\u{201C}" .. said.text .. "\u{201D}"
             -- An offer once said stays pinned in the log until it is answered (log.pinned).
             local gift = ctx.get(talk, "gift")
@@ -97,6 +98,8 @@ return {
                     end
                 end
             end
+            -- A rumour's lead heard to its end, or word of the find heard: lines follow it.
+            if rumour.said(ctx, talk, line, said.text, open) then ctx.record("heard", {}) end
             local offer = ctx.get(talk, "offer")
             if offer and not offer.heard then
                 ctx.patch(talk, "offer", { heard = true })
@@ -150,6 +153,8 @@ return {
             end
             if not receipt then receipt = project.chosen(ctx, talk, choice, open, ctx.get("ship", "hold")) end
             if not receipt then receipt = salvage.chosen(ctx, talk, choice, open) end
+            -- Told what the player saw: the keeper remembers it, and word of it spreads.
+            if rumour.chosen(ctx, talk) then ctx.record("heard", {}) end
             local id, entry = heard(ctx, talk)
             if id then
                 ctx.patch(id, "entry", { text = entry.text .. " " .. said, open = open })

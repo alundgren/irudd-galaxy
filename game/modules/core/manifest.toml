@@ -2,7 +2,7 @@
 id = "core"
 version = "0.1.0"
 min_engine_version = "0.8.0"
-scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau", "scripts/tow.luau"]
+scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau", "scripts/tow.luau", "scripts/discover.luau"]
 events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit", "bump", "drive_on", "beam_on", "hitch", "hand", "slipped", "hitched", "heard"]
 # Bodies that start touching at least this fast (units a second) record engine.contact,
 # which sound.luau turns into a bump on the hull when the ship is one of them.
@@ -420,6 +420,30 @@ watch = "id"
 # (scripts/places.luau). For beings whose changes show at once (presentation "instant").
 [components.pose]
 model = "text"
+
+# A rumour the player follows out and brings back (scripts/rumour.luau): `keeper` says
+# where it leads in `lead` (a story talk) while `job` (a project) needs its ware, unless
+# the player has been out there. Within `near` of `thing` it is `found`: the thing wears
+# `found_model` in `found_look`, gives off `motes` and bursts `wake` (particles in
+# style.toml). Back with the keeper, `tell` (a story talk) asks what the player saw; once
+# answered it is `told`, and `charter`, who keeps the charts, has news of it until heard
+# (`charted`). `heard` once the lead has been said to its end.
+[components.rumour]
+thing = "id"
+near = "number"
+found_model = "text"
+found_look = "text"
+motes = "text"
+wake = "text"
+keeper = "id"
+job = "id"
+lead = "id"
+tell = "id"
+charter = "id"
+heard = "bool"
+found = "bool"
+told = "bool"
+charted = "bool"
 
 # Someone who comes to eat in a room once `site` is built: seated at `spot`, facing
 # `angle`, wearing `model` (scripts/station.luau).

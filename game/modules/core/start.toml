@@ -621,7 +621,7 @@ offer = { project = "core.greenhouse_job", step = 1, take = "core.greenhouse_ask
 "engine.talk_choice" = { line = "core.greenhouse_ask4", text = "Not now", order = 2 }
 
 [entities.greenhouse_ask5]
-"engine.talk_line" = { text = "Thank you! She'll want glassite for them." }
+"engine.talk_line" = { text = "Thank you! Sefa knows where glassite grows." }
 
 # Sefa takes the glassite for the panes, when the player carries enough.
 [entities.greenhouse_glassite]
@@ -1661,3 +1661,58 @@ bit = { channel = "core.kiln_radio", n = 2, text = "We buy ore for the kiln and 
 
 [entities.kiln_radio_bit3]
 bit = { channel = "core.kiln_radio", n = 3, text = "Orrin fits parts at our cradle, if you need them." }
+
+# The first strand of the rumour web (scripts/rumour.luau): Sefa says where glassite
+# grows while Ines's greenhouse needs it; out by its lone buoy lies an old stone ring
+# nobody mentioned, which wakes as the ship comes near; back at the Kiln she asks what
+# the player saw, and Mags, who keeps the charts, hears of it from her.
+[entities.glassite_ring]
+"engine.spin" = { rate = 1 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 340, y = 272, angle = 0.4 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.stone_ring", look = "core.rock" }
+"engine.anchor" = { name = "label" }
+
+[entities.glassite_rumour]
+rumour = { thing = "core.glassite_ring", near = 40, found_model = "core.stone_ring_lit", found_look = "core.glassite", motes = "core.ring_motes", wake = "core.ring_wake", keeper = "core.kiln_trader", job = "core.greenhouse_job", lead = "core.glassite_lead", tell = "core.glassite_tell", charter = "core.kiln_master" }
+
+# Sefa's lead, once, while Ines's greenhouse needs glassite and the player hasn't been out
+# to it: where it grows, by its landmarks. The directions are vague but true: the drift
+# lies north of the Kiln's berth, a little east.
+[entities.glassite_lead]
+"engine.talk" = { speaker = "core.kiln_trader", first = "core.glassite_lead1", width = 420, x = -150, story = true, enabled = false, title = "Sefa Lind", subtitle = "Exchange keeper" }
+
+[entities.glassite_lead1]
+"engine.talk_line" = { text = "Glassite for Ines's panes? Pell's Luck brings me mine.", next = "core.glassite_lead2" }
+
+[entities.glassite_lead2]
+"engine.talk_line" = { text = "Fly north from our berth, a long way out.", next = "core.glassite_lead3" }
+
+[entities.glassite_lead3]
+"engine.talk_line" = { text = "A lone buoy marks her drift. The rocks glow lilac." }
+
+# Back from the drift, Sefa asks what the player saw there, once.
+[entities.glassite_tell]
+"engine.talk" = { speaker = "core.kiln_trader", first = "core.glassite_tell1", width = 420, x = -150, story = true, enabled = false, title = "Sefa Lind", subtitle = "Exchange keeper" }
+
+[entities.glassite_tell1]
+"engine.talk_line" = { text = "You've been out to the glassite, haven't you?", next = "core.glassite_ask" }
+
+[entities.glassite_ask]
+"engine.talk_line" = { text = "See anything odd out there?" }
+
+[entities.glassite_tell_ring]
+"engine.talk_choice" = { line = "core.glassite_ask", text = "A stone ring that lit up", next = "core.glassite_tell2", order = 1 }
+
+[entities.glassite_tell2]
+"engine.talk_line" = { text = "So Pell wasn't spinning tales.", next = "core.glassite_tell3" }
+
+[entities.glassite_tell3]
+"engine.talk_line" = { text = "Glassite grows thickest round old things like that.", next = "core.glassite_tell4" }
+
+[entities.glassite_tell4]
+"engine.talk_line" = { text = "Who set it there, nobody knows.", next = "core.glassite_tell5" }
+
+[entities.glassite_tell5]
+"engine.talk_line" = { text = "It was old before the Kiln was lit." }

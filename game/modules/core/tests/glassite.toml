@@ -2,7 +2,8 @@
 # long way out to the glassite drift and mines glassite1 out. Its eight units come aboard
 # and the emptied rock is left as a few pebbles with warm glowing caps (ore.empty). The
 # order then moves on to glassite2, so the checks are taken at tick 1000, after
-# glassite1's last unit and before the next.
+# glassite1's last unit and before the next. On the way in, the old stone ring beside the
+# drift wakes as it comes in sight (scripts/rumour.luau): the first log line, once.
 seed = 7
 ticks = 1001
 
@@ -68,6 +69,20 @@ equals = 1.0
 [[expect]]
 tick = 1000
 entity = "log1"
+component = "entry"
+field = "text"
+equals = "Lilac rocks by a lone buoy: the glassite drift. Beside them lies a ring of old stone, and its groove lights as you pass."
+
+[[expect]]
+tick = 1000
+entity = "glassite_ring"
+component = "engine.model"
+field = "model"
+equals = "core.stone_ring_lit"
+
+[[expect]]
+tick = 1000
+entity = "log2"
 component = "entry"
 field = "text"
 equals = "Rock cut down to pebbles. 3 more rocks hold glassite."

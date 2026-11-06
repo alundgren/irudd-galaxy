@@ -349,7 +349,9 @@ silhouette and colour, in several sizes (`engine.model` scale; a bigger rock hol
   `ore.stages` names its four models (`glassite`, `glassite_chipped`, `glassite_worn`,
   `glassite_stubs`), each taking an equal share of the rock's units, while the rock part
   they all share keeps shrinking through `engine.model` morph. Once it is empty it becomes
-  `ore.empty`, `glassite_pebbles`: a few dark pebbles with warm glowing caps.
+  `ore.empty`, `glassite_pebbles`: a few dark pebbles with warm glowing caps. A lone buoy
+  marks the drift, and just north of its rocks lies an old stone ring, dark until the
+  ship comes near (below, "The first rumour").
 - Pebbles and ice splinters (`debris`, `debris_ice`) and faint drifting dust
   (`[particles.dust]` from three `engine.emitter` points) round the drifts: drawn only,
   never solid, never mined.
@@ -658,8 +660,9 @@ the Greenhouse, joins the station's key; it says what it waits on.
 The job goes in steps, each an offer in someone's talk. The log pins it while it waits:
 Ines's ask as an `OFFER` once heard, then each next step as a `JOB`, in her terms:
 
-1. Bring 8 glassite to Sefa Lind at Cinder Kiln (glassite grows north-east, past the
-   ore, Ines says; it is the farthest drift, some 700 units from the ore). Her offer
+1. Bring 8 glassite to Sefa Lind at Cinder Kiln. Ines says "Sefa knows where glassite
+   grows." and that it grows north-east, past the ore; Sefa, asked first, says where
+   (below, "The first rumour"). It is the farthest drift. Her offer
    comes on only with 8 aboard, and it is the exchange's gold button, above everything
    else in the panel: `Hand Sefa 8 glassite for Ines's panes`, one press, with or without her talk (or `Hand it over` in it). Every later
    handover in these jobs is the same gold button in the keeper's room. Her act
@@ -690,6 +693,52 @@ Measured on the headless route in `tests/greenhouse.toml` (seed 7): the galley i
 at tick 6296 and the greenhouse at 13563, 7267 ticks (4.0 minutes of scripted play)
 over five trips out: glassite, ore while the panes fire, the panes to Lantern Dock, and
 two runs of ice. Hand flying, docking and reading the talk stretch each trip.
+
+## The first rumour: the ring in the glassite
+
+The first strand of the rumour web (`scripts/rumour.luau`, `scripts/discover.luau`;
+research "Discovery and lore drip"): one thread of three beats that pulls the player out
+to the far drift and back with a question. It is world state (`rumour` on
+`glassite_rumour` in `start.toml`), so it saves and resumes.
+
+1. **The lead.** While Ines's greenhouse needs glassite and the player hasn't been out to
+   it, Sefa, once met, says where it grows before anything else (a story talk): "Glassite
+   for Ines's panes? Pell's Luck brings me mine." "Fly north from our berth, a long way
+   out." "A lone buoy marks her drift. The rocks glow lilac." It is a bearing and two
+   landmarks, never a marker, and true: the drift lies north of the Kiln's berth, a
+   little east. Heard once; her everyday line keeps the landmark: "8 glassite for Ines's
+   panes. North of our berth, by the lone buoy."
+2. **The find.** By the lone buoy and the lilac rocks, just north of them, lies a ring of
+   dark worn stone with standing stones on its band and glassite growing up through it
+   (`stone_ring`). Flying within 40 units of it, as it comes on screen, wakes it once:
+   its groove and inner lip light lilac and breathe (`stone_ring_lit` in the glassite's
+   glowing look), a lilac breath goes out from it and motes keep rising off it
+   (`[particles.ring_wake]`, `[particles.ring_motes]`), and the log says "Lilac rocks by a
+   lone buoy: the glassite drift. Beside them lies a ring of old stone, and its groove
+   lights as you pass." Pointing at it names it, dark or lit. It is solid and turns
+   slowly like the rocks, and lies clear of every rock, the buoy and Pell's Luck's route.
+3. **The question.** Back with Sefa, once she has no offer on (business first: she takes
+   the glassite for the panes, then asks), she asks: "You've been out to the glassite,
+   haven't you?" "See anything odd out there?" The player's answer is `A stone ring that
+   lit up`, and hers is part answer, part open: "So Pell wasn't spinning tales."
+   "Glassite grows thickest round old things like that." "Who set it there, nobody
+   knows." "It was old before the Kiln was lit." It hints at a longer arc without
+   explaining it.
+
+**History.** Whoever would know remembers, and nobody asks again what the player has
+told. Been out there before hearing the lead, the player gets no lead, and Sefa's line
+while the job needs glassite is "8 glassite for Ines's panes, from round that old ring."
+Told, her idle line becomes "Pell won't cut near your ring. She says it hums."
+(below the panes' lines), and Mags, who keeps the charts, has heard of it from her: met
+after, her introduction starts with it (`history.fold`), otherwise her next everyday line
+is it, once: "Your ring's on my oldest chart, unnamed."
+
+**Measured** on the headless route `tests/glassite-lead.toml` (seed 7, flights scripted):
+from launching at Cinder Kiln after Sefa's lead to the ring waking, 774 ticks, **25.8
+seconds** of flight on a scripted Mine of the nearest glassite rock (Kiln to drift is
+about 530 units, the cruise is 20 a second). By hand, with the turn north and finding the
+buoy, that is some 30 to 40 seconds. A save from before the rumour loads and plays on
+without it: the ring and its talks are new entities.
 
 ## After the greenhouse: Cold Kettle adrift
 
@@ -879,6 +928,7 @@ galley." Which keepers have news, and of what (`salvage.news`, `project.news`):
 | Orrin | her engine, mended | "Mags says you towed Cold Kettle in for me to mend." "Cold Kettle's engine purrs again. My pump, your tow." |
 | Orrin | Cold Kettle kept instead | "Bram kept Cold Kettle? I'd have had her purring." |
 | the other dockmaster | where you took her | Mags: "Bram kept Cold Kettle for good. Hessa's grounded."; Bram: "You took Cold Kettle to the Kiln. Fair: she's Hessa's." |
+| Mags | the player's ring, told to Sefa | "Your ring's on my oldest chart, unnamed." |
 | Sefa | the panes, from firing to the greenhouse | "Ines's panes are in the kiln, from your glassite." through "My glass is in Ines's greenhouse, from your glassite." |
 
 Hessa has told her story over the radio by the time she is aboard, so her introduction
@@ -1098,7 +1148,7 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are eighty-six Luau rule tests (hold, depletion, prices against stock and their
+There are a hundred and four Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
@@ -1111,7 +1161,7 @@ flickering for a minute, a stronger station taking over only when steady, a brie
 keeping the channel, a chosen channel holding, and Prev and Next stepping through, and
 in `tests/mining.luau` the cutter's reach from the nose, aim within the slack, a unit
 for every second of beam time however it is broken up, the berth ring, regrowth to half
-and the worked-out message for an empty and a full hold) and forty-seven scenarios (two of them, `sound.toml` and
+and the worked-out message for an empty and a full hold) and fifty-eight scenarios (two of them, `sound.toml` and
 `sound-talk.toml`, under the sound below):
 the opening's pace (`opening.toml`, above under "The opening hour"), both beats on
 one unit (`beats.toml`: the 24th unit cuts a rock down and fills the hold at once, and the
@@ -1174,7 +1224,12 @@ greenhouse from a finished galley (`greenhouse.toml`: the ask, the plot, glassit
 handed to Sefa and her act, the panes ready on the next counted visit, loaded and
 delivered, the scaffold and glaziers, ice into the beds, the greenhouse built with
 Noor in it, the station's green dome, Ines's thanks and Noor's intro, and the lamp
-night lasting three later counted dockings), its choices (`greenhouse-choices.toml`:
+night lasting three later counted dockings; found on the way out, the old ring gives Sefa
+no lead and her question waits for the handover), the first rumour
+(`glassite-lead.toml`: the ask accepted, Sefa's lead at the Kiln before anything else and
+put away once heard, the flight north and the ring waking with its log line, the
+glassite handed over first, then her question, the answer and her reply, Mags met after
+with the news first and no longer news once heard), its choices (`greenhouse-choices.toml`:
 "Not now" offered again on the next docking, the glassite offer off with 3 aboard and
 on with 8, the panes waiting on a full hold, Ines's panes not sold at the exchange,
 the receipts), Sefa's gold button (`sefa-hand.toml`: one press hands her the glassite
@@ -1222,7 +1277,8 @@ to the same station with nothing logged between is a new one), the short visit l
 pins outlasting dropped entries and the open log's width at 960x540, and
 `tests/chip.luau` that every row of the chip fits with all three wares aboard, and
 `tests/project.luau` when each greenhouse offer is on, when the panes are ready, the
-`JOB` pin's words and how Ines's panes read in the hold, and `tests/salvage.luau` when a
+`JOB` pin's words and how Ines's panes read in the hold, `tests/rumour.luau` when the
+ring is in sight and Sefa's line while the job needs glassite, and `tests/salvage.luau` when a
 line can be passed and when it slips, when Noor and each dockmaster offer, the work
 waiting on its delivery aboard, and the log's words at each step. Play
 records `engine.place_arrived` when a cut or glide lands; scenarios give it by hand
