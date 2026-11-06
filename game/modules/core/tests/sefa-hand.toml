@@ -3,7 +3,7 @@
 # glassite for Ines's panes", with her introduction still unheard. It takes the glassite
 # as her talk's Accept would, with no talk opened and nothing pressed again.
 seed = 7
-ticks = 8543
+ticks = 8823
 
 [[input]]
 tick = 1
@@ -173,112 +173,147 @@ tick = 6329
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift3" }
+# Out and back before Ines asks for more: a counted docking at Lantern Dock after the
+# galley opened (project.lived), then into her galley again.
 [[input]]
-tick = 6330
+tick = 6331
+name = "core.close"
+[[input]]
+tick = 6336
+name = "core.launch"
+[[input]]
+tick = 6346
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 6406
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 6416
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 6589
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6522 }
+[[input]]
+tick = 6600
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 6603
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6600 }
+[[input]]
+tick = 6612
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.greenhouse_ask" }
 [[input]]
-tick = 6331
+tick = 6613
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask1" }
 [[input]]
-tick = 6332
+tick = 6614
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask2" }
 [[input]]
-tick = 6333
+tick = 6615
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask3" }
 [[input]]
-tick = 6334
+tick = 6616
 name = "engine.talk_chosen"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask4", choice = "core.greenhouse_ask_yes" }
 [[input]]
-tick = 6335
+tick = 6617
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask5" }
 [[input]]
-tick = 6338
+tick = 6620
 name = "core.close"
 [[input]]
-tick = 6341
+tick = 6623
 name = "core.launch"
 [[input]]
-tick = 6346
+tick = 6628
 name = "core.mine"
 source = "script"
 payload = { rock = "core.glassite1" }
 [[input]]
-tick = 7654
+tick = 7936
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 8503
+tick = 8783
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 8470 }
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 8750 }
 [[input]]
-tick = 8513
+tick = 8793
 name = "core.open"
 [[input]]
-tick = 8514
+tick = 8794
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 8513 }
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 8793 }
 [[expect]]
-tick = 8514
+tick = 8794
 entity = "greenhouse_glassite"
 component = "engine.talk"
 field = "enabled"
 equals = true
 [[expect]]
-tick = 8514
+tick = 8794
 entity = "kiln_trader_intro"
 component = "engine.talk"
 field = "seen"
 equals = false
 [[input]]
-tick = 8516
+tick = 8796
 name = "core.hand"
 payload = { talk = "core.greenhouse_glassite" }
 [[expect]]
-tick = 8517
+tick = 8797
 entity = "greenhouse_job"
 component = "project"
 field = "step"
 equals = 3
 [[expect]]
-tick = 8517
+tick = 8797
 entity = "ship"
 component = "hold"
 field = "glassite"
 equals = 0
 [[expect]]
-tick = 8517
+tick = 8797
 entity = "greenhouse_glassite"
 component = "engine.talk"
 field = "enabled"
 equals = false
 [[expect]]
-tick = 8517
+tick = 8797
 entity = "kiln_trader_act2"
 component = "engine.act"
 field = "state"
 equals = "firing Ines's panes"
 # A second press is stale: nothing more is taken.
 [[input]]
-tick = 8523
+tick = 8803
 name = "core.hand"
 payload = { talk = "core.greenhouse_glassite" }
 [[expect]]
-tick = 8533
+tick = 8813
 entity = "greenhouse_job"
 component = "project"
 field = "step"

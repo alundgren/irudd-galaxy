@@ -83,8 +83,26 @@ return {
             -- An offer once said stays pinned in the log until it is answered (log.pinned).
             local gift = ctx.get(talk, "gift")
             if gift and not gift.heard then ctx.patch(talk, "gift", { heard = true }) end
+            -- News heard in an introduction isn't said again in the everyday line, which
+            -- follows it (`heard` below: voices.refresh).
+            if line == spoken.speaker .. "_intro_news" then ctx.record("heard", {}) end
+            -- A keeper's first word on their building, said with their everyday line, is
+            -- said once: heard, it gives way to the line alone (`heard` below).
+            if line == spoken.speaker .. "_now" then
+                for _, id in ctx.query("build") do
+                    local build = ctx.get(id, "build")
+                    if build.keeper == spoken.speaker and build.first_due then
+                        ctx.patch(id, "build", { first_due = false })
+                        ctx.record("heard", {})
+                    end
+                end
+            end
             local offer = ctx.get(talk, "offer")
-            if offer and not offer.heard then ctx.patch(talk, "offer", { heard = true }) end
+            if offer and not offer.heard then
+                ctx.patch(talk, "offer", { heard = true })
+                -- Once it is heard, nobody sends the player to hear it (`heard` below).
+                ctx.record("heard", {})
+            end
             local id, entry = heard(ctx, talk)
             if logged(ctx, talk, quoted) then
                 if id and not open then ctx.patch(id, "entry", { open = false }) end
@@ -111,7 +129,13 @@ return {
                 local hold = ctx.get("ship", "hold")
                 local taken = choice == gift.take and fit.hold(ctx) - rules.load(hold) >= gift.units
                 local over = taken or choice ~= gift.take
-                ctx.patch(talk, "gift", { answered = over, heard = true })
+                ctx.patch(talk, "gift", { answered = over, heard = true, taken = taken })
+                -- What she asks next remembers whether you took it, and her everyday line
+                -- follows the answer (`heard` below).
+                if over then
+                    project.gifted(ctx, talk, taken)
+                    ctx.record("heard", {})
+                end
                 if over then
                     if not open then
                         ctx.patch(talk, "engine.talk", { enabled = false })
@@ -153,7 +177,16 @@ return {
         end,
         -- A project moved on (an answer's receipt) or a build finished: the keepers'
         -- lines follow it. The handler that changed it still read the world before.
-        confirmed = function(_, ctx) refresh(ctx) end,
+        heard = function(_, ctx) refresh(ctx) end,
+        confirmed = function(_, ctx)
+            refresh(ctx)
+            -- Someone the answer brought into the room (a skipper aboard) wears their sign.
+            local station = places.docked(ctx)
+            if station then
+                local pilot = ctx.get("ship", "pilot")
+                signs.show(ctx, station, pilot.room, pilot.log_open, signs.speaking(ctx))
+            end
+        end,
         grown = function(_, ctx) refresh(ctx) end,
         docked = function(event, ctx)
             local pilot = ctx.get("ship", "pilot")

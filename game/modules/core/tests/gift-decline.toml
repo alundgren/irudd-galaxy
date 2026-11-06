@@ -208,7 +208,7 @@ tick = 6328
 entity = "log26"
 component = "entry"
 field = "text"
-equals = "Ines Varga at Lantern Dock: \u201CThanks again for the plate.\u201D \u201CWill you take a ration, on the house?\u201D You: No, thanks."
+equals = "Ines Varga at Lantern Dock: \u201CHear them? Crews at my table, eating hot. Your plate did that.\u201D \u201CWill you take a ration, on the house?\u201D You: No, thanks."
 [[expect]]
 tick = 6328
 entity = "ship"

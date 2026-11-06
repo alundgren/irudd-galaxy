@@ -458,7 +458,7 @@ keeper = { name = "Tova Reyes", idle = "Empty hold? The ore floats north-east of
 "engine.location" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_desk" }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.person_bram", look = "core.prop" }
-keeper = { name = "Bram Okafor" }
+keeper = { name = "Bram Okafor", greeting = "core.lantern_master_intro1" }
 "engine.life" = { clock = "core.day", first = "core.lantern_master_act", speed = 1.6, presentation = "instant", name = "Bram Okafor" }
 
 [entities.lantern_master_act]
@@ -466,6 +466,11 @@ keeper = { name = "Bram Okafor" }
 
 [entities.lantern_master_act2]
 "engine.act" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_board", angle = -0.6, state = "posting prices" }
+
+# Once Cold Kettle is his for good, Bram's day has him at the porthole too, looking out
+# at her (haven `watch`, scripts/salvage.luau): he walks there as the choice is made.
+[entities.lantern_master_watch]
+"engine.act" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_window", angle = -1.9, state = "watching Cold Kettle" }
 
 
 
@@ -570,7 +575,7 @@ keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them.",
 gift = { ware = "rations", units = 1, take = "core.lantern_cook_gift_take", instead = "core.lantern_cook_talk" }
 
 [entities.lantern_cook_gift1]
-"engine.talk_line" = { text = "Thanks again for the plate.", next = "core.lantern_cook_gift2" }
+"engine.talk_line" = { text = "Hear them? Crews at my table, eating hot. Your plate did that.", next = "core.lantern_cook_gift2" }
 
 [entities.lantern_cook_gift2]
 "engine.talk_line" = { text = "Will you take a ration, on the house?" }
@@ -738,7 +743,7 @@ keeper = { name = "Noor Hale", idle = "The beds drink a lot of ice.", figure = "
 "engine.talk_line" = { text = "I'm Noor. I grow things.", next = "core.lantern_grower_intro2" }
 
 [entities.lantern_grower_intro2]
-"engine.talk_line" = { text = "Ines sent for me when the glass went up.", next = "core.lantern_grower_intro3" }
+"engine.talk_line" = { text = "Ines says you carried the glass, and the ice for the beds.", next = "core.lantern_grower_intro3" }
 
 [entities.lantern_grower_intro3]
 "engine.talk_line" = { text = "Her pot gets greens every day now." }
@@ -870,7 +875,7 @@ offer = { project = "core.kettle_job", step = 3, take = "core.kettle_moor_kiln_y
 
 # What becomes of her at each: kept at Lantern Dock, mended at Cinder Kiln.
 [entities.kettle_haven_lantern]
-haven = { job = "core.kettle_job", station = "core.lantern", kind = "keep", tow = "core.lantern_tow", moor = "core.lantern_southwest", keeper = "core.lantern_master", offer = "core.kettle_moor_lantern", act = "core.lantern_master_act2", work = "planning Cold Kettle's pipes", rest = "posting prices", life = "core.kettle_skipper_act", settled = "minding the tanks", site = "core.lantern_greenhouse", site_model = "core.greenhouse_bloom", room = "core.lantern_greenhouse_room", room_model = "core.lantern_greenhouse_room_bloom", told = "Noor's beds are in bloom, watered from Cold Kettle's tanks. Hessa minds them with her.", exterior = "core.lantern_exterior", exterior_model = "core.station_bloom", market = "core.lantern_ice", target = 135, thanks = "core.lantern_grower_thanks", happening = "core.lantern_supper", ware = "plate", need = 12, deliver = "core.kettle_plate" }
+haven = { job = "core.kettle_job", station = "core.lantern", kind = "keep", tow = "core.lantern_tow", moor = "core.lantern_southwest", keeper = "core.lantern_master", offer = "core.kettle_moor_lantern", act = "core.lantern_master_act2", work = "planning Cold Kettle's pipes", rest = "posting prices", life = "core.kettle_skipper_act", settled = "minding the tanks", site = "core.lantern_greenhouse", site_model = "core.greenhouse_bloom", room = "core.lantern_greenhouse_room", room_model = "core.lantern_greenhouse_room_bloom", told = "Noor's beds are in bloom, watered from Cold Kettle's tanks. Hessa minds them with her.", exterior = "core.lantern_exterior", exterior_model = "core.station_bloom", market = "core.lantern_ice", target = 135, thanks = "core.lantern_grower_thanks", happening = "core.lantern_supper", ware = "plate", need = 12, deliver = "core.kettle_plate", watch = "core.lantern_master_watch" }
 
 [entities.kettle_haven_kiln]
 haven = { job = "core.kettle_job", station = "core.kiln", kind = "mend", tow = "core.kiln_tow", moor = "core.kiln_tow", keeper = "core.kiln_master", offer = "core.kettle_moor_kiln", act = "core.kiln_fitter_act2", work = "mending Cold Kettle's engine", rest = "looking her over", life = "core.kettle_skipper_kiln", settled = "ready to sail", happening = "core.kiln_quay_lamps", route = "core.kettle_back1", about = "an ice barge hauling from the ice camp to Lantern Dock", ware = "ore", need = 12, deliver = "core.kettle_ore" }
@@ -936,11 +941,13 @@ keeper = { name = "Hessa Kell", idle = "Thirty years I've hauled ice.", figure =
 [entities.kettle_skipper_act]
 "engine.act" = { place = "core.lantern_greenhouse_room", spot = "core.lantern_greenhouse_room_bench", angle = -1.9, state = "watching the pipes go in", next = "core.kettle_skipper_act2" }
 
+# Seated on the stool at the front of Ines's table, in her seated figure.
 [entities.kettle_skipper_act2]
-"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_table", angle = -1.9, state = "eating at Ines's table" }
+"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_seat", angle = 0.56, state = "eating at Ines's table" }
+pose = { model = "core.person_hessa_seated" }
 
 [entities.kettle_skipper_kiln]
-"engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_window", angle = -1.9, state = "waiting on her engine" }
+"engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_visitor", angle = -1.2, state = "waiting on her engine" }
 
 [entities.kettle_skipper_intro]
 "engine.talk" = { speaker = "core.kettle_skipper", first = "core.kettle_skipper_intro1", width = 420, x = -150, story = true, title = "Hessa Kell", subtitle = "Skipper" }
@@ -1073,6 +1080,25 @@ skiff = { a = "core.lantern_skiff_a_spot", b = "core.lantern_skiff_b_spot" }
 [entities.lantern_galley_room_table]
 "engine.spot" = { place = "core.lantern_galley_room", name = "table" }
 
+# Seats at Ines's table once the galley is open: two crews eat there, and a guest
+# (the skipper, if she stays) sits at its front.
+[entities.lantern_galley_room_crew_a]
+"engine.spot" = { place = "core.lantern_galley_room", name = "crew_a" }
+
+[entities.lantern_galley_room_crew_b]
+"engine.spot" = { place = "core.lantern_galley_room", name = "crew_b" }
+
+[entities.lantern_galley_room_seat]
+"engine.spot" = { place = "core.lantern_galley_room", name = "seat" }
+
+# The crews eating hot at Ines's table, from the sale that builds the galley on
+# (station.luau build_up), facing the table.
+[entities.lantern_crew1]
+diner = { site = "core.lantern_galley", spot = "core.lantern_galley_room_crew_a", angle = -3.08, model = "core.person_crew_seated" }
+
+[entities.lantern_crew2]
+diner = { site = "core.lantern_galley", spot = "core.lantern_galley_room_crew_b", angle = -0.79, model = "core.person_crew2_seated" }
+
 # The grower stands here with the greens, clear of Ines at her hatch.
 [entities.lantern_galley_room_greens]
 "engine.spot" = { place = "core.lantern_galley_room", name = "greens" }
@@ -1186,7 +1212,7 @@ keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations.", t
 "engine.location" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_desk" }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.person_mags", look = "core.prop" }
-keeper = { name = "Mags Ferrow" }
+keeper = { name = "Mags Ferrow", greeting = "core.kiln_master_intro1" }
 "engine.life" = { clock = "core.day", first = "core.kiln_master_act", speed = 1.6, presentation = "instant", name = "Mags Ferrow" }
 
 [entities.kiln_master_act]
@@ -1318,6 +1344,10 @@ keeper = { name = "Orrin Vale" }
 
 [entities.kiln_office_room_window]
 "engine.spot" = { place = "core.kiln_office_room", name = "window" }
+
+# Where a visitor waits (the mended barge's skipper): clear of Mags's desk and board.
+[entities.kiln_office_room_visitor]
+"engine.spot" = { place = "core.kiln_office_room", name = "visitor" }
 
 # Orrin's fitting cradle: you arrive with your ship on the cradle, under the hoist.
 [entities.kiln_cradle_room]

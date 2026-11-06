@@ -341,18 +341,18 @@ tick = 6359
 entity = "log26"
 component = "entry"
 field = "text"
-equals = "Ines Varga at Lantern Dock: “Thanks again for the plate.” “Will you take a ration, on the house?” You: Take it. “There. It's in your hold.”"
+equals = "Ines Varga at Lantern Dock: “Hear them? Crews at my table, eating hot. Your plate did that.” “Will you take a ration, on the house?” You: Take it. “There. It's in your hold.”"
 
-# Her next ask follows (the greenhouse), there in her galley; the log stays shut inside
-# a room, so it never ends her bubble.
+# Her everyday line follows (her ask for more waits on a later docking), there in her
+# galley; the log stays shut inside a room, so it never ends her bubble.
 [[input]]
 tick = 6368
 name = "engine.talk_start"
 source = "talk"
-payload = { talk = "core.greenhouse_ask" }
+payload = { talk = "core.lantern_cook_talk" }
 [[expect]]
 tick = 6368
-entity = "greenhouse_ask"
+entity = "lantern_cook_talk"
 component = "engine.talk"
 field = "active"
 equals = true
@@ -368,7 +368,7 @@ field = "log_open"
 equals = false
 [[expect]]
 tick = 6369
-entity = "greenhouse_ask"
+entity = "lantern_cook_talk"
 component = "engine.talk"
 field = "active"
 equals = true

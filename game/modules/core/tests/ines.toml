@@ -1,8 +1,9 @@
 # Ines at the galley site in the first hour (start.toml, scripts/station.luau): she
 # waits at the bare site from the start, and a click there hears why she wants the galley.
 # Her everyday line counts the plate still to come. The first plate sold into it brings
-# her word into the sale's log entry, and once the galley stands she isn't introduced
-# again: her introduction keeps the words she said, and her thanks are on offer.
+# her word into the sale's log entry and her everyday line, and once the galley stands
+# she isn't introduced again: her introduction keeps the words she said, and her thanks
+# are on offer.
 # The route is trade.inputs', with a visit to the site before the first plate is sold.
 seed = 7
 ticks = 6389
@@ -263,7 +264,8 @@ component = "engine.talk"
 field = "enabled"
 equals = false
 
-# The first plate in: her word joins the sale's entry.
+# The first plate in: her word joins the sale's entry, and leads her everyday line until
+# it is heard (first-plate.toml).
 [[expect]]
 tick = 2710
 entity = "log12"
@@ -276,7 +278,7 @@ tick = 2710
 entity = "lantern_cook_now"
 component = "engine.talk_line"
 field = "text"
-equals = "27 plate to go, and the crews eat hot."
+equals = "That's the first of it! I can almost hear the stove. 27 plate to go, and the crews eat hot."
 
 # Built: no second introduction, and her thanks are on offer.
 [[expect]]

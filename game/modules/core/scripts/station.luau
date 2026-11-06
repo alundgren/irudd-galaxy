@@ -15,6 +15,7 @@ local layout = require("./layout") -- room panels are layout.ROOM wide: at most 
 local places = require("./places")
 local project = require("./project")
 local salvage = require("./salvage")
+local history = require("./history")
 
 -- On the cradle the ship lies nose to the back left, its sockets turned to the camera.
 local CRADLE_ANGLE = 2.3
@@ -125,6 +126,9 @@ local function build_up(ctx, site, build, ahead)
     -- the met chain's last lines, line for line with what is left.
     local intro = ctx.get(keeper .. "_intro", "engine.talk")
     if intro and not intro.seen and (build.met or "") ~= "" then
+        -- News of the build going up, not yet heard, is past: the met lines say it is built.
+        intro = table.clone(intro)
+        intro.first = history.unfold(ctx, keeper)
         local function length(from)
             local n = 0
             while from and from ~= "" do
@@ -139,6 +143,18 @@ local function build_up(ctx, site, build, ahead)
             local said = ctx.get(from, "engine.talk_line")
             ctx.patch(line, "engine.talk_line", { text = said.text })
             line, from = ctx.get(line, "engine.talk_line").next, said.next
+        end
+    end
+    -- People come to eat there, seated at its tables.
+    for _, id in ctx.query("diner") do
+        local diner = ctx.get(id, "diner")
+        if diner.site == site then
+            -- A spot placed from a script doesn't move the being onto it: seat them there.
+            local spot = ctx.get(diner.spot, "engine.spot")
+            ctx.put(id, "engine.being", {})
+            ctx.put(id, "engine.location", { place = spot.place, spot = diner.spot })
+            ctx.put(id, "engine.position", { x = spot.x, y = spot.y, angle = diner.angle })
+            ctx.put(id, "engine.model", { model = diner.model, look = "core.prop" })
         end
     end
     -- Their thanks for the building goes on offer once the introduction is heard; the
@@ -173,7 +189,12 @@ local function sell(event, ctx)
                 into = building
                 earned += building * rules.price(line)
                 grew = build.given + building >= build.need
-                ctx.patch(site, "build", { given = build.given + building, done = grew })
+                -- The first of it: the keeper waiting on it has a word to say, until heard.
+                local first = build.given == 0 and building > 0 and not grew and (build.first_word or "") ~= ""
+                -- Built, it notes the station's counted visits: the giver's next ask waits
+                -- for one more (project.lived).
+                ctx.patch(site, "build", { given = build.given + building, done = grew, first_due = first or (build.first_due and not grew),
+                    opened = grew and port.visits or build.opened })
             end
             local prices, stock = rules.walk(line, units - building)
             earned += rules.total(prices)
@@ -197,7 +218,8 @@ local function sell(event, ctx)
     elseif into > 0 then
         text ..= " " .. into .. " " .. build.ware .. " went into the " .. string.lower(build.name) .. ": "
             .. (build.given + into) .. " of " .. build.need .. "."
-        -- The first of it: the keeper waiting on the building says so, once.
+        -- The first of it: the keeper waiting on the building says so, here and in their
+        -- everyday line until it is heard (voices.refresh).
         if build.given == 0 and (build.first_word or "") ~= "" then
             text ..= " " .. ctx.get(build.keeper, "keeper").name .. ", from the site: \u{201C}" .. build.first_word .. "\u{201D}"
         end
@@ -670,7 +692,10 @@ return {
         fit = cradle.fit, unfit = cradle.unfit, choose = cradle.choose,
         ["engine.place_arrived"] = settled,
     },
-    cadence = skiffs,
+    cadence = function(ctx)
+        skiffs(ctx)
+        places.dress(ctx)
+    end,
     screen = function(ctx, ui)
         local station, pilot = docked(ctx)
         if not station or pilot.log_open then return nil end

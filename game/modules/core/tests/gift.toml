@@ -219,38 +219,53 @@ entity = "lantern_cook_gift"
 component = "engine.talk"
 field = "current"
 equals = "core.lantern_cook_gift3"
-[[input]]
-tick = 6329
-name = "engine.talk_next"
-source = "ui"
-payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift3" }
+# Her answer stays up until it is heard, though her lines follow the answer at once.
 [[expect]]
 tick = 6329
 entity = "lantern_cook_gift"
 component = "engine.talk"
+field = "current"
+equals = "core.lantern_cook_gift3"
+[[input]]
+tick = 6330
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift3" }
+[[expect]]
+tick = 6330
+entity = "lantern_cook_gift"
+component = "engine.talk"
+field = "enabled"
+equals = false
+# Her ask for more waits until the player has flown out and come back (galley-lived.toml):
+# her everyday talk is back.
+[[expect]]
+tick = 6330
+entity = "greenhouse_ask"
+component = "engine.talk"
 field = "enabled"
 equals = false
 [[expect]]
-tick = 6329
+tick = 6330
 entity = "lantern_cook_talk"
 component = "engine.talk"
 field = "enabled"
 equals = true
 # One log entry holds the conversation and the answer; the receipt is the next.
 [[expect]]
-tick = 6329
+tick = 6330
 entity = "ship"
 component = "pilot"
 field = "logged"
 equals = 27
 [[expect]]
-tick = 6329
+tick = 6330
 entity = "log26"
 component = "entry"
 field = "text"
-equals = "Ines Varga at Lantern Dock: \u201CThanks again for the plate.\u201D \u201CWill you take a ration, on the house?\u201D You: Take it. \u201CThere. It's in your hold.\u201D"
-# Clicking her again gets her next ask (the greenhouse, tests/greenhouse.toml), not the
-# gift again.
+equals = "Ines Varga at Lantern Dock: \u201CHear them? Crews at my table, eating hot. Your plate did that.\u201D \u201CWill you take a ration, on the house?\u201D You: Take it. \u201CThere. It's in your hold.\u201D"
+# Clicking her again gets her everyday line, not the gift again: her galley at work, and
+# an idea she'll tell on a later docking (the greenhouse, tests/greenhouse.toml).
 [[input]]
 tick = 6331
 name = "engine.talk_start"
@@ -266,13 +281,19 @@ equals = false
 tick = 6332
 name = "engine.talk_start"
 source = "talk"
-payload = { talk = "core.greenhouse_ask" }
+payload = { talk = "core.lantern_cook_talk" }
 [[expect]]
 tick = 6332
-entity = "greenhouse_ask"
+entity = "lantern_cook_talk"
 component = "engine.talk"
 field = "active"
 equals = true
+[[expect]]
+tick = 6332
+entity = "lantern_cook_now"
+component = "engine.talk_line"
+field = "text"
+equals = "Look at them eat. Come by again; I've an idea brewing."
 # Buying fills what is left of the hold.
 [[input]]
 tick = 6336
