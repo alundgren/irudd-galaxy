@@ -83,8 +83,10 @@ galaxy play --modules game/modules
 | Shift+Esc | Quit; the engine saves the session (closing the window does too) |
 
 Everything is also a click, on the thing itself rather than a column of buttons. In
-flight, click a rock in the cutter's reach to put the beam on it without holding Space
-(click it again, or fly, to stop); a rock out of reach says so. Hover a station for its
+flight, click a rock in the cutter's reach to put the beam on it without holding Space:
+if the nose is off it, she turns onto it where she sits, at the helm's own turn rate and
+without flying, and the beam comes on once it is aimed (click it again, or fly, to stop);
+a rock out of reach says so. Hover a station for its
 posted prices and how to dock there; with the jets fitted, a click on it flies you in, and
 with the rig fitted a click on a rock flies out to it and cuts. Docked, the station's
 buildings and their signs, the station key, Sell, Buy, Back, Launch, the log and the
@@ -270,8 +272,9 @@ says "The stone glazes and the beam skates: put it on another rock while this on
 and the hint strip says "Click another rock, or turn onto one · this one has glazed, let it
 cool" until the beam has been moved off a hot rock three times (`taught.swap`).
 
-Moving the beam is a turn (A or D, Space held) or a click on the other rock with the nose
-on it, so it works at the keyboard, by mouse, and through `galaxy-gm live input` with a
+Moving the beam is a turn (A or D, Space held) or a click on the other rock: in reach but
+off the nose, she turns onto it where she sits (a quarter turn in about half a second, no
+flying) and the beam latches on once it is aimed. So it works at the keyboard, by mouse, and through `galaxy-gm live input` with a
 look between inputs: the warm stretch lasts seconds, and being a second late costs a
 fraction of a unit. On a lone rock with nothing else in reach, the pilot can fly on to
 the next rock and come back, or let go of the beam for a couple of seconds.
@@ -290,7 +293,7 @@ swapped for each style's.
 | Hold | Steady beam | Click and wait | Attentive | Inputs: wait / attentive | Beam moves (decisions) | Credits a minute: steady / wait / attentive |
 | --- | --- | --- | --- | --- | --- | --- |
 | Near ore (four small rocks) | 30 s | 28 s | 26 s | 4 / 4 clicks, plus flying between | 3 / 3 | 464 / 484 / 505 |
-| The south-east seam and its spall | 16 s | 26.0 s | 17.0 s | 1 turn and 1 click / 3 turns and 3 clicks | 0 / 2 | 557 / 448 / 544 |
+| The south-east seam and its spall | 16 s | 26.0 s | 17.0 s | 1 turn and 1 click, or 1 click / 3 turns and 3 clicks, or 3 clicks alone in the same 17.0 s | 0 / 2 | 557 / 448 / 544 |
 | Glassite (four crystals) | 30 s | 41 s | 28 s | 4 / 6 clicks, plus flying between | 3 / 5 | 696 / 612 / 714 |
 | Ice (the big floes) | 25 s | 41 s | 23 s | 2 / 6 | 1 / 5 | 483 / 390 / 498 |
 
@@ -1205,13 +1208,15 @@ for every second of beam time however it is broken up, the berth ring, regrowth 
 and the worked-out message for an empty and a full hold, and in `tests/cutting.luau` the
 stone's heat, cold to warm to glazed and back, and simulated holds guarding how much an
 attentive hand beats clicking once and waiting, under "Cutting takes judgment") and
-forty-nine scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
+fifty scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
 below):
 the opening's pace (`opening.toml`, above under "The opening hour"), cutting with
 judgment (`cutting.toml`: Sefa's word on the first hand beam, the seam warming, glazing
 with its look, beam and line, the beam moved to the spall and back, the hold full in 17
 seconds; `cutting-wait.toml`: one click on the same seam, glazed for the rest, full in
-26, and cold again soon after), both beats on
+26, and cold again soon after; `cutting-click.toml`: the same moves by clicks alone, no
+key pressed, each click turning her onto the rock where she sits and the beam latching on,
+the ship never moving off her spot), both beats on
 one unit (`beats.toml`: the 24th unit cuts a rock down and fills the hold at once, and the
 log keeps the rock's line first and the full hold's last, so the hold's message shows),
 mining and docking by hand (`hand-mining.toml`: Space out of reach says so, the beam on

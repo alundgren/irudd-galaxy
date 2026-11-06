@@ -120,6 +120,16 @@ function cutter.can_cut(ctx, rock, auto)
     return rules.cuttable(at, centre, radius, cutter.reach(ctx), auto or cutter.has(ctx, cutter.RIG))
 end
 
+-- Which way the nose turns onto `rock`: 1 is left (counter-clockwise), -1 right, the
+-- shorter way round.
+function cutter.turn_toward(ctx, rock)
+    local at = ctx.get("ship", "engine.position")
+    local centre = cutter.rock(ctx, rock)
+    local a = at.angle or 0
+    local cross = math.cos(a) * (centre.y - at.y) - math.sin(a) * (centre.x - at.x)
+    return cross >= 0 and 1 or -1
+end
+
 -- The rock the beam would cut now (the one the nose is most squarely on, then the
 -- nearest), or nil; and, when none, the nearest rock with ore and its gap. For an
 -- `order` (the rig's or a script's pick) a seam's spall is passed over: it is where a

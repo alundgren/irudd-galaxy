@@ -42,7 +42,7 @@ local function stop(ctx)
     ctx.put("ship", "held", {})
     ctx.put("ship", "engine.beam", {})
     ctx.patch("ship", "pilot", { mining = false, target = "", latched = false, auto = false, cut_from = 0, cut_work = 0,
-        approach = false })
+        approach = false, facing = "" })
 end
 
 -- The keys that fly the ship off the dock: the movement keys, not boost alone.
@@ -128,6 +128,8 @@ local function flight(event, ctx)
     if pressed(event) then
         teach.used(ctx, TEACHES[key])
         if not MOVES[key] then return end
+        -- Flying by hand takes over from a click's turn onto a rock.
+        if pilot.facing ~= "" then ctx.patch("ship", "pilot", { facing = "" }) end
         local ordered = ctx.get("ship", "engine.steer").mode ~= ""
         ctx.put("ship", "engine.steer", {})
         if ordered then
@@ -176,6 +178,12 @@ local function mine(event, ctx)
     end
     teach.used(ctx, "mine")
     local key = rock == nil and not scripted(event)
+    -- Space, or another click, takes over from a click's turn onto a rock: the nose stops
+    -- where it is (unless A or D is held).
+    if pilot.facing ~= "" then
+        ctx.patch("ship", "pilot", { facing = "" })
+        ctx.patch("ship", "engine.helm", { turn = (held.left and 1 or 0) - (held.right and 1 or 0) })
+    end
     if key then
         -- Holding Space brakes, so the ship sits steady on the rock it cuts.
         ctx.patch("ship", "held", { mine = true })
@@ -223,12 +231,56 @@ local function mine(event, ctx)
             if rules.gap(at, centre, radius) > cutter.reach(ctx) then
                 message(ctx, "Too far to cut. The cutter reaches " .. cutter.reach(ctx) .. " units: fly closer.")
             else
-                message(ctx, "Point your nose at the rock to cut it: A or D turns.")
+                -- In reach but off the nose: she turns onto it where she sits (the helm's
+                -- own turn, no flying), and the beam latches on once it is aimed (`facing`).
+                if pilot.mining then cutter.off(ctx, nil) end
+                ctx.patch("ship", "pilot", { facing = rock, message = "Turning onto the rock." })
+                ctx.patch("ship", "engine.helm", { turn = cutter.turn_toward(ctx, rock) })
+                ctx.record("facing", { rock = rock, from = ctx.tick })
             end
         end
         return
     end
     cut_ahead(ctx, false)
+end
+
+-- A click's turn onto a rock in reach, one tick at a time (a recorded fact runs its
+-- handler on the next tick): the nose comes round at the helm's turn rate and the beam
+-- latches on once it is aimed. Anything that takes the helm (a key, an order, docking,
+-- another click) clears `facing` and ends it.
+local function facing(event, ctx)
+    local rock = event.payload.rock
+    local pilot = ctx.get("ship", "pilot")
+    if pilot.facing ~= rock or rock == "" then return end
+    local function done(text)
+        local fields = { facing = "" }
+        if text then fields.message = text end
+        ctx.patch("ship", "pilot", fields)
+        ctx.patch("ship", "engine.helm", { turn = 0 })
+    end
+    local ore = ctx.get(rock, "ore")
+    if not space(ctx) or pilot.mining or ctx.get("ship", "engine.steer").mode ~= "" or not ore or ore.left <= 0 then
+        done(nil)
+        return
+    end
+    if cutter.can_cut(ctx, rock) then
+        done(nil)
+        hand_on(ctx, rock, true)
+        return
+    end
+    local at = ctx.get("ship", "engine.position")
+    local centre, radius = cutter.rock(ctx, rock)
+    if rules.gap(at, centre, radius) > cutter.reach(ctx) then
+        done("Too far to cut. The cutter reaches " .. cutter.reach(ctx) .. " units: fly closer.")
+        return
+    end
+    -- A whole turn takes two seconds on the bare hull; past three, something holds the nose.
+    if ctx.tick - (event.payload.from or ctx.tick) > 3 * rules.TICKS then
+        done("Point your nose at the rock to cut it: A or D turns.")
+        return
+    end
+    ctx.patch("ship", "engine.helm", { turn = cutter.turn_toward(ctx, rock) })
+    ctx.record("facing", { rock = rock, from = event.payload.from })
 end
 
 local function dock(event, ctx)
@@ -385,7 +437,7 @@ end
 return {
     on = {
         ahead = flight, back = flight, left = flight, right = flight, boost = flight,
-        mine = mine, dock = dock,
+        mine = mine, dock = dock, facing = facing,
         cancel = function(event, ctx)
             if pressed(event) and space(ctx) then
                 teach.used(ctx, "cancel")
