@@ -471,330 +471,350 @@ widget = "launch"
 [[input]]
 tick = 16967
 name = "core.mine"
-payload = { rock = "core.ice1" }
+payload = { rock = "core.ice2" }
 [[input]]
-tick = 17709
+tick = 17890
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[click]]
-tick = 18425
+tick = 18606
 widget = "sign_exchange"
 [[click]]
-tick = 18458
+tick = 18639
 widget = "sell_ice"
 [[note]]
-tick = 18473
+tick = 18654
 text = "The thirtieth ice: the greenhouse is built."
 [[click]]
-tick = 18480
+tick = 18661
 widget = "close"
 [[note]]
-tick = 18520
+tick = 18701
 text = "The greenhouse stands, and lamp strings hang on the deck for the lamp night."
 [[click]]
-tick = 18530
+tick = 18711
 widget = "key_galley"
 [[click]]
-tick = 18563
+tick = 18744
 widget = "speaker.core.lantern_cook"
 [[click]]
-tick = 18578
+tick = 18759
 widget = "talk.core.lantern_cook_thanks"
 [[click]]
-tick = 18593
+tick = 18774
 widget = "talk.core.lantern_cook_thanks"
 [[click]]
-tick = 18608
+tick = 18789
 widget = "talk.core.lantern_cook_thanks"
 [[note]]
-tick = 18623
+tick = 18804
 text = "Ines has thanked me."
 [[click]]
-tick = 18630
+tick = 18811
 widget = "close"
 [[click]]
-tick = 18663
+tick = 18844
 widget = "key_greenhouse"
 [[click]]
-tick = 18696
+tick = 18877
 widget = "speaker.core.lantern_grower"
 [[click]]
-tick = 18711
+tick = 18892
 widget = "talk.core.lantern_grower_intro"
 [[click]]
-tick = 18726
+tick = 18907
 widget = "talk.core.lantern_grower_intro"
 [[click]]
-tick = 18741
+tick = 18922
 widget = "talk.core.lantern_grower_intro"
 [[note]]
-tick = 18756
+tick = 18937
 text = "Noor Hale, the grower, in her greenhouse."
 [[click]]
-tick = 18763
+tick = 18944
 widget = "close"
 [[click]]
-tick = 18796
+tick = 18977
 widget = "launch"
 [[note]]
-tick = 18876
+tick = 19057
 text = "Lantern Dock from the reach, wearing its green dome."
 
 # After the greenhouse: Cold Kettle adrift, by real clicks (kettle.bot.toml). Back to
 # Lantern Dock, where Noor asks after the barge in her greenhouse.
 [[input]]
-tick = 18890
+tick = 19071
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[click]]
-tick = 18965
+tick = 19146
 widget = "key_greenhouse"
 [[click]]
-tick = 18998
+tick = 19179
 widget = "speaker.core.lantern_grower"
 [[click]]
-tick = 19013
+tick = 19194
 widget = "talk.core.kettle_ask"
 [[click]]
-tick = 19028
+tick = 19209
 widget = "talk.core.kettle_ask"
 [[click]]
-tick = 19043
+tick = 19224
 widget = "talk.core.kettle_ask"
 [[note]]
-tick = 19055
+tick = 19236
 text = "Noor asks me to find Cold Kettle: Accept or Not now."
 [[click]]
-tick = 19060
+tick = 19241
 widget = "choice.core.kettle_ask_yes"
 [[click]]
-tick = 19075
+tick = 19256
 widget = "talk.core.kettle_ask"
 [[click]]
-tick = 19095
+tick = 19276
 widget = "close"
 [[click]]
-tick = 19128
+tick = 19309
 widget = "launch"
 
 # Out west by hand: turn, thrust, brake beside her.
 [[input]]
-tick = 19135
+tick = 19316
 name = "core.left"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 19155
+tick = 19335
 name = "core.left"
 source = "keyboard"
 payload = { down = false }
 [[input]]
-tick = 19156
+tick = 19338
 name = "core.ahead"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 19250
+tick = 19767
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
 [[input]]
-tick = 19250
+tick = 19767
 name = "core.back"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 19264
+tick = 19781
+name = "core.back"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 19807
+name = "core.left"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 19810
+name = "core.left"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 19813
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 19887
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 19887
+name = "core.back"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 19899
 name = "core.back"
 source = "keyboard"
 payload = { down = false }
 [[note]]
-tick = 19293
+tick = 19927
 text = "Cold Kettle lies dark in the ice, a flare going up. I'm alongside and slow."
 # A click on her passes the line.
 [[click]]
-tick = 19297
+tick = 19931
 widget = "hover_kettle"
 [[note]]
-tick = 19301
+tick = 19935
 text = "A line across: the tow line runs from her bow, and the log has Hessa's first words."
 
 # Hard round the ice by hand: she swings wide into it and the line slips.
 [[input]]
-tick = 19302
+tick = 19932
 name = "core.right"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 19332
+tick = 19947
 name = "core.right"
 source = "keyboard"
 payload = { down = false }
 [[input]]
-tick = 19332
+tick = 19947
 name = "core.ahead"
 source = "keyboard"
 payload = { down = true }
-[[input]]
-tick = 19362
-name = "core.left"
-source = "keyboard"
-payload = { down = true }
 [[note]]
-tick = 19367
+tick = 19962
 text = "Swinging round the ice with her in tow."
 [[input]]
-tick = 19377
-name = "core.left"
-source = "keyboard"
-payload = { down = false }
-[[input]]
-tick = 19402
+tick = 20032
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
 [[note]]
-tick = 19407
+tick = 20035
 text = "She struck the ice and the line slipped."
 
 # The flights home are scripted orders: alongside again, then into Lantern Dock's berth.
 [[input]]
-tick = 19427
+tick = 20052
 name = "core.hitch"
 [[input]]
-tick = 19542
+tick = 20137
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[note]]
-tick = 19607
+tick = 20202
 text = "Towing her home past the ice."
 [[note]]
-tick = 19881
+tick = 21433
 text = "Docked at Lantern Dock with her in tow: she lies off the berth."
 [[click]]
-tick = 19886
+tick = 21438
 widget = "key_office"
 [[note]]
-tick = 19919
+tick = 21471
 text = "Bram's office: the gold button is the handover."
 [[click]]
-tick = 19926
+tick = 21478
 widget = "hand"
 [[note]]
-tick = 19941
+tick = 21493
 text = "Moored for good. Bram's crew needs 12 plate for her pipes."
 [[click]]
-tick = 19946
+tick = 21498
 widget = "close"
 [[click]]
-tick = 19979
+tick = 21531
 widget = "launch"
 
 # Plate from the Kiln, handed to Bram.
 [[input]]
-tick = 19986
+tick = 21538
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[click]]
-tick = 20674
+tick = 22226
 widget = "key_exchange"
 [[click]]
-tick = 20707
+tick = 22259
 widget = "buymax_plate"
 [[click]]
-tick = 20722
+tick = 22274
 widget = "close"
 [[click]]
-tick = 20755
+tick = 22307
 widget = "launch"
 [[input]]
-tick = 20762
+tick = 22314
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[click]]
-tick = 21465
+tick = 23017
 widget = "key_office"
 [[note]]
-tick = 21498
+tick = 23050
 text = "Bram's gold button: hand him the plate."
 [[click]]
-tick = 21505
+tick = 23057
 widget = "hand"
 [[click]]
-tick = 21520
+tick = 23072
 widget = "close"
 [[click]]
-tick = 21553
+tick = 23105
 widget = "launch"
 
 # Two trips out and back, and the work is done.
 [[input]]
-tick = 21560
+tick = 23112
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[click]]
-tick = 22483
+tick = 24035
 widget = "launch"
 [[input]]
-tick = 22490
+tick = 24042
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[note]]
-tick = 23212
+tick = 24764
 text = "Still piping her tanks: the log says one more trip out."
 [[click]]
-tick = 23227
+tick = 24779
 widget = "launch"
 [[input]]
-tick = 23234
+tick = 24786
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[click]]
-tick = 24162
+tick = 25714
 widget = "launch"
 [[input]]
-tick = 24169
+tick = 25721
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[note]]
-tick = 24911
+tick = 26463
 text = "Supper on the deck for Hessa: tables and lamps, the greenhouse in bloom."
 [[click]]
-tick = 24921
+tick = 26473
 widget = "key_greenhouse"
 [[note]]
-tick = 24954
+tick = 26506
 text = "The beds in bloom, watered from Cold Kettle's tanks."
 [[click]]
-tick = 24961
+tick = 26513
 widget = "close"
 [[click]]
-tick = 24999
+tick = 26551
 widget = "key_galley"
 [[note]]
-tick = 25039
+tick = 26591
 text = "Noor is in the galley with her greens: her thanks waits on her sign."
 [[click]]
-tick = 25049
+tick = 26601
 widget = "speaker.core.lantern_grower"
 [[click]]
-tick = 25064
+tick = 26616
 widget = "talk.core.lantern_grower_thanks"
 [[click]]
-tick = 25079
+tick = 26631
 widget = "talk.core.lantern_grower_thanks"
 [[note]]
-tick = 25087
+tick = 26639
 text = "Noor thanks me: Hessa minds the tanks with her now."
 [[click]]
-tick = 25094
+tick = 26646
 widget = "talk.core.lantern_grower_thanks"
 [[click]]
-tick = 25114
+tick = 26666
 widget = "close"
 [[click]]
-tick = 25147
+tick = 26699
 widget = "launch"
 [[note]]
-tick = 25229
+tick = 26781
 text = "Lantern Dock from the reach in bloom, Cold Kettle moored off it for good."

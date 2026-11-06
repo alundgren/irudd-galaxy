@@ -5,6 +5,6 @@
 # beds in bloom, and Noor's thanks in the galley, where her day has her bringing greens.
 # size is physical pixels. 42 notes.
 inputs = "tests/kettle-play.inputs"
-ticks = 25246
+ticks = 26798
 size = [1280, 720]
 seed = 1

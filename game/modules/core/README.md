@@ -1020,7 +1020,7 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are eighty-five Luau rule tests (hold, depletion, prices against stock and their
+There are eighty-six Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
@@ -1139,13 +1139,13 @@ back with Esc and with a right-click, shuts the log with Esc and takes twelve no
 (`play.bot.toml`, 2148 ticks), and
 `trade-play.inputs` plays the whole trade loop, meeting Ines at the bare galley site
 before the first plate, through the galley and her gift with twelve notes
-(`trade.bot.toml`, 8584 ticks), and `greenhouse-play.inputs` carries
-on from it through Ines's greenhouse (`greenhouse.bot.toml`, 18886 ticks, 26 notes): her
+(`trade.bot.toml`, 8594 ticks), and `greenhouse-play.inputs` carries
+on from it through Ines's greenhouse (`greenhouse.bot.toml`, 19067 ticks, 26 notes): her
 ask accepted and the plot on the deck, Sefa's introduction and the glassite handed over,
 an ore trip, the panes waiting on a full hold and then loaded as Ines's, handed to her,
 the scaffold and glaziers, two runs of ice, the greenhouse and its lamp strings, her
 thanks, Noor in the greenhouse and the station's dome from the reach, and `kettle-play.inputs`
-carries on from that through Cold Kettle's job (`kettle.bot.toml`, 25246 ticks, 42
+carries on from that through Cold Kettle's job (`kettle.bot.toml`, 26798 ticks, 42
 notes): Noor's ask accepted, out to the barge by hand keys, a line passed with a click
 on her, a hand swing round the ice that slips it, passed again and towed home, moored
 and the plate handed over with Bram's gold button, two trips out, the supper on the
