@@ -486,31 +486,33 @@ halo = 0.7
 halo_size = 1.6
 
 # A rock's heat under the hand cutter (scripts/rules.luau, rules.HEAT): warm stone takes
-# a warmer shadow and breathes a few embers; glazed stone goes rosier still and shimmers
-# all over, so the rock to move the beam off reads at a glance. The words under the beam
+# a hot red shadow and breathes embers; glazed stone goes pale and flat, like glaze on a
+# pot, and shimmers all over, so the rock to move the beam off reads at a glance. The words under the beam
 # say the same (never colour alone).
 [looks.rock_warm]
 outline_px = 3.0
-hatch = 0.8
-shadow = "#e0a8d8"
-highlight = "#fff0dc"
+hatch = 0.4
+shadow = "#ff7a5c"
+highlight = "#ffe0b0"
 
 [looks.rock_glazed]
 outline_px = 3.0
-hatch = 0.5
-shadow = "#f2a0b4"
-highlight = "#ffe2c4"
+bands = 2
+hatch = 0.0
+shadow = "#ffc0d0"
+highlight = "#ffffff"
 
 [looks.ice_warm]
 outline_px = 3.0
-hatch = 0.4
-shadow = "#a8a0e8"
+hatch = 0.2
+shadow = "#d8b8e8"
 highlight = "#fff8ec"
 
 [looks.ice_glazed]
 outline_px = 3.0
-hatch = 0.25
-shadow = "#c8a8e8"
+bands = 2
+hatch = 0.0
+shadow = "#f0d8f0"
 highlight = "#fff0e0"
 
 [looks.glassite_warm]
@@ -522,8 +524,9 @@ halo_size = 1.8
 
 [looks.glassite_glazed]
 outline_px = 3.0
-hatch = 0.4
-shadow = "#eaa8d8"
+bands = 2
+hatch = 0.0
+shadow = "#ffc8e0"
 halo = 1.8
 halo_size = 2.0
 
@@ -537,7 +540,7 @@ size = 0.3
 end_size = 0.1
 life = 1.2
 life_jitter = 0.4
-rate = 5.0
+rate = 9.0
 speed = 1.6
 speed_jitter = 0.5
 spread = 360.0

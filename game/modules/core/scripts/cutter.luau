@@ -60,7 +60,10 @@ function cutter.show_heat(ctx, rock, ware, phase)
     if phase == "cold" then
         if ctx.has(rock, "engine.emitter") then ctx.remove(rock, "engine.emitter") end
     else
-        ctx.put(rock, "engine.emitter", { recipe = "core." .. phase .. "_" .. ware, height = 0.6 })
+        -- Over the rock's top, not inside it: a big seam stands taller than a small rock.
+        local model = ctx.get(rock, "engine.model")
+        local height = 1.2 * ((model and model.scale) or 1)
+        ctx.put(rock, "engine.emitter", { recipe = "core." .. phase .. "_" .. ware, height = height })
     end
 end
 
@@ -118,14 +121,17 @@ function cutter.can_cut(ctx, rock, auto)
 end
 
 -- The rock the beam would cut now (the one the nose is most squarely on, then the
--- nearest), or nil; and, when none, the nearest rock with ore and its gap.
-function cutter.sighted(ctx)
+-- nearest), or nil; and, when none, the nearest rock with ore and its gap. For an
+-- `order` (the rig's or a script's pick) a seam's spall is passed over: it is where a
+-- hand rests the beam, and a click on it still cuts it.
+function cutter.sighted(ctx, order)
     local at = ctx.get("ship", "engine.position")
     local rig = cutter.has(ctx, cutter.RIG)
     local reach = cutter.reach(ctx)
     local best, best_off, best_gap = nil, math.huge, math.huge
     local near, near_gap = nil, math.huge
     for _, id in cutter.rocks(ctx) do
+        if order and ctx.get(id, "ore").spall then continue end
         local centre, radius = cutter.rock(ctx, id)
         local gap = rules.gap(at, centre, radius)
         if gap < near_gap then near, near_gap = id, gap end

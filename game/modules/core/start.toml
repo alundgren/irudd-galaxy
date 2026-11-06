@@ -96,20 +96,14 @@ ore = { left = 6, total = 6 }
 "engine.model" = { model = "core.rock_lump", look = "core.rock", scale = 1.1 }
 ore = { left = 14, total = 14 }
 
-# Each rich seam has a small spall broken off beside it, within the cutter's reach from
-# beside the seam: somewhere to put the beam while the seam cools (rules.HEAT).
+# Two of the rich seams have a small spall broken off beside them, on the seam's far side
+# from the lanes and the routes in, within the cutter's reach of a ship parked between
+# the two: somewhere to put the beam while the seam cools (rules.HEAT). The east seam
+# (rock9) sits on the lamp trader's lane and has none.
 [entities.rock10]
 "engine.spin" = { rate = 4 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 57.8, y = -45.4 }
-"engine.body" = { fixed = true }
-"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.7 }
-ore = { left = 6, total = 6, spall = true }
-
-[entities.rock11]
-"engine.spin" = { rate = -3.5 }
-"engine.location" = { place = "core.reach" }
-"engine.position" = { x = 74.7, y = 15.1 }
+"engine.position" = { x = 76.1, y = -33.9 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.rock", look = "core.rock", scale = 0.7 }
 ore = { left = 6, total = 6, spall = true }
@@ -117,7 +111,7 @@ ore = { left = 6, total = 6, spall = true }
 [entities.rock12]
 "engine.spin" = { rate = 3 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -75.8, y = 17.7 }
+"engine.position" = { x = -92.0, y = 18.0 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.rock", look = "core.rock", scale = 0.7 }
 ore = { left = 6, total = 6, spall = true }

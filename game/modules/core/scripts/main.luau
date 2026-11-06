@@ -203,7 +203,7 @@ local function mine(event, ctx)
         -- The rig, like a script's order, picks the rock and flies out to it itself.
         local target = rock
         if target == nil then
-            local sighted, near = cutter.sighted(ctx)
+            local sighted, near = cutter.sighted(ctx, true)
             target = sighted or near
         end
         if not target then cut_ahead(ctx, true); return end

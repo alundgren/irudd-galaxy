@@ -40,7 +40,7 @@ tick = 961
 entity = "log5"
 component = "entry"
 field = "text"
-equals = "Rock cut down to pebbles. 6 more rocks hold ore."
+equals = "Rock cut down to pebbles. 8 more rocks hold ore."
 
 [[expect]]
 tick = 961

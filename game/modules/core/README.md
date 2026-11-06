@@ -14,7 +14,7 @@ power and mass. Five traders fly their own routes across
 the reach while you work, and in flight the radio plays each station's channel
 over the tug's quiet hum. Out in the reach the rocks turn slowly, the stations' rings
 turn and their lamps breathe, steam drifts off the stacks, and the stars drift in layers
-as you fly. The field holds 145 ore, 100 ice and 30 glassite, and a rock cut down to
+as you fly. The field holds 139 ore, 100 ice and 30 glassite, and a rock cut down to
 pebbles grows back to half on your next counted visit to a station; there is no timed
 objective.
 
@@ -113,8 +113,9 @@ way it lies (`rules.bearings`), so the far ones are always findable.
 
 The legs are short so that the work between them carries the hour: which rocks to cut,
 how to come at them, where to sell. Three rocks in the ore drift (rock5, rock8, rock9)
-are rich seams that give half as much again for the same cutting, each with a small
-spall beside it (rock10, rock11, rock12) to put the beam on while the seam cools. The
+are rich seams that give half as much again for the same cutting; two of them (rock5 and
+rock8) have a small spall beside them (rock10, rock12) to put the beam on while the seam
+cools. The
 first time the beam comes on by hand, before the stone has warmed, Sefa at Cinder Kiln
 says on the radio what to watch: "Watch the stone under your beam. Warm, it comes away
 fast. Once it glazes, move the beam to another rock and let it cool." Her line stays
@@ -258,10 +259,10 @@ it cools by itself a few seconds after the beam leaves it, and the hold fills ei
 A rock's heat stops rising two seconds past glazing, so however long a beam sat on it, it
 is warm again within a couple of seconds of the beam leaving and cold soon after.
 
-It reads three ways, never by colour alone. The rock: warm stone takes a warmer shadow
-and a few embers lift off it (`looks.rock_warm`, `particles.warm_ore`, and the same for
-ice and glassite); glazed stone goes rosier and shimmers all over (`looks.*_glazed`,
-`particles.glazed_*`). The beam: on glazed stone it goes pale and flickers, its sparks
+It reads three ways, never by colour alone. The rock: warm stone's shadow side runs hot
+red and embers lift off its top (`looks.rock_warm`, `particles.warm_ore`, and the same for
+ice and glassite); glazed stone goes pale and flat, unhatched like glaze on a pot, and
+shimmers all over (`looks.*_glazed`, `particles.glazed_*`). The beam: on glazed stone it goes pale and flickers, its sparks
 thrown wide and no chips coming back up it (`beams.cutter_glazed`). The words: each
 unit's count ends with the stone's state ("cold stone, it warms as you cut", "warm:
 cutting fast", "glazed: put the beam on another rock"), the moment it glazes the line
@@ -276,9 +277,10 @@ fraction of a unit. On a lone rock with nothing else in reach, the pilot can fly
 the next rock and come back, or let go of the beam for a couple of seconds.
 
 **Measured, simulated holds.** Seconds of cutting (and moving the beam) for one hold of
-24, from the first click, seed 7, the bare hull. The seam rows are runs of the game
-(`tests/cutting.toml`, `tests/cutting-wait.toml`: a scripted order flies to the east seam
-and is cancelled, then clicks and turns by hand); the others are the same rules cut second
+24, from the first click, seed 7, the bare hull. The seam row is runs of the game
+(`tests/cutting.toml`, `tests/cutting-wait.toml`: a scripted order flies to the
+south-east seam's spall and is cancelled there, parked between spall and seam, then
+turns and clicks by hand); the others are the same rules cut second
 by second in `tests/cutting.luau` (moving the beam: one second beside the seam's spall and
 among the floes, two between rocks of the near drift and between glassite crystals). The
 steady beam is the rig's and a script's order, as the pacing tables above assume.
@@ -288,15 +290,15 @@ swapped for each style's.
 | Hold | Steady beam | Click and wait | Attentive | Inputs: wait / attentive | Beam moves (decisions) | Credits a minute: steady / wait / attentive |
 | --- | --- | --- | --- | --- | --- | --- |
 | Near ore (four small rocks) | 30 s | 28 s | 26 s | 4 / 4 clicks, plus flying between | 3 / 3 | 464 / 484 / 505 |
-| The east seam and its spall | 16 s | 26.3 s | 18.3 s | 1 click / 3 clicks and 2 turns | 0 / 2 | 557 / 445 / 528 |
+| The south-east seam and its spall | 16 s | 26.0 s | 17.0 s | 1 turn and 1 click / 3 turns and 3 clicks | 0 / 2 | 557 / 448 / 544 |
 | Glassite (four crystals) | 30 s | 41 s | 28 s | 4 / 6 clicks, plus flying between | 3 / 5 | 696 / 612 / 714 |
 | Ice (the big floes) | 25 s | 41 s | 23 s | 2 / 6 | 1 / 5 | 483 / 390 / 498 |
 
 Every hold is 24 units, so each load sells for the same; the difference is time. An
 attentive hand cuts about as fast as the steady beam the pacing above assumes (a little
-faster on the near rocks and the floes, a second or two slower on the seam for the turns),
+faster on the near rocks and the floes, a second slower on the seam for the turns),
 so the first hour's pacing stands. Clicking once and waiting costs most on the big stones:
-the seam takes 44% longer and ice 78%, which on those trips and on glassite is 14 to 22% fewer credits a
+the seam takes 53% longer and ice 78%, which on those trips and on glassite is 14 to 22% fewer credits a
 minute. On the small near rocks it costs little, because they are nearly cut through
 before they glaze and the pilot is already choosing the next rock and flying to it.
 `tests/cutting.luau` guards the margins: attentive at most 75% of click-and-wait's time on
@@ -424,10 +426,13 @@ silhouette and colour, in several sizes (`engine.model` scale; a bigger rock hol
   the start, so the first Space finds ore. Three big seams lie further out, one west and
   two east, 20 to 30 ore each, and they are rich (`ore.rich` 1.5): soft stone that cuts
   half again as fast, and the count says "rich seam". Choosing a seam over the small
-  rocks fills a hold sooner. Beside each seam, off the straight line in from the middle
-  of the drift so nothing flying in hits it, sits a small spall of 6 ore within the
-  cutter's reach of a ship parked against the seam's near face: about a quarter turn
-  onto it while the seam cools.
+  rocks fills a hold sooner. Beside the south-east and west seams (rock5, rock8), on the
+  far side from the lanes and the routes in so nothing flying past hits it, sits a small
+  spall of 6 ore (rock10, rock12, `ore.spall`): park between a seam and its spall and both
+  are in the cutter's reach, about a quarter turn apart, so the beam can rest on the
+  spall while the seam cools. The east seam (rock9) sits on the lamp trader's lane and
+  has none. Scripted orders and the reach rig never pick a spall or move on to one by
+  themselves; a click cuts it like any rock.
 - **The ice drift** far out west of Lantern Dock: eight pale mint-cream floes (`ice`, the
   tall `ice_shard`) with blue-violet shadow faces (`looks.ice`), 8 to 20 ice each.
 - **Glassite**, far out north-east: four dark violet rocks bristling with glowing lilac
@@ -1184,7 +1189,7 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are eighty-six Luau rule tests (hold, depletion, prices against stock and their
+There are ninety-two Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
@@ -1197,16 +1202,24 @@ flickering for a minute, a stronger station taking over only when steady, a brie
 keeping the channel, a chosen channel holding, and Prev and Next stepping through, and
 in `tests/mining.luau` the cutter's reach from the nose, aim within the slack, a unit
 for every second of beam time however it is broken up, the berth ring, regrowth to half
-and the worked-out message for an empty and a full hold) and forty-seven scenarios (two of them, `sound.toml` and
-`sound-talk.toml`, under the sound below):
-the opening's pace (`opening.toml`, above under "The opening hour"), both beats on
+and the worked-out message for an empty and a full hold, and in `tests/cutting.luau` the
+stone's heat, cold to warm to glazed and back, and simulated holds guarding how much an
+attentive hand beats clicking once and waiting, under "Cutting takes judgment") and
+forty-nine scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
+below):
+the opening's pace (`opening.toml`, above under "The opening hour"), cutting with
+judgment (`cutting.toml`: Sefa's word on the first hand beam, the seam warming, glazing
+with its look, beam and line, the beam moved to the spall and back, the hold full in 17
+seconds; `cutting-wait.toml`: one click on the same seam, glazed for the rest, full in
+26, and cold again soon after), both beats on
 one unit (`beats.toml`: the 24th unit cuts a rock down and fills the hold at once, and the
 log keeps the rock's line first and the full hold's last, so the hold's message shows),
 mining and docking by hand (`hand-mining.toml`: Space out of reach says so, the beam on
-the rock on the tick Space is pressed, a unit at half a second and one a second after,
-the seventh cutting the rock down and letting the beam go, a turn and a short run onto
-the east seam, which says it is rich and cuts half again as fast, its units filling the
-hold and letting the beam go once, then turned and
+the rock on the tick Space is pressed, the cold stone's first unit within two seconds and
+faster as it warms, the seventh cutting the rock down and letting the beam go, a turn
+and a short run onto the east seam, which says it is rich and cuts half again as fast,
+held on until it glazes and its units fill the hold and let the beam go once, then
+turned and
 flown the long way into Lantern Dock's ring by keys alone and clamped in; `hand-aim.toml`: turning lifts the beam, a quarter
 turn off says to point the nose, turning back resumes with no beam time lost, a click
 latches the beam and flying lifts it, a far rock is too far, and E without the jets
@@ -1315,7 +1328,7 @@ records `engine.place_arrived` when a cut or glide lands; scenarios give it by h
 where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
 routes, and so is `fit.inputs`. Twelve bots run in a window: `hand-mining.inputs` mines and
-docks with the keys a player presses and clicks a far rock (`hand-mining.bot.toml`, 1469
+docks with the keys a player presses and clicks a far rock (`hand-mining.bot.toml`, 1589
 ticks, nine notes), and eight more use real screen clicks, their flights between
 stations given as scripted Mine and Dock: `play.inputs` docks (the view glides in),
 points at and clicks the exchange building (a cut into the room), talks to Tova at

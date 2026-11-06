@@ -3,9 +3,10 @@
 # the field says it is out of reach. Space held puts the beam on the first rock, chips
 # fly back up the beam to the nose, each unit lands in the hold with an amber puff and a
 # count, and the seventh cuts it down. A turn and a short run put the nose on the big
-# east seam, whose soft stone cuts faster and fills the hold. Turned onto Lantern Dock,
-# W flies her there; a touch re-aims her, and W let go coasts the ship to a stop in its
-# glowing ring and the clamps take her in with a puff. Nine notes.
+# east seam, whose soft stone cuts faster; held on it, it glazes and the rest comes slowly,
+# and it fills the hold. Turned onto Lantern Dock, W flies her there; a touch re-aims
+# her, and W let go coasts the ship to a stop in its glowing ring and the clamps take her
+# in with a puff. Ten notes.
 [[input]]
 tick = 4
 name = "core.ahead"
@@ -34,8 +35,8 @@ payload = { down = true }
 tick = 52
 text = "Space held: the amber beam runs from the nose to the rock, sparks where it bites, chips flying back to me."
 [[note]]
-tick = 61
-text = "First unit: a fistful of stone breaks off towards the ship, the hold puffs amber and counts +1."
+tick = 91
+text = "First unit, from cold stone: a fistful breaks off towards the ship, the hold puffs amber and counts +1. Sefa's line on what to watch is up."
 [[note]]
 tick = 242
 text = "Seventh unit: the rock is cut down to pebbles and the beam lets go."
@@ -81,58 +82,61 @@ source = "keyboard"
 payload = { down = true }
 [[note]]
 tick = 461
-text = "On the big east seam: the units come faster and the count says rich seam."
+text = "On the big east seam: the count says rich seam and how warm the stone is; it warms and the units come fast."
 [[note]]
-tick = 783
+tick = 600
+text = "Held on the seam, it has glazed: rosier, shimmering, the beam pale and skating, and the line says to put it on another rock. Kept on it here: slow, but still cutting."
+[[note]]
+tick = 903
 text = "Twenty-fourth unit: the hold is full with a bigger puff, the beam lets go, and the hint says to fly into a berth's ring."
 [[input]]
-tick = 799
+tick = 919
 name = "core.mine"
 source = "keyboard"
 payload = { down = false }
 [[input]]
-tick = 806
+tick = 926
 name = "core.right"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 826
-name = "core.right"
-source = "keyboard"
-payload = { down = false }
-[[input]]
-tick = 830
-name = "core.ahead"
-source = "keyboard"
-payload = { down = true }
-[[input]]
-tick = 1304
-name = "core.ahead"
-source = "keyboard"
-payload = { down = false }
-[[input]]
-tick = 1349
-name = "core.right"
-source = "keyboard"
-payload = { down = true }
-[[input]]
-tick = 1356
+tick = 946
 name = "core.right"
 source = "keyboard"
 payload = { down = false }
 [[input]]
-tick = 1360
+tick = 950
 name = "core.ahead"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 1388
+tick = 1424
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 1469
+name = "core.right"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 1476
+name = "core.right"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 1480
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 1508
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
 [[note]]
-tick = 1432
+tick = 1552
 text = "Coasted to a stop inside the berth's glowing ring."
 [[note]]
-tick = 1444
+tick = 1564
 text = "The clamps take her in with a puff of vapour."
