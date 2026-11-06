@@ -21,8 +21,15 @@ return {
         assert(rules.compass(10, -4) == "east", "within 22.5 degrees of east")
         local stations = { { name = "Cinder Kiln", x = 360, y = -442 }, { name = "Lantern Dock", x = -324, y = -348 } }
         assert(rules.bearings({ x = 0, y = 0 }, stations) == "Cinder Kiln south-east · Lantern Dock south-west")
-        -- A station near enough to be on screen wears its own name instead.
+        -- A station well on screen wears its own name instead.
         assert(rules.bearings({ x = -300, y = -330 }, stations) == "Cinder Kiln east")
+        -- Off screen but close: 50 units north is past the top of a 64-unit view, so it
+        -- is still named (a 70-unit radius once left it nameless and unseen).
+        local kiln = { { name = "Cinder Kiln", x = 0, y = 50 } }
+        assert(rules.bearings({ x = 0, y = 0 }, kiln) == "Cinder Kiln north")
+        assert(rules.bearings({ x = 0, y = 100 }, kiln) == "Cinder Kiln south")
+        assert(rules.bearings({ x = -60, y = 50 }, kiln) == "Cinder Kiln east", "past the side of the view")
+        assert(rules.bearings({ x = 30, y = 30 }, kiln) == "", "well on screen: no bearing")
         assert(rules.bearings({ x = 0, y = 0 }, {}) == "")
     end,
     depleted_rock = function()
