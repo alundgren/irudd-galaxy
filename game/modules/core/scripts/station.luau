@@ -120,10 +120,21 @@ local function build_up(ctx, site, build, ahead)
     -- once the player is about again (signs.show).
     ctx.put(keeper, "engine.life", { clock = "core.day", first = first, speed = 1.6, presentation = "instant", name = "" })
     -- Met only now, they say what was built rather than what they hope to build: the
-    -- introduction is heard once, before or after (build.met).
+    -- introduction is heard once, before or after (build.met). Lines already heard stay
+    -- heard (scripts/talk.luau moves `first` on), so only the rest is said the new way:
+    -- the met chain's last lines, line for line with what is left.
     local intro = ctx.get(keeper .. "_intro", "engine.talk")
     if intro and not intro.seen and (build.met or "") ~= "" then
+        local function length(from)
+            local n = 0
+            while from and from ~= "" do
+                n += 1
+                from = ctx.get(from, "engine.talk_line").next
+            end
+            return n
+        end
         local line, from = intro.first, build.met
+        for _ = 1, length(build.met) - length(intro.first) do from = ctx.get(from, "engine.talk_line").next end
         while line and line ~= "" and from and from ~= "" do
             local said = ctx.get(from, "engine.talk_line")
             ctx.patch(line, "engine.talk_line", { text = said.text })
@@ -271,6 +282,7 @@ end
 -- for its frame and bar, as in the log.
 local INNER = layout.ROOM - 32
 local SHEET = INNER - 16 - 64
+local BUY1 = 96 -- the Buy 1 button, beside the larger buy
 -- What the keeper buys from you and what they sell to you are two tables, each headed
 -- by its own row ("Sefa buys", "Sefa sells"), so buying and selling never mix in one list.
 local COLUMNS = { { "Ware", 104 }, { "Pays you", 96 }, { "Stock", 54 }, { "Hold", 40 } }
@@ -310,9 +322,11 @@ local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, b
             local units = hold[w]
             local building = build and build.ware == w and math.min(units, build.need - build.given) or 0
             local value = building * price + rules.total((rules.walk(line, units - building)))
-            local key = sellable == 1 and not quiet and " · Enter" or ""
+            -- Enter sells it when it is the only good to sell; the hint is on its hover, so
+            -- the button holds "Sell 36 glassite for 1059 cr" on one line.
+            local key = sellable == 1 and not quiet and "Or press Enter" or nil
             table.insert(inside, kit.button(ui, { id = "sell_" .. w, width = SHEET, on = "sell", payload = { ware = w },
-                icon = kit.ware(w), text = "Sell " .. units .. " " .. w .. " for " .. value .. " cr" .. key },
+                icon = kit.ware(w), text = "Sell " .. units .. " " .. w .. " for " .. value .. " cr", hover = key },
                 quiet and "secondary" or "primary"))
         end
     else
@@ -328,17 +342,19 @@ local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, b
         elseif most == 0 then
             why = "Not enough credits for one " .. w .. "."
         end
+        -- One unit's price is on its row already, so Buy 1 is short and the larger buy has
+        -- the room for its count and total on one line ("Buy 36 · 1260 cr").
         if why then
             table.insert(inside, ui.row { id = "buy_" .. w, gap = 8, children = {
-                kit.button(ui, { id = "buy1_" .. w, width = 150, on = "buy", payload = { ware = w, units = 1 },
-                    text = "Buy 1 · " .. price .. " cr", resting = why }, "secondary"),
-                ui.text { id = "why_" .. w, width = SHEET - 158, text = why, size = kit.SIZE.small },
+                kit.button(ui, { id = "buy1_" .. w, width = BUY1, on = "buy", payload = { ware = w, units = 1 },
+                    text = "Buy 1", resting = why }, "secondary"),
+                ui.text { id = "why_" .. w, width = SHEET - BUY1 - 8, text = why, size = kit.SIZE.small },
             } })
         else
-            local buttons = { kit.button(ui, { id = "buy1_" .. w, width = 150, on = "buy", payload = { ware = w, units = 1 },
-                text = "Buy 1 · " .. price .. " cr" }, "secondary") }
+            local buttons = { kit.button(ui, { id = "buy1_" .. w, width = BUY1, on = "buy", payload = { ware = w, units = 1 },
+                text = "Buy 1" }, "secondary") }
             if most > 1 then
-                table.insert(buttons, kit.button(ui, { id = "buymax_" .. w, width = SHEET - 158, on = "buy", payload = { ware = w, units = 0 },
+                table.insert(buttons, kit.button(ui, { id = "buymax_" .. w, width = SHEET - BUY1 - 8, on = "buy", payload = { ware = w, units = 0 },
                     text = "Buy " .. most .. " · " .. rules.total((rules.walk(line, most))) .. " cr" }, "secondary"))
             end
             table.insert(inside, ui.row { id = "buy_" .. w, gap = 8, children = buttons })
@@ -357,11 +373,14 @@ end
 
 -- How tall the wares' rows stand, to size their scroll: its frame, the column heads, a
 -- table row, a small line, a button, and the gap between them. WARES_ROOM is what a 960x540
--- window leaves the list under the title, keeper and a one-line ledger. Each action
+-- window leaves the list under the title, a one-line keeper and a one-line ledger. Each action
 -- above the list (Sell everything, the receipt) takes ACTION_H of it, and each further
 -- ledger line (about LEDGER_CHARS letters a line) LINE_H.
 local FRAME_H, HEAD_H, ROW_H, SMALL_H, BUTTON_H, WARE_GAP, TITLE_H = 24, 24, 26, 20, 56, 6, 26
 local WARES_ROOM, ACTION_H, LINE_H, LEDGER_CHARS = 312, 64, 24, 34
+-- The keeper's line under the title, small, about KEEPER_CHARS letters a line: each line
+-- past the first takes SMALL_H of the list.
+local KEEPER_CHARS = 54
 
 local function ware_height(line, hold, build)
     local h = ROW_H + WARE_GAP + BUTTON_H + WARE_GAP
@@ -373,7 +392,7 @@ local function ware_height(line, hold, build)
     return h
 end
 
-local function trade_rows(ctx, ui, station, pilot, children, quiet)
+local function trade_rows(ctx, ui, station, pilot, children, quiet, keeper_text)
     local hold = ctx.get("ship", "hold")
     local _, build = trade.building(ctx, station)
     local lines = trade.lines(ctx, pilot.room)
@@ -428,6 +447,7 @@ local function trade_rows(ctx, ui, station, pilot, children, quiet)
     end
     local room = WARES_ROOM - (sellable > 1 and ACTION_H or 0) - (pilot.deal ~= "" and ACTION_H or 0) - (quiet and ACTION_H or 0)
         - (math.ceil(#(load .. aboard) / LEDGER_CHARS) - 1) * LINE_H
+        - (math.ceil((utf8.len(keeper_text or "") or 0) / KEEPER_CHARS) - 1) * SMALL_H
     table.insert(children, kit.sheet(ui, { id = "wares", width = INNER, children = {
         ui.scroll { id = "ware_list", height = math.min(tall, room), gap = WARE_GAP, children = rows },
     } }))
@@ -528,6 +548,14 @@ local function room_panel(ctx, ui, station, pilot)
         local rest = "keeps it." .. ((unheard or teach.new(ctx.get("ship", "taught"), "talk")) and " Click " .. first .. " to talk." or "")
         keeper_text = keeper.name .. " " .. rest
         keeper_spans = kit.name(keeper.name, rest)
+        -- Where things are traded, the keeper says first what they buy and sell and what it
+        -- means (`trades`), in their own words, until their introduction is heard.
+        if unheard and (keeper.trades or "") ~= "" and #trade.lines(ctx, pilot.room) > 0 then
+            local quote = "\u{201C}" .. keeper.trades .. "\u{201D}"
+            keeper_text = keeper.name .. ": " .. quote .. " Click " .. first .. " to talk."
+            keeper_spans = { { text = keeper.name, look = kit.LOOK.name }, "  " .. quote,
+                { text = " Click " .. first .. " to talk.", look = kit.LOOK.quiet } }
+        end
     end
     local due, verb = handover(ctx, pilot.room)
     local children
@@ -551,7 +579,7 @@ local function room_panel(ctx, ui, station, pilot)
         if site and not site.done then
             site_rows(ui, site, children)
         elseif #trade.lines(ctx, pilot.room) > 0 then
-            trade_rows(ctx, ui, station, pilot, children, due ~= nil)
+            trade_rows(ctx, ui, station, pilot, children, due ~= nil, keeper_text)
         elseif site and site.built ~= "" then
             -- A built room nothing is traded in says what goes on there.
             table.insert(children, ui.text { id = "built", width = INNER, size = kit.SIZE.body, text = site.built })

@@ -144,8 +144,9 @@ built = "text"
 # What the keeper waiting on it says when the first of its ware goes in ("" for nothing).
 first_word = "text"
 # The keeper's introduction for a first meeting only once it is built: the first of a
-# chain of talk lines whose texts replace their introduction's, line for line, if that
-# was never heard ("" keeps it as it is).
+# chain of talk lines as long as the introduction, whose texts replace those of its
+# lines not yet heard, line for line from the end ("" keeps it as it is). Lines already
+# heard stay heard.
 met = "id"
 
 [components.facility]
@@ -257,6 +258,9 @@ playing = "id"
 name = "text"
 # What they say after their introduction when there's nothing else to talk about.
 idle = "text"
+# Where they trade: what they buy and sell and what it means, in their own words. Their
+# room shows it first, quoted, until their introduction is heard ("" for nothing).
+trades = "text"
 # The figure (a model) of a keeper who arrives later, when what they keep is built.
 figure = "text"
 

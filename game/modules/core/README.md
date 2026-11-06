@@ -25,14 +25,22 @@ hour. The two controls that fly for you come several hours in, once you have don
 work by hand.
 
 Why you are out here arrives in order, a line at a time, with no wall of text. The first
-message is Bram Okafor on the radio from Lantern Dock: "Welcome, pilot. We're raising a
-galley. It needs plate, and plate starts as ore." In flight the radio plays the nearer
+message is Bram Okafor on the radio from Lantern Dock: "Welcome, pilot. Our galley wants
+40 plate: sheet the Kiln fires from ore. What a station wants, your log lists as WANTED."
+So plate and WANTED are both in a person's words before either can be acted on. In
+flight the radio plays the nearer
 station's channel, so on the way to Cinder Kiln it says "We buy ore for the kiln and sell
 the plate it makes." In each room the panel says "Click Sefa to talk" (Tova, Bram, and so
 on) until that keeper's introduction has been heard, because the introduction says what
 the place is for: Sefa's is "Ore feeds the kiln here. I buy it, and sell the plate it
-makes. No hurry; the kiln burns slow." From the first call at Lantern Dock, the
-galley's WANTED pin in the log keeps the reason in view.
+makes. No hurry; the kiln burns slow." Where things are traded, the keeper's line under
+the room's title quotes their own words about it until then (`keeper.trades`): Tova
+"I buy ore and ice, and plate for the galley.", Sefa "Ore in, plate out.", Ines "I sell
+rations from my stove. Cinder Kiln's crews buy them." It sits on one line with the
+click at the Kiln, so a full hold's whole list still fits there at 960x540. The
+dockmasters' introductions say both stations buy ore and each pays less as its stock
+fills, so spreading your loads pays. From the first call at Lantern Dock, the galley's
+WANTED pin in the log keeps the reason in view.
 
 You fly, aim, cut and dock by hand: fly up to a rock, point the nose at it and hold
 Space, and the cutter's beam bites, chips fly back up it, and each unit lands in the hold
@@ -562,9 +570,10 @@ to the crate stack. A walk you leave in the middle finishes while you are away.
   buys, with what it pays you, its stock and what you carry; `Sefa sells` (Asks you,
   Stock, Hold) lists what it sells, with what it asks of you. At 960x540 the Kiln's
   whole list fits with a full hold, plate's Buy and its resting reason included. A good the station buys gets `Sell N for X cr` when you carry it
-  (with `[Enter]` when it is the only one; `Sell everything here` appears when there are
-  several). A good it sells always gets `Buy 1` and `Buy N`, the most that fits and that
-  you can pay for. When buying can't happen now,
+  (Enter sells it when it is the only one, as its hover says; `Sell everything here ·
+  Enter` appears when there are several). A good it sells always gets `Buy 1` and `Buy N · X cr`, the most that fits and
+  that you can pay for, each on one line at 1280x720 and at 960x540 (one unit's price
+  is on its row already). When buying can't happen now,
   `Buy 1` stays in place drawn resting (a dashed frame on the panel, black text)
   with its reason beside it: `Hold full: sell first.`, short credits or an empty
   stock. Hovering it gives the reason too, and a click on it does nothing. Each
@@ -616,7 +625,9 @@ can almost hear the stove."`). The sale that completes it turns the scaffold int
 galley, with Ines at her stove and hatch, and opens rations, a new good and a return
 cargo for the Kiln run. She is introduced once: met only after it is built, her
 introduction says the galley is built instead (`build.met`), and either way her thanks
-come next. The Kiln's exchange posts its rations price from
+come next. An introduction left midway is picked up at the first line not yet heard,
+built or not; what was heard stays heard, so "I'm Ines" is said once. The Kiln's
+exchange posts its rations price from
 the start, and Sefa mentions her crews would pay for them.
 
 Measured on the headless route `tests/trade.toml` (seed 7, flights scripted): one hold of
@@ -1033,7 +1044,7 @@ flickering for a minute, a stronger station taking over only when steady, a brie
 keeping the channel, a chosen channel holding, and Prev and Next stepping through, and
 in `tests/mining.luau` the cutter's reach from the nose, aim within the slack, a unit
 for every second of beam time however it is broken up, the berth ring, regrowth to half
-and the worked-out message for an empty and a full hold) and forty-six scenarios (two of them, `sound.toml` and
+and the worked-out message for an empty and a full hold) and forty-seven scenarios (two of them, `sound.toml` and
 `sound-talk.toml`, under the sound below):
 the opening's pace (`opening.toml`, above under "The opening hour"), both beats on
 one unit (`beats.toml`: the 24th unit cuts a rock down and fills the hold at once, and the
@@ -1082,7 +1093,10 @@ before it is built, visits restocking, the galley built with its keeper and her
 sign, rations bought and sold, visit and docking counts), Ines at the bare site
 (`ines.toml`: there from the start, her introduction on why she wants the galley, her
 line counting the plate to come and her thanks not yet on offer, her word on the first
-plate in the sale's log entry, and no second introduction once it stands), back (a building clicked cuts into its room, Esc, right-click and B cut back out to the station, Esc shuts the log, signs worn only in their keeper's own room and resting while the view moves, launching from a room), and
+plate in the sale's log entry, and no second introduction once it stands), her
+introduction left after its first line (`ines-left.toml`: once the galley stands a
+click picks up at her second line, said the built way, and the log holds "I'm Ines"
+once), back (a building clicked cuts into its room, Esc, right-click and B cut back out to the station, Esc shuts the log, signs worn only in their keeper's own room and resting while the view moves, launching from a room), and
 Ines's gift taken (one ration and its receipt, her follow-up line, one log entry
 with the answer, the offer gone), declined (nothing changes hands, a late second
 answer is stale, the offer gone), waiting while the hold is full, and going back

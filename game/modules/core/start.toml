@@ -26,7 +26,7 @@
 # The view widens a little at speed and looks a quarter second ahead; mining beats kick
 # it (scripts/main.luau keeps the same values).
 "engine.camera_feel" = { speed_zoom = 0.12, lead = 0.25 }
-pilot = { message = "Bram on the radio: \"Welcome, pilot. We're raising a galley. It needs plate, and plate starts as ore.\"" }
+pilot = { message = "Bram on the radio: \"Welcome, pilot. Our galley wants 40 plate: sheet the Kiln fires from ore. What a station wants, your log lists as WANTED.\"" }
 hold = {}
 held = {}
 taught = {}
@@ -422,7 +422,7 @@ market = { room = "core.lantern_galley", ware = "rations", role = "sells", base 
 "engine.location" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_counter" }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.person_tova", look = "core.prop" }
-keeper = { name = "Tova Reyes", idle = "Empty hold? The ore floats north-east of us." }
+keeper = { name = "Tova Reyes", idle = "Empty hold? The ore floats north-east of us.", trades = "I buy ore and ice, and plate for the galley." }
 "engine.life" = { clock = "core.day", first = "core.lantern_trader_act", speed = 1.6, presentation = "instant", name = "Tova Reyes" }
 
 [entities.lantern_trader_act]
@@ -441,7 +441,7 @@ keeper = { name = "Tova Reyes", idle = "Empty hold? The ore floats north-east of
 "engine.talk_line" = { text = "I'm Tova, and I run the exchange.", next = "core.lantern_trader_intro2" }
 
 [entities.lantern_trader_intro2]
-"engine.talk_line" = { text = "I buy ore, and plate for our galley.", next = "core.lantern_trader_intro3" }
+"engine.talk_line" = { text = "I buy ore, and plate for our galley: sheet the Kiln fires from ore.", next = "core.lantern_trader_intro3" }
 
 [entities.lantern_trader_intro3]
 "engine.talk_line" = { text = "My prices drop as my stock fills." }
@@ -480,13 +480,13 @@ keeper = { name = "Bram Okafor" }
 "engine.talk_line" = { text = "I'm Bram. I keep the berth and lamps.", next = "core.lantern_master_intro3" }
 
 [entities.lantern_master_intro3]
-"engine.talk_line" = { text = "Cinder Kiln is the other station.", next = "core.lantern_master_intro4" }
+"engine.talk_line" = { text = "Cinder Kiln is out east. We both buy ore.", next = "core.lantern_master_intro4" }
 
 [entities.lantern_master_intro4]
-"engine.talk_line" = { text = "It's out east, and pays more for ore.", next = "core.lantern_master_intro5" }
+"engine.talk_line" = { text = "Each of us pays less as our stock fills, so spread your loads.", next = "core.lantern_master_intro5" }
 
 [entities.lantern_master_intro5]
-"engine.talk_line" = { text = "We're raising a galley. It needs plate." }
+"engine.talk_line" = { text = "Our galley wants plate: sheet the Kiln fires from ore." }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.lantern_master_talk]
@@ -512,7 +512,7 @@ build = { station = "core.lantern", ware = "plate", need = 40, name = "Galley", 
 # (clear of the scaffold); once it is built her day is the stove and the hatch
 # (scripts/station.luau).
 [entities.lantern_cook]
-keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them.", figure = "core.person_ines" }
+keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them.", figure = "core.person_ines", trades = "I sell rations from my stove. Cinder Kiln's crews buy them." }
 "engine.being" = {}
 "engine.location" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_table" }
 "engine.position" = { angle = -1.5707963267948966 }
@@ -1150,7 +1150,7 @@ market = { room = "core.kiln_exchange", ware = "rations", role = "buys", base = 
 "engine.location" = { place = "core.kiln_exchange_room", spot = "core.kiln_exchange_room_counter" }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.person_sefa", look = "core.prop" }
-keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations." }
+keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations.", trades = "Ore in, plate out." }
 "engine.life" = { clock = "core.day", first = "core.kiln_trader_act", speed = 1.6, presentation = "instant", name = "Sefa Lind" }
 
 [entities.kiln_trader_act]
@@ -1208,10 +1208,10 @@ keeper = { name = "Mags Ferrow" }
 "engine.talk_line" = { text = "I'm Mags. I watch the field from here.", next = "core.kiln_master_intro3" }
 
 [entities.kiln_master_intro3]
-"engine.talk_line" = { text = "Lantern Dock is the other station.", next = "core.kiln_master_intro4" }
+"engine.talk_line" = { text = "Lantern Dock is out west. We both buy ore.", next = "core.kiln_master_intro4" }
 
 [entities.kiln_master_intro4]
-"engine.talk_line" = { text = "It's out west, and pays a bit less." }
+"engine.talk_line" = { text = "Each of us pays less as our stock fills, so spread your loads." }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.kiln_master_talk]

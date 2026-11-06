@@ -71,7 +71,13 @@ return {
             local talk, line = event.payload.talk, event.payload.line
             local said = ctx.get(line, "engine.talk_line")
             local open = (said.next or "") ~= ""
-            sign(ctx, open and ctx.get(talk, "engine.talk").speaker or nil)
+            local spoken = ctx.get(talk, "engine.talk")
+            sign(ctx, open and spoken.speaker or nil)
+            -- A keeper's introduction left midway picks up where it was left: what was heard
+            -- stays heard, so the next click starts at the first line not yet acknowledged.
+            if open and not spoken.seen and talk == spoken.speaker .. "_intro" then
+                ctx.patch(talk, "engine.talk", { first = said.next })
+            end
             if not open then voices.retire(ctx) end
             local quoted = "\u{201C}" .. said.text .. "\u{201D}"
             -- An offer once said stays pinned in the log until it is answered (log.pinned).

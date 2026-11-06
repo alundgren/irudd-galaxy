@@ -97,7 +97,7 @@ tick = 1564
 entity = "log6"
 component = "entry"
 field = "text"
-equals = "Bram Okafor at Lantern Dock: “Welcome to Lantern Dock.” “I'm Bram. I keep the berth and lamps.” “Cinder Kiln is the other station.” “It's out east, and pays more for ore.” “We're raising a galley. It needs plate.”"
+equals = "Bram Okafor at Lantern Dock: “Welcome to Lantern Dock.” “I'm Bram. I keep the berth and lamps.” “Cinder Kiln is out east. We both buy ore.” “Each of us pays less as our stock fills, so spread your loads.” “Our galley wants plate: sheet the Kiln fires from ore.”"
 
 # Tova's introduction, with a sale after her first line.
 [[input]]
@@ -143,7 +143,7 @@ tick = 1609
 entity = "log7"
 component = "entry"
 field = "text"
-equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the exchange.” “I buy ore, and plate for our galley.” “My prices drop as my stock fills.”"
+equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the exchange.” “I buy ore, and plate for our galley: sheet the Kiln fires from ore.” “My prices drop as my stock fills.”"
 # Her later lines joined that entry: nothing new was logged.
 [[expect]]
 tick = 1609

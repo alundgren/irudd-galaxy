@@ -123,7 +123,7 @@ tick = 1615
 entity = "log6"
 component = "entry"
 field = "text"
-equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the exchange.” “I buy ore, and plate for our galley.” “My prices drop as my stock fills.”"
+equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the exchange.” “I buy ore, and plate for our galley: sheet the Kiln fires from ore.” “My prices drop as my stock fills.”"
 [[expect]]
 tick = 1615
 entity = "ship"

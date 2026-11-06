@@ -1,0 +1,301 @@
+# Ines's introduction left midway (scripts/talk.luau, scripts/station.luau): on the
+# trade route she is met at the bare galley site and her first line is heard, then the
+# player leaves without the rest. Once the galley stands, a click on her picks up at the
+# first line not yet heard, said the built way (build.met), and "I'm Ines" is not said
+# again: the log holds it once. The review's reproduction.
+seed = 7
+ticks = 6405
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+
+[[input]]
+tick = 60
+name = "core.mine"
+
+[[input]]
+tick = 960
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 1737
+name = "core.open"
+
+[[input]]
+tick = 1742
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+
+[[input]]
+tick = 1747
+name = "core.sell"
+
+[[input]]
+tick = 1757
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+
+[[input]]
+tick = 1777
+name = "core.launch"
+
+[[input]]
+tick = 1787
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 2638
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+
+[[input]]
+tick = 2641
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2638 }
+
+[[input]]
+tick = 2648
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_intro" }
+
+[[input]]
+tick = 2649
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
+
+[[input]]
+tick = 2668
+name = "core.close"
+
+[[input]]
+tick = 2698
+name = "core.open"
+
+[[input]]
+tick = 2708
+name = "core.sell"
+
+[[input]]
+tick = 2718
+name = "core.launch"
+
+[[input]]
+tick = 2723
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 2768
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+
+[[input]]
+tick = 2773
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+
+[[input]]
+tick = 2778
+name = "core.close"
+
+[[input]]
+tick = 2838
+name = "core.launch"
+
+[[input]]
+tick = 2848
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 3686
+name = "core.open"
+
+[[input]]
+tick = 3696
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+
+[[input]]
+tick = 3716
+name = "core.launch"
+
+[[input]]
+tick = 3726
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 4577
+name = "core.open"
+
+[[input]]
+tick = 4587
+name = "core.sell"
+
+[[input]]
+tick = 4607
+name = "core.launch"
+
+[[input]]
+tick = 4617
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 5455
+name = "core.open"
+
+[[input]]
+tick = 5465
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+
+[[input]]
+tick = 5485
+name = "core.launch"
+
+[[input]]
+tick = 5495
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 6346
+name = "core.open"
+
+[[input]]
+tick = 6356
+name = "core.sell"
+
+[[input]]
+tick = 6376
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+
+[[input]]
+tick = 6379
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6376 }
+
+[[input]]
+tick = 6386
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+
+[[input]]
+tick = 6396
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_intro" }
+
+[[input]]
+tick = 6398
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
+
+[[input]]
+tick = 6399
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
+
+[[input]]
+tick = 6406
+name = "core.launch"
+
+[[input]]
+tick = 6416
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 7254
+name = "core.open"
+
+[[input]]
+tick = 7264
+name = "core.sell"
+
+# Left after the first line: the next click starts at the second.
+[[expect]]
+tick = 2655
+entity = "lantern_cook_intro"
+component = "engine.talk"
+field = "first"
+equals = "core.lantern_cook_intro2"
+
+[[expect]]
+tick = 2655
+entity = "lantern_cook_intro"
+component = "engine.talk"
+field = "seen"
+equals = false
+
+# Back once the galley stands: she goes on from there.
+[[expect]]
+tick = 6397
+entity = "lantern_cook_intro"
+component = "engine.talk"
+field = "current"
+equals = "core.lantern_cook_intro2"
+
+# What was heard stays as it was heard.
+[[expect]]
+tick = 6397
+entity = "lantern_cook_intro1"
+component = "engine.talk_line"
+field = "text"
+equals = "I'm Ines. This scaffold is going to be my galley."
+
+# The rest is said the built way.
+[[expect]]
+tick = 6397
+entity = "lantern_cook_intro2"
+component = "engine.talk_line"
+field = "text"
+equals = "The crews ate cold tins between shifts. Now they sit down to a hot meal."
+
+[[expect]]
+tick = 6397
+entity = "lantern_cook_intro3"
+component = "engine.talk_line"
+field = "text"
+equals = "I cook rations for them, and Cinder Kiln pays well for them too."
+
+# Her first line, heard at the site.
+[[expect]]
+tick = 2655
+entity = "log10"
+component = "entry"
+field = "text"
+equals = "Ines Varga at Lantern Dock: “I'm Ines. This scaffold is going to be my galley.”"
+
+# The same entry goes on with the rest, said the built way: "I'm Ines" is in it once.
+[[expect]]
+tick = 6404
+entity = "log10"
+component = "entry"
+field = "text"
+equals = "Ines Varga at Lantern Dock: “I'm Ines. This scaffold is going to be my galley.” “The crews ate cold tins between shifts. Now they sit down to a hot meal.” “I cook rations for them, and Cinder Kiln pays well for them too.”"
+
+[[expect]]
+tick = 6404
+entity = "lantern_cook_intro"
+component = "engine.talk"
+field = "seen"
+equals = true
