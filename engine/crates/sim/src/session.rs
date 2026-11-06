@@ -48,6 +48,11 @@ pub struct Input {
     pub name: String,
     #[serde(default)]
     pub payload: Fields,
+    /// How it reached the game when that was not the window itself: `live` for input
+    /// `galaxy-gm live input` sent. Recorded and shown, never part of the world: the
+    /// event, its `source` and the hash are those the window's own key or pointer makes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub via: Option<String>,
 }
 
 /// A line a script printed or the host reported. Not part of the world.
@@ -74,6 +79,9 @@ pub struct Session {
     shapes: Shapes,
     pub log: Vec<LogLine>,
     recording: Option<Recording>,
+    /// How inputs that did not come from the window itself arrived, by the cause they
+    /// made ([`Input::via`]). Outside the world, so never in its hash.
+    vias: BTreeMap<u64, String>,
     /// The next tick starts with an `engine.resumed` input ([`Session::announce_resume`]).
     resume_pending: bool,
 }
@@ -143,6 +151,7 @@ impl Session {
             registry,
             log: Vec::new(),
             recording: None,
+            vias: BTreeMap::new(),
             resume_pending: false,
         })
     }
@@ -168,6 +177,7 @@ impl Session {
             registry,
             log: Vec::new(),
             recording: None,
+            vias: BTreeMap::new(),
             resume_pending: false,
         })
     }
@@ -179,6 +189,12 @@ impl Session {
     /// [`Session::resume`] alone (as a replay starts) announces nothing.
     pub fn announce_resume(&mut self) {
         self.resume_pending = true;
+    }
+
+    /// How the input that made cause `cause` arrived, when not from the window itself
+    /// (`live`).
+    pub fn via(&self, cause: u64) -> Option<&str> {
+        self.vias.get(&cause).map(String::as_str)
     }
 
     pub fn registry(&self) -> &Registry {
@@ -211,6 +227,7 @@ impl Session {
             source: RESUME_SOURCE.to_owned(),
             name: RESUMED.to_owned(),
             payload: Fields::new(),
+            via: None,
         });
         for input in resumed.iter().chain(inputs) {
             let input = Input {
@@ -239,9 +256,15 @@ impl Session {
                 },
                 commands,
             };
+            let cause = self.world.causes.len();
             self.world
                 .apply(&batch, &self.registry)
                 .map_err(|e| format!("input `{}` on tick {tick}: {e}", input.name))?;
+            if let Some(via) = &input.via
+                && self.world.causes.len() > cause
+            {
+                self.vias.insert(cause as u64, via.clone());
+            }
             if let Some(rec) = &mut self.recording {
                 rec.events.push(RecEvent::Input(input));
             }

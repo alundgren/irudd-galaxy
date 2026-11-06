@@ -995,6 +995,19 @@ entity = "kettle_skipper_act"
 component = "engine.act"
 field = "state"
 equals = "minding the tanks"
+# Kept for good, Hessa stays: no mended-engine fee, just her own talk.
+[[expect]]
+tick = 25291
+entity = "kettle_fee"
+component = "engine.talk"
+field = "enabled"
+equals = false
+[[expect]]
+tick = 25291
+entity = "kettle_skipper_talk"
+component = "engine.talk"
+field = "enabled"
+equals = true
 # Her day keeps her a room apart from Noor's, so no room crowds three signs.
 [[expect]]
 tick = 25291

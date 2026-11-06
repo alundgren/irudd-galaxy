@@ -16,11 +16,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use galaxy_live::Act;
+use galaxy_live::protocol::MOUSE_LEFT;
 use galaxy_module::Failure;
 use galaxy_module::cli::Output;
 use galaxy_module::module::Module;
 use galaxy_render::glam::Vec2;
 use galaxy_render::{Renderer, RgbaImage};
+use galaxy_sim::keys::{Hand, Keys, key_input};
 use galaxy_sim::scenario::{Click, InputsFile, Pointer};
 use galaxy_sim::step::FixedStep;
 use galaxy_sim::watch::ModuleWatcher;
@@ -148,43 +151,9 @@ const KEY_CODES: [(KeyCode, &str); 57] = [
     (KeyCode::Escape, "escape"),
 ];
 
-/// Manifest key names that are mouse buttons rather than keys on the keyboard.
-const MOUSE_KEYS: [&str; 1] = ["mouse_right"];
-
 /// The manifest key name of a key on the keyboard.
 fn key_name(code: KeyCode) -> Option<&'static str> {
     KEY_CODES.iter().find(|(c, _)| *c == code).map(|(_, n)| *n)
-}
-
-/// Which events each key name sends, from every module's `[keys]`.
-fn bindings<'a>(modules: impl Iterator<Item = &'a Module>) -> BTreeMap<String, Vec<String>> {
-    let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for m in modules {
-        for (key, event) in &m.manifest.keys {
-            out.entry(key.clone())
-                .or_default()
-                .push(format!("{}.{event}", m.id()));
-        }
-    }
-    out
-}
-
-/// The input a bound key or mouse button sends: source `mouse` for a button, else
-/// `keyboard`.
-fn key_input(key: &str, event: &str, down: bool) -> Input {
-    let mut payload = Map::new();
-    payload.insert("down".into(), Value::Bool(down));
-    Input {
-        tick: 0,
-        source: if MOUSE_KEYS.contains(&key) {
-            "mouse"
-        } else {
-            "keyboard"
-        }
-        .into(),
-        name: event.to_owned(),
-        payload,
-    }
 }
 
 /// Whether Esc quits (and saves): always with Shift held, and otherwise only when no
@@ -299,8 +268,10 @@ struct App {
     size: (u32, u32),
     running: Option<Running>,
     pace: FixedStep,
-    keys: BTreeMap<String, Vec<String>>,
-    held: BTreeSet<&'static str>,
+    /// The keys modules bind, and which the window and live connections hold down.
+    keys: Keys,
+    /// Live connections holding the left mouse button down.
+    live_left: BTreeSet<u64>,
     /// The modifier keys held now, for the paste chord in the note box.
     modifiers: ModifiersState,
     pending: Vec<Input>,
@@ -365,34 +336,82 @@ fn ms_since(start: Instant) -> f64 {
     start.elapsed().as_secs_f64() * 1000.0
 }
 
+/// An input a live connection made, marked so (`via` live).
+fn live(mut input: Input) -> Input {
+    input.via = Some(galaxy_sim::keys::VIA_LIVE.to_owned());
+    input
+}
+
 impl App {
     fn key(&mut self, code: KeyCode, down: bool) {
         let Some(name) = key_name(code) else { return };
         self.press(name, down);
     }
 
-    /// A manifest key (or mouse button) going down or up: its bound events, once per change.
-    fn press(&mut self, name: &'static str, down: bool) {
-        let changed = if down {
-            self.held.insert(name)
-        } else {
-            self.held.remove(name)
-        };
-        if !changed {
-            return;
-        }
-        for event in self.keys.get(name).into_iter().flatten() {
-            self.pending.push(key_input(name, event, down));
+    /// A manifest key (or mouse button) going down or up in the window: its bound events,
+    /// once per change of whether anything holds it.
+    fn press(&mut self, name: &str, down: bool) {
+        let inputs = self.keys.press(name, down, Hand::Window);
+        self.pending.extend(inputs);
+    }
+
+    /// Lets go of every key the window holds (it lost focus), so none sticks down. Keys a
+    /// live connection holds stay down: it lets go of them itself, or when it closes.
+    fn release_window(&mut self) {
+        let inputs = self.keys.release(Hand::Window);
+        self.pending.extend(inputs);
+    }
+
+    /// Lets go of every held key, the window's and live connections' alike (a note took
+    /// the keyboard and the world stops).
+    fn release_all(&mut self) {
+        let inputs = self.keys.release_all();
+        self.pending.extend(inputs);
+        if !std::mem::take(&mut self.live_left).is_empty()
+            && let Some(input) = self.left_up()
+        {
+            self.pending.push(live(input));
         }
     }
 
-    /// Lets go of every held key (the window lost focus), so none sticks down.
-    fn release_all(&mut self) {
-        for name in std::mem::take(&mut self.held) {
-            for event in self.keys.get(name).into_iter().flatten() {
-                self.pending.push(key_input(name, event, false));
-            }
-        }
+    /// The pointer moved to `at`, in logical pixels: the input a screen sends for it.
+    fn pointer_moved(&mut self, at: Vec2) -> Option<Input> {
+        let r = self.running.as_mut()?;
+        self.pointer = at;
+        r.view
+            .screens
+            .pointer_move(self.pointer, self.session.world.tick + 1)
+    }
+
+    /// The left button went down at the pointer: arriving, a screen's press, a target or
+    /// a speaker clicked.
+    fn left_down(&mut self) -> Option<Input> {
+        let r = self.running.as_mut()?;
+        let world = &self.session.world;
+        galaxy_sim::travel::arrival(world, true).or_else(|| {
+            r.view
+                .screens
+                .pointer_down(self.pointer, world.tick + 1)
+                .or_else(|| r.view.target_click(world, self.pointer, world.tick + 1))
+                .or_else(|| r.view.talk_click(world, self.pointer, world.tick + 1))
+        })
+    }
+
+    /// The left button came up at the pointer.
+    fn left_up(&mut self) -> Option<Input> {
+        let r = self.running.as_mut()?;
+        r.view
+            .screens
+            .pointer_up(self.pointer, self.session.world.tick + 1)
+    }
+
+    /// The live input steps due before this tick, so each lands on its own tick.
+    fn live_before_tick(&mut self) {
+        let Some(mut live) = self.live.take() else {
+            return;
+        };
+        live.before_tick(self);
+        self.live = Some(live);
     }
 
     fn hot_load(&mut self) {
@@ -420,7 +439,7 @@ impl App {
 
     /// After modules were hot-loaded: the keys, sounds and what the view draws follow.
     fn after_reload(&mut self, first_fact: usize) {
-        self.keys = bindings(self.session.modules());
+        self.keys.rebind(self.session.modules());
         self.audio = audio_scene(&self.session, first_fact);
         self.audio_output.send(vec![
             galaxy_audio::Action::Stop {
@@ -615,7 +634,9 @@ impl App {
         self.last = now;
         self.hot_load();
         self.serve_live();
-        let Some(r) = &mut self.running else { return };
+        if self.running.is_none() {
+            return;
+        }
         let ticks = self.pace.advance(dt);
         let sim_start = Instant::now();
         for _ in 0..ticks {
@@ -631,6 +652,8 @@ impl App {
                 event_loop.exit();
                 return;
             }
+            self.live_before_tick();
+            let Some(r) = &mut self.running else { return };
             r.view.before_step(&self.session.world);
             let mut inputs = std::mem::take(&mut self.pending);
             inputs.extend(self.scripted.remove(&tick).unwrap_or_default());
@@ -709,6 +732,7 @@ impl App {
             }
         }
         let sim_ms = ms_since(sim_start);
+        let Some(r) = &mut self.running else { return };
         let due: Vec<u64> = self
             .scripted_zooms
             .range(..=self.session.world.tick)
@@ -911,6 +935,68 @@ impl galaxy_live::Host for App {
         App::write_recording(self);
         Some(self.dir.join("recording.json"))
     }
+
+    fn refuses_input(&self) -> Option<String> {
+        if self.running.is_none() {
+            return Some("the window has not opened yet; try again in a moment".into());
+        }
+        self.note.as_ref().map(|_| {
+            "an F8 note is open in the game and has the keyboard; keep it (Enter) or drop it \
+             (Esc), then try again"
+                .into()
+        })
+    }
+
+    /// The same path the window's own keys and buttons take, with a hand of its own, so
+    /// the window losing focus doesn't let go of what the connection holds.
+    fn live_input(&mut self, conn: u64, act: &Act) -> Result<(), String> {
+        if let Some(why) = self.refuses_input() {
+            return Err(why);
+        }
+        let pointer = matches!(act, Act::Move { .. })
+            || matches!(act, Act::Key { key, .. } if key == MOUSE_LEFT);
+        if pointer && self.bot_pointer {
+            return Err("this game's --inputs gestures own the pointer".into());
+        }
+        match act {
+            Act::Key { key, down } if key == MOUSE_LEFT => {
+                let was = !self.live_left.is_empty();
+                if *down {
+                    self.live_left.insert(conn);
+                } else {
+                    self.live_left.remove(&conn);
+                }
+                let input = match (was, !self.live_left.is_empty()) {
+                    (false, true) => self.left_down(),
+                    (true, false) => self.left_up(),
+                    _ => None,
+                };
+                self.pending.extend(input.map(live));
+            }
+            Act::Key { key, down } => {
+                let inputs = self.keys.press(key, *down, Hand::Live(conn));
+                self.pending.extend(inputs);
+            }
+            Act::Move { x, y } => {
+                let input = self.pointer_moved(Vec2::new(*x, *y));
+                self.pending.extend(input.map(live));
+            }
+        }
+        Ok(())
+    }
+
+    fn live_release(&mut self, conn: u64) {
+        let inputs = self.keys.release(Hand::Live(conn));
+        self.pending.extend(inputs);
+        if self.live_left.remove(&conn) && self.live_left.is_empty() {
+            let input = self.left_up();
+            self.pending.extend(input.map(live));
+        }
+    }
+
+    fn bound(&self, key: &str) -> bool {
+        self.keys.bound(key)
+    }
 }
 
 impl ApplicationHandler for App {
@@ -1004,11 +1090,13 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::Focused(false) => {
-                self.release_all();
+                self.release_window();
                 if let Some(n) = &mut self.note {
                     n.pointer_up();
                 }
+                // A live connection's drag goes on without focus; it lets go itself.
                 if !self.bot_pointer
+                    && self.live_left.is_empty()
                     && let Some(r) = &mut self.running
                 {
                     r.view.screens.cancel_pointer(self.session.world.tick + 1);
@@ -1029,7 +1117,7 @@ impl ApplicationHandler for App {
                 let down = event.state == ElementState::Pressed;
                 if code == KeyCode::Escape
                     && down
-                    && escape_quits(&self.keys, self.held.contains("shift"))
+                    && escape_quits(self.keys.bindings(), self.keys.is_held("shift"))
                 {
                     event_loop.exit();
                     return;
@@ -1068,14 +1156,9 @@ impl ApplicationHandler for App {
             WindowEvent::CursorMoved { position, .. }
                 if self.note.is_none() && !self.bot_pointer =>
             {
-                if let Some(r) = &mut self.running {
-                    self.pointer =
-                        Vec2::new(position.x as f32, position.y as f32) / r.renderer.scale_factor();
-                    if let Some(input) = r
-                        .view
-                        .screens
-                        .pointer_move(self.pointer, self.session.world.tick + 1)
-                    {
+                if let Some(scale) = self.running.as_ref().map(|r| r.renderer.scale_factor()) {
+                    let at = Vec2::new(position.x as f32, position.y as f32) / scale;
+                    if let Some(input) = self.pointer_moved(at) {
                         self.pending.push(input);
                     }
                 }
@@ -1085,28 +1168,7 @@ impl ApplicationHandler for App {
                 button: winit::event::MouseButton::Left,
                 ..
             } if self.note.is_none() && !self.bot_pointer => {
-                if let Some(r) = &mut self.running
-                    && let Some(input) = galaxy_sim::travel::arrival(&self.session.world, true)
-                        .or_else(|| {
-                            r.view
-                                .screens
-                                .pointer_down(self.pointer, self.session.world.tick + 1)
-                                .or_else(|| {
-                                    r.view.target_click(
-                                        &self.session.world,
-                                        self.pointer,
-                                        self.session.world.tick + 1,
-                                    )
-                                })
-                                .or_else(|| {
-                                    r.view.talk_click(
-                                        &self.session.world,
-                                        self.pointer,
-                                        self.session.world.tick + 1,
-                                    )
-                                })
-                        })
-                {
+                if let Some(input) = self.left_down() {
                     self.pending.push(input);
                 }
             }
@@ -1115,12 +1177,7 @@ impl ApplicationHandler for App {
                 button: winit::event::MouseButton::Left,
                 ..
             } if self.note.is_none() && !self.bot_pointer => {
-                if let Some(r) = &mut self.running
-                    && let Some(input) = r
-                        .view
-                        .screens
-                        .pointer_up(self.pointer, self.session.world.tick + 1)
-                {
+                if let Some(input) = self.left_up() {
                     self.pending.push(input);
                 }
             }
@@ -1281,8 +1338,8 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         ),
     };
     let mut script = scripted_inputs(&session, &options)?;
-    let keys = bindings(session.modules());
-    let scripted_quit = scripted_keys(&keys, &script.keys, &mut script.inputs);
+    let keys = Keys::new(session.modules());
+    let scripted_quit = scripted_keys(keys.bindings(), &script.keys, &mut script.inputs);
     session.start_recording(BuildStamp::current());
     let ids: Vec<&str> = session.modules().map(Module::id).collect();
     let root = galaxy_module::install::sessions_dir();
@@ -1329,7 +1386,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         options,
         running: None,
         pace: FixedStep::default(),
-        held: BTreeSet::new(),
+        live_left: BTreeSet::new(),
         modifiers: ModifiersState::empty(),
         pending: Vec::new(),
         scripted: script.inputs,
@@ -1680,6 +1737,7 @@ mod tests {
             source: "resume".into(),
             name: "engine.resumed".into(),
             payload: Default::default(),
+            via: None,
         }];
         for k in 0..13 {
             resumed.step(&[]).unwrap();
@@ -1830,6 +1888,7 @@ mod tests {
             source: "scenario".into(),
             name: "tune.play".into(),
             payload: Default::default(),
+            via: None,
         }];
         let music = |actions: &[galaxy_audio::Action]| {
             actions
@@ -1910,6 +1969,7 @@ mod tests {
     #[test]
     fn every_key_a_module_may_bind_is_on_the_keyboard() {
         use galaxy_module::manifest::KEYS;
+        use galaxy_sim::keys::MOUSE_KEYS;
         for name in KEYS {
             assert!(
                 KEY_CODES.iter().any(|(_, n)| *n == name) || MOUSE_KEYS.contains(&name),

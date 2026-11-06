@@ -7,6 +7,7 @@
 //! - [`save`]: SQLite saves that list the modules they ran with;
 //! - [`recording`]: session recordings and replay;
 //! - [`scenario`]: inputs files and scenario tests;
+//! - [`keys`]: keys held down by the window or a live connection, and the inputs they make;
 //! - [`step`] and [`watch`]: real-time pacing and module folder watching.
 //!
 //! `engine/docs/world-and-sim.md` and `engine/docs/saves-and-replay.md` explain the design.
@@ -14,6 +15,7 @@
 pub mod changes;
 pub mod collide;
 pub mod flight;
+pub mod keys;
 pub mod life;
 pub mod places;
 pub mod recording;

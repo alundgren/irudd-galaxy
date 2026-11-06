@@ -53,7 +53,7 @@ permit, so engine and slice builds queue for each other. Never plain `cargo buil
   `docs/flight-and-collision.md`, `docs/motion-tools.md`, `docs/exit-codes.md`,
   `docs/screens.md` (including hovers and recorded `look`), `docs/places-and-beings.md`, `docs/rooms-and-travel.md`,
   `docs/audio.md`, `docs/talk.md`, `docs/tests-and-what-if.md`,
-  `docs/live-socket.md` (galaxy-gm reading and hot-loading a running game),
+  `docs/live-socket.md` (galaxy-gm reading, hot-loading and playing a running game),
   `docs/model-generator.md`, `docs/music-generation.md`, `docs/audio-tools.md`,
   `docs/gm-unattended.md` (scheduled GM runs: memory, continuing save, handover),
   `docs/effects.md` (beams, particles, halos and camera feel), `docs/sky-depth.md`

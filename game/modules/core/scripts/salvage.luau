@@ -66,12 +66,13 @@ end
 -- Whether an offer made at `step` is on. `asked` is whether the giver is ready to ask;
 -- `haven` the station whose offer it is (nil for any other offer); `has` whether the hold
 -- carries what that station's work needs.
-function salvage.wanted(job, step, asked, haven, has)
+function salvage.wanted(job, step, asked, haven, has, kind)
     if job.step ~= step then return false end
     if step == salvage.ASKED then return asked end
     if step == salvage.MOORED then return haven ~= nil and job.at == haven and not job.towing end
     if step == salvage.NEEDS then return haven ~= nil and job.at == haven and has == true end
-    if step == salvage.DONE then return true end
+    -- Only a mended barge's skipper waits to pay for the tow; a kept barge stays.
+    if step == salvage.DONE then return kind == "mend" end
     return false
 end
 
@@ -314,8 +315,10 @@ function salvage.offers(ctx, station)
         if offer.project == id then
             local said = ctx.get(o, "engine.talk")
             local _, haven = haven_of(ctx, id, o)
+            local chosen = job.haven ~= "" and ctx.get(job.haven, "haven") or nil
             local on = not offer.later and places.of(ctx, said.speaker) == station
-                and salvage.wanted(job, offer.step, ready, haven and haven.station or nil, haven ~= nil and carries(ctx, haven))
+                and salvage.wanted(job, offer.step, ready, haven and haven.station or nil, haven ~= nil and carries(ctx, haven),
+                    chosen and chosen.kind or nil)
             instead_of[said.speaker] = offer.instead
             if on then on_for[said.speaker] = true end
             if said.enabled ~= on and not said.active then ctx.patch(o, "engine.talk", { enabled = on }) end

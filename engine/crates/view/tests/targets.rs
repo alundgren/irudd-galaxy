@@ -44,6 +44,7 @@ fn key_inputs(bot: &InputsFile) -> BTreeMap<u64, Vec<Input>> {
                 .into(),
                 name: "targets.back".into(),
                 payload,
+                via: None,
             });
         }
     }
@@ -300,6 +301,7 @@ fn a_room_without_glide_keeps_the_fade_cut_and_camera_changes_snap() {
         source: "ui".into(),
         name: "targets.go".into(),
         payload: Map::new(),
+        via: None,
     };
     s.step(&[go]).unwrap();
     let trip = &s.world.component("targets.player", TRAVEL).unwrap().fields;
@@ -318,6 +320,7 @@ fn a_room_without_glide_keeps_the_fade_cut_and_camera_changes_snap() {
         source: "ui".into(),
         name: "targets.pick".into(),
         payload,
+        via: None,
     }])
     .unwrap();
     let trip = &s.world.component("targets.player", TRAVEL).unwrap().fields;
@@ -396,6 +399,7 @@ fn journey(events: &[(u64, &str, &str, &str)], ticks: u64, note_at: u64) -> Jour
                     source: (*source).into(),
                     name: format!("targets.{name}"),
                     payload,
+                    via: None,
                 });
             }
         }
@@ -659,6 +663,7 @@ fn leaving_a_gliding_room_glides_back_out_to_the_follow_camera() {
         source: "ui".into(),
         name: "targets.go".into(),
         payload: Map::new(),
+        via: None,
     };
     for tick in 1..=80u64 {
         v.before_step(&s.world);
@@ -674,6 +679,7 @@ fn leaving_a_gliding_room_glides_back_out_to_the_follow_camera() {
                 source: "keyboard".into(),
                 name: "targets.back".into(),
                 payload,
+                via: None,
             });
         }
         s.step(&inputs).unwrap();

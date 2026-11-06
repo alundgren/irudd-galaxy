@@ -7,10 +7,12 @@
 //!   0600 in a folder only the user can open. Every request also carries the random token
 //!   from the discovery file, which only the user can read.
 //! - **Threads.** One thread accepts connections, without blocking, so it notices the
-//!   server stop. Each connection gets a thread of its own that reads request lines,
-//!   hands each to the game through a channel, wakes the game, and writes the reply when
-//!   the game has answered. The game answers between frames ([`Server::poll`]) and never
-//!   waits on a client: a reply goes into a one-place channel.
+//!   server stop. Each connection gets two threads of its own: one reads request lines,
+//!   hands each to the game through a channel and wakes the game; the other writes each
+//!   reply when the game has answered. Reading never waits for an answer, so a client
+//!   that hangs up is noticed at once and the game hears [`Message::Closed`]. The game
+//!   answers between frames ([`Server::poll`]) and never waits on a client: a reply goes
+//!   into a channel.
 //! - **Limits.** At most [`MAX_CONNECTIONS`] at once; a request line is at most
 //!   [`MAX_REQUEST`] bytes; a request with a wrong token closes the connection.
 
@@ -18,7 +20,7 @@ use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -43,14 +45,35 @@ pub type Wake = Arc<dyn Fn() + Send + Sync>;
 #[derive(Debug)]
 pub struct Incoming {
     pub op: Op,
+    /// The connection it came on: what a [`Message::Closed`] names.
+    pub conn: u64,
     id: u64,
-    reply: SyncSender<String>,
+    reply: Option<Sender<String>>,
 }
 
 impl Incoming {
-    pub fn respond(self, result: Result<Value, WireError>) {
-        let _ = self.reply.try_send(Response::line(self.id, result));
+    pub fn respond(mut self, result: Result<Value, WireError>) {
+        if let Some(reply) = self.reply.take() {
+            let _ = reply.send(Response::line(self.id, result));
+        }
     }
+}
+
+impl Drop for Incoming {
+    fn drop(&mut self) {
+        if let Some(reply) = self.reply.take() {
+            let _ = reply.send(gone(self.id));
+        }
+    }
+}
+
+/// What the game hears from its connections.
+#[derive(Debug)]
+pub enum Message {
+    Request(Incoming),
+    /// This connection closed (its client finished, or died): the game lets go of what
+    /// it held.
+    Closed(u64),
 }
 
 /// Where the server listens and what its discovery file says.
@@ -68,7 +91,7 @@ pub struct ServerOptions {
 /// The game's side of the socket. Dropping it stops accepting, ends every connection's
 /// wait for the game and removes the discovery file.
 pub struct Server {
-    rx: Receiver<Incoming>,
+    rx: Receiver<Message>,
     discovery: Discovery,
     file: PathBuf,
     stop: Arc<AtomicBool>,
@@ -173,7 +196,7 @@ impl Server {
     }
 
     /// The next request waiting, if any. Never blocks.
-    pub fn poll(&self) -> Option<Incoming> {
+    pub fn poll(&self) -> Option<Message> {
         self.rx.try_recv().ok()
     }
 }
@@ -193,12 +216,13 @@ impl Drop for Server {
 
 fn accept_loop(
     listener: interprocess::local_socket::Listener,
-    tx: Sender<Incoming>,
+    tx: Sender<Message>,
     token: String,
     stop: Arc<AtomicBool>,
     wake: Option<Wake>,
 ) {
     let open = Arc::new(AtomicUsize::new(0));
+    let mut conns: u64 = 0;
     while !stop.load(Ordering::SeqCst) {
         let stream = match listener.accept() {
             Ok(s) => s,
@@ -221,7 +245,9 @@ fn accept_loop(
             continue;
         }
         open.fetch_add(1, Ordering::SeqCst);
+        conns += 1;
         let conn = Conn {
+            id: conns,
             tx: tx.clone(),
             token: token.clone(),
             wake: wake.clone(),
@@ -242,45 +268,72 @@ fn accept_loop(
 }
 
 struct Conn {
-    tx: Sender<Incoming>,
+    id: u64,
+    tx: Sender<Message>,
     token: String,
     wake: Option<Wake>,
     stop: Arc<AtomicBool>,
 }
 
 impl Conn {
+    /// Reads requests until the client hangs up, while a thread of its own writes the
+    /// replies as the game gives them. Reading never waits for the game, so a client that
+    /// goes away is noticed even while the game still works on its request; the game then
+    /// hears [`Message::Closed`] and lets go of what the connection held.
     fn serve(self, stream: Stream) {
-        let mut reader = BufReader::new(&stream);
+        let stream = Arc::new(stream);
+        let send = stream.clone();
+        let (reply_tx, reply_rx) = mpsc::channel::<String>();
+        let writer = std::thread::Builder::new()
+            .name("galaxy-live-reply".into())
+            .spawn(move || {
+                for line in reply_rx {
+                    if write_line(&mut &*send, &line).is_err() {
+                        return;
+                    }
+                }
+            });
+        if writer.is_err() {
+            return;
+        }
+        let mut reader = BufReader::new(&*stream);
         loop {
             let mut line = Vec::new();
             match (&mut reader)
                 .take(MAX_REQUEST + 1)
                 .read_until(b'\n', &mut line)
             {
-                Ok(0) | Err(_) => return,
+                Ok(0) | Err(_) => break,
                 Ok(_) => {}
             }
             if line.len() as u64 > MAX_REQUEST {
                 let e = WireError::input(format!(
                     "a request is at most {MAX_REQUEST} bytes; this one is longer"
                 ));
-                let _ = send(&stream, &Response::line(0, Err(e)));
-                return;
+                let _ = reply_tx.send(Response::line(0, Err(e)));
+                break;
             }
-            let (reply, close) = self.answer(&line);
-            if send(&stream, &reply).is_err() || close {
-                return;
+            if !self.request(&line, &reply_tx) {
+                break;
             }
+        }
+        drop(reply_tx);
+        if self.tx.send(Message::Closed(self.id)).is_ok()
+            && let Some(wake) = &self.wake
+        {
+            wake();
         }
     }
 
-    /// The reply line to one request line, and whether to close the connection after it.
-    fn answer(&self, line: &[u8]) -> (String, bool) {
+    /// Hands one request line to the game, or replies to it here when it is no request
+    /// the game can take. False when the connection should close.
+    fn request(&self, line: &[u8], reply: &Sender<String>) -> bool {
         let request: Request = match serde_json::from_slice(line) {
             Ok(r) => r,
             Err(e) => {
                 let e = WireError::input(format!("not a request: {e}"));
-                return (Response::line(0, Err(e)), true);
+                let _ = reply.send(Response::line(0, Err(e)));
+                return false;
             }
         };
         if !token_matches(&request.token, &self.token) {
@@ -288,29 +341,36 @@ impl Conn {
                 "the live token is wrong: the game that wrote this discovery file is not \
                  the one listening",
             );
-            return (Response::line(request.id, Err(e)), true);
+            let _ = reply.send(Response::line(request.id, Err(e)));
+            return false;
         }
         let op = match Op::parse(&request.op, request.args) {
             Ok(op) => op,
-            Err(e) => return (Response::line(request.id, Err(WireError::usage(e))), false),
+            Err(e) => {
+                let _ = reply.send(Response::line(request.id, Err(WireError::usage(e))));
+                return true;
+            }
         };
-        let (reply_tx, reply_rx) = mpsc::sync_channel(1);
         let incoming = Incoming {
             op,
+            conn: self.id,
             id: request.id,
-            reply: reply_tx,
+            reply: Some(reply.clone()),
         };
-        if self.tx.send(incoming).is_err() || self.stop.load(Ordering::SeqCst) {
-            return (gone(request.id), true);
+        if self.stop.load(Ordering::SeqCst) {
+            // Dropped unanswered: the client hears the game went away.
+            drop(incoming);
+            return false;
+        }
+        // The game answers every request it takes, or drops it (and so says it went away)
+        // when it quits.
+        if self.tx.send(Message::Request(incoming)).is_err() {
+            return false;
         }
         if let Some(wake) = &self.wake {
             wake();
         }
-        // The game answers every request it takes, or drops it when it quits.
-        match reply_rx.recv() {
-            Ok(line) => (line, false),
-            Err(_) => (gone(request.id), true),
-        }
+        true
     }
 }
 
@@ -323,8 +383,7 @@ fn gone(id: u64) -> String {
     )
 }
 
-fn send(stream: &Stream, line: &str) -> io::Result<()> {
-    let mut w = stream;
+fn write_line(w: &mut impl Write, line: &str) -> io::Result<()> {
     w.write_all(line.as_bytes())?;
     w.write_all(b"\n")?;
     w.flush()

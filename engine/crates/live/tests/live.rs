@@ -6,19 +6,21 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use galaxy_live::client::{self, Game};
-use galaxy_live::{Host, Live, Op, RunningModule, ServerOptions, WireError};
+use galaxy_live::{Act, Host, Live, Op, RunningModule, ServerOptions, Step, WireError};
 use galaxy_module::module::Module;
 use galaxy_render::RgbaImage;
-use galaxy_sim::{BuildStamp, Session};
+use galaxy_sim::keys::{Hand, Keys};
+use galaxy_sim::recording::RecEvent;
+use galaxy_sim::{BuildStamp, Input, Session};
 use serde_json::{Map, Value, json};
 
-/// The test modules, copied so a test can edit them.
-fn modules(into: &Path) -> Vec<PathBuf> {
-    let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/modules");
+/// Test modules (`tests/<folder>/<name>`), copied so a test can edit them.
+fn modules(into: &Path, names: &[(&str, &str)]) -> Vec<PathBuf> {
+    let tests = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests");
     let mut dirs = Vec::new();
-    for name in ["stroll", "tally"] {
+    for (folder, name) in names {
         let to = into.join(name);
-        copy(&src.join(name), &to);
+        copy(&tests.join(folder).join(name), &to);
         dirs.push(to);
     }
     dirs
@@ -37,12 +39,15 @@ fn copy(from: &Path, to: &Path) {
     }
 }
 
-/// A game without a window: the session, and where its recording goes.
+/// A game without a window: the session, and where its recording goes. Its keys work as
+/// the play window's do: held through [`Keys`], their inputs run on the next tick.
 struct Headless {
     session: Session,
     dir: PathBuf,
     /// An F8 note is open.
     paused: bool,
+    keys: Keys,
+    pending: Vec<Input>,
 }
 
 impl Host for Headless {
@@ -81,6 +86,40 @@ impl Host for Headless {
         self.session.recording()?.write(&path).ok()?;
         Some(path)
     }
+
+    fn refuses_input(&self) -> Option<String> {
+        self.paused.then(|| "an F8 note is open".to_owned())
+    }
+
+    fn live_input(&mut self, conn: u64, act: &Act) -> Result<(), String> {
+        match act {
+            Act::Key { key, down } => {
+                let inputs = self.keys.press(key, *down, Hand::Live(conn));
+                self.pending.extend(inputs);
+                Ok(())
+            }
+            Act::Move { .. } => Err("no pointer without a window".into()),
+        }
+    }
+
+    fn live_release(&mut self, conn: u64) {
+        let inputs = self.keys.release(Hand::Live(conn));
+        self.pending.extend(inputs);
+    }
+
+    fn bound(&self, key: &str) -> bool {
+        self.keys.bound(key)
+    }
+}
+
+impl Headless {
+    /// One tick, with the live steps due for it and the inputs held keys made.
+    fn tick(&mut self, live: &mut Live) {
+        live.before_tick(self);
+        let inputs = std::mem::take(&mut self.pending);
+        self.session.step(&inputs).unwrap();
+        live.after_tick(&self.session.world);
+    }
 }
 
 struct Rig {
@@ -92,8 +131,17 @@ struct Rig {
 }
 
 fn rig() -> Rig {
+    rig_of(&[("modules", "stroll"), ("modules", "tally")])
+}
+
+/// A rig with a ship flown by held keys.
+fn drift() -> Rig {
+    rig_of(&[("play", "drift")])
+}
+
+fn rig_of(names: &[(&str, &str)]) -> Rig {
     let tmp = tempfile::tempdir().unwrap();
-    let module_dirs = modules(&tmp.path().join("modules"));
+    let module_dirs = modules(&tmp.path().join("modules"), names);
     let loaded: Vec<Module> = module_dirs
         .iter()
         .map(|d| Module::read(d).unwrap())
@@ -129,9 +177,11 @@ fn rig() -> Rig {
         live_dir,
         module_dirs,
         host: Headless {
+            keys: Keys::new(session.modules()),
             session,
             dir: session_dir,
             paused: false,
+            pending: Vec::new(),
         },
         live,
     }
@@ -153,9 +203,8 @@ impl Rig {
                 "the client hung"
             );
             self.live.serve(&mut self.host);
-            if self.live.watching() {
-                self.host.session.step(&[]).unwrap();
-                self.live.after_tick(&self.host.session.world);
+            if self.live.waiting() {
+                self.host.tick(&mut self.live);
             }
             thread::sleep(Duration::from_millis(1));
         }
@@ -430,4 +479,267 @@ fn a_wrong_token_is_refused() {
         })
         .unwrap_err();
     assert!(err.message.contains("token"), "{}", err.message);
+}
+
+fn key(at: u64, key: &str, down: bool) -> Step {
+    Step {
+        at,
+        act: Act::Key {
+            key: key.into(),
+            down,
+        },
+    }
+}
+
+/// The recorded inputs: tick, event, down, source and via.
+type Recorded = (u64, String, bool, String, Option<String>);
+
+fn recorded(session: &Session) -> Vec<Recorded> {
+    session
+        .recording()
+        .unwrap()
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            RecEvent::Input(i) => Some((
+                i.tick,
+                i.name.clone(),
+                i.payload["down"] == true,
+                i.source.clone(),
+                i.via.clone(),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn live_input_holds_keys_together_like_the_keyboard_and_replays() {
+    let mut rig = drift();
+    let start = rig.host.session.world.tick;
+    let ship = |s: &Session| {
+        let p = &s.world.entities["drift.ship"]["engine.position"].fields;
+        (p["x"].as_f64().unwrap(), p["y"].as_f64().unwrap())
+    };
+    let before = ship(&rig.host.session);
+    // Hold W for two seconds while holding A for the first half second.
+    let report = rig
+        .with_client(|dir| {
+            call(
+                &dir,
+                Op::Input {
+                    steps: vec![
+                        key(0, "w", true),
+                        key(60, "w", false),
+                        key(0, "a", true),
+                        key(15, "a", false),
+                    ],
+                    ticks: 61,
+                },
+            )
+        })
+        .unwrap();
+    assert_eq!(report["from_tick"], start + 1);
+    assert_eq!(report["to_tick"], start + 61);
+    assert_eq!(report["held"], json!([]));
+    assert_eq!(report["unbound"], json!([]));
+    assert_eq!(report["hash"], rig.host.session.world.hash());
+    let taken: Vec<(u64, String)> = report["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| {
+            (
+                s["tick"].as_u64().unwrap(),
+                s["step"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        taken,
+        [
+            (start + 1, "down w".into()),
+            (start + 1, "down a".into()),
+            (start + 16, "up a".into()),
+            (start + 61, "up w".into()),
+        ]
+    );
+    let live = || Some("live".to_owned());
+    let keyboard = || "keyboard".to_owned();
+    let ahead = "drift.thrust_ahead".to_owned();
+    let left = "drift.turn_left".to_owned();
+    assert_eq!(
+        recorded(&rig.host.session),
+        [
+            (start + 1, ahead.clone(), true, keyboard(), live()),
+            (start + 1, left.clone(), true, keyboard(), live()),
+            (start + 16, left, false, keyboard(), live()),
+            (start + 61, ahead, false, keyboard(), live()),
+        ]
+    );
+    let after = ship(&rig.host.session);
+    assert!(
+        (after.0 - before.0).hypot(after.1 - before.1) > 1.0,
+        "the ship flew: {before:?} to {after:?}"
+    );
+
+    // The window's own keys on the same ticks make the same world.
+    let loaded: Vec<Module> = rig
+        .module_dirs
+        .iter()
+        .map(|d| Module::read(d).unwrap())
+        .collect();
+    let mut plain = Session::new(loaded, 7).unwrap();
+    let mut keys = Keys::new(plain.modules());
+    for _ in 0..start {
+        plain.step(&[]).unwrap();
+    }
+    for tick in start + 1..=start + 61 {
+        let mut inputs = Vec::new();
+        if tick == start + 1 {
+            inputs.extend(keys.press("w", true, Hand::Window));
+            inputs.extend(keys.press("a", true, Hand::Window));
+        }
+        if tick == start + 16 {
+            inputs.extend(keys.press("a", false, Hand::Window));
+        }
+        if tick == start + 61 {
+            inputs.extend(keys.press("w", false, Hand::Window));
+        }
+        assert!(inputs.iter().all(|i| i.via.is_none()));
+        plain.step(&inputs).unwrap();
+    }
+    assert_eq!(
+        rig.host.session.world.hash(),
+        plain.world.hash(),
+        "live keys and the window's keys make the same world"
+    );
+
+    // History says which inputs came through the live socket.
+    let history = rig
+        .with_client(|dir| {
+            call(
+                &dir,
+                Op::History {
+                    last: Some(10),
+                    since: None,
+                    kind: None,
+                    inputs: true,
+                },
+            )
+        })
+        .unwrap();
+    let facts = history["facts"].as_array().unwrap();
+    assert_eq!(facts.len(), 4, "{history}");
+    for f in facts {
+        assert_eq!(f["by"], "input from keyboard via live", "{f}");
+        assert_eq!(f["via"], "live");
+    }
+
+    // The recording, written and read back, replays to the same world.
+    let path = rig.host.write_recording().unwrap();
+    let rec = galaxy_sim::Recording::read(&path).unwrap();
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(
+        text.matches("\"via\":\"live\"").count(),
+        4,
+        "recorded via live"
+    );
+    let (replayed, report) = galaxy_sim::replay(&rec).unwrap();
+    assert!(report.identical, "a session played live replays");
+    assert_eq!(replayed.world.hash(), rig.host.session.world.hash());
+}
+
+#[test]
+fn a_closed_connection_lets_go_of_what_it_held() {
+    let mut rig = drift();
+    let held = rig
+        .with_client(|dir| {
+            let mut conn = client::Connection::open(&the_game(&dir).discovery).unwrap();
+            let reply = conn.call(
+                &Op::Input {
+                    steps: vec![key(0, "w", true), key(0, "shift", true)],
+                    ticks: 1,
+                },
+                Duration::from_secs(30),
+            );
+            // The client goes away without letting go, as a killed process would.
+            drop(conn);
+            reply
+        })
+        .unwrap();
+    assert_eq!(held["held"], json!(["shift", "w"]));
+    let down_at = rig.host.session.world.tick;
+    // The game hears the connection close and lets go before the next tick.
+    let started = Instant::now();
+    while rig.host.pending.len() < 2 {
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "the held keys were never let go"
+        );
+        rig.live.serve(&mut rig.host);
+        thread::sleep(Duration::from_millis(1));
+    }
+    rig.host.tick(&mut rig.live);
+    let ups: Vec<Recorded> = recorded(&rig.host.session)
+        .into_iter()
+        .filter(|r| !r.2)
+        .collect();
+    assert_eq!(ups.len(), 2, "{ups:?}");
+    for (tick, _, _, source, via) in ups {
+        assert_eq!(tick, down_at + 1);
+        assert_eq!(source, "keyboard");
+        assert_eq!(via.as_deref(), Some("live"));
+    }
+    assert!(!rig.host.keys.is_held("w"));
+    let (_, report) = galaxy_sim::replay(&rig.host.session.recording().unwrap()).unwrap();
+    assert!(report.identical);
+}
+
+#[test]
+fn bad_input_steps_and_a_closed_game_are_clear_errors() {
+    let mut rig = drift();
+    let bad = rig
+        .with_client(|dir| {
+            call(
+                &dir,
+                Op::Input {
+                    steps: vec![key(0, "jump", true)],
+                    ticks: 1,
+                },
+            )
+        })
+        .unwrap_err();
+    assert_eq!((bad.code, bad.kind.as_str()), (2, "usage"));
+    assert!(
+        bad.message.contains("`jump` is not a key"),
+        "{}",
+        bad.message
+    );
+    assert!(bad.message.contains("mouse_left"), "{}", bad.message);
+    rig.host.paused = true;
+    let paused = rig
+        .with_client(|dir| {
+            call(
+                &dir,
+                Op::Input {
+                    steps: vec![key(0, "w", true)],
+                    ticks: 1,
+                },
+            )
+        })
+        .unwrap_err();
+    rig.host.paused = false;
+    assert_eq!(paused.kind, "runtime");
+    assert!(paused.message.contains("F8"), "{}", paused.message);
+    assert!(
+        recorded(&rig.host.session).is_empty(),
+        "nothing was pressed"
+    );
+
+    let game = the_game(&rig.live_dir).discovery;
+    let Rig { live, .. } = rig;
+    drop(live);
+    let closed = client::Connection::open(&game).err().unwrap();
+    assert_eq!((closed.code, closed.kind.as_str()), (2, "no_game"));
 }

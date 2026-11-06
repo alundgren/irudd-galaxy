@@ -275,6 +275,7 @@ impl View {
                 .as_object()
                 .unwrap()
                 .clone(),
+            via: None,
         })
     }
 

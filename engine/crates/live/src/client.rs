@@ -1,11 +1,13 @@
-//! The client `galaxy-gm live` uses: find the running games, choose one, send one request
-//! and read its reply.
+//! The client `galaxy-gm live` uses: find the running games, choose one, send requests
+//! over one connection and read their replies.
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::mpsc;
 use std::time::Duration;
 
+use interprocess::local_socket::Stream;
 use serde_json::{Value, json};
 
 use crate::protocol::{Discovery, Op, PROTOCOL, Request, Response, WireError};
@@ -135,65 +137,103 @@ pub fn choose(
 
 /// Sends one request and waits up to `timeout` for its reply.
 pub fn call(game: &Discovery, op: &Op, timeout: Duration) -> Result<Value, WireError> {
-    if game.protocol != PROTOCOL {
-        return Err(WireError::new(
-            2,
-            "live_protocol",
-            format!(
-                "the running game (build {}) speaks live protocol {}, and this galaxy-gm \
-                 speaks {PROTOCOL}; run the game's own: galaxy-gm --build {} live ...",
-                game.build, game.protocol, game.build
-            ),
-        ));
-    }
-    let wire = serde_json::to_value(op).expect("ops serialize");
-    let request = Request {
-        id: 1,
-        token: game.token.clone(),
-        op: wire["op"].as_str().unwrap_or_default().to_owned(),
-        args: wire.get("args").cloned().unwrap_or(json!({})),
-    };
-    let stream = game.endpoint.connect().map_err(|e| {
-        WireError::new(
-            2,
-            "no_game",
-            format!("the game (pid {}) stopped answering: {e}", game.pid),
-        )
-    })?;
-    let line = serde_json::to_string(&request).expect("requests serialize");
-    (&stream)
-        .write_all(format!("{line}\n").as_bytes())
-        .and_then(|()| (&stream).flush())
-        .map_err(|e| WireError::runtime(format!("can't send to the game: {e}")))?;
-    // Named pipes have no read timeout, so the read runs on a thread of its own.
-    let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
-        let mut reply = String::new();
-        let read = BufReader::new(&stream).read_line(&mut reply);
-        let _ = tx.send(read.map(|_| reply));
-    });
-    let reply = match rx.recv_timeout(timeout) {
-        Ok(Ok(reply)) if !reply.trim().is_empty() => reply,
-        Ok(Ok(_)) | Ok(Err(_)) | Err(mpsc::RecvTimeoutError::Disconnected) => {
-            return Err(WireError::runtime(
-                "the game closed the connection without answering (did it quit?)",
+    Connection::open(game)?.call(op, timeout)
+}
+
+/// One connection to a game, for several requests in turn. Closing it (dropping it, or
+/// the process ending however it ends) lets go of every key it holds in the game.
+pub struct Connection {
+    stream: Arc<Stream>,
+    token: String,
+    next: u64,
+    /// A request went unanswered in time; its reply may still come, so the connection
+    /// takes no more.
+    stale: bool,
+}
+
+impl Connection {
+    pub fn open(game: &Discovery) -> Result<Connection, WireError> {
+        if game.protocol != PROTOCOL {
+            return Err(WireError::new(
+                2,
+                "live_protocol",
+                format!(
+                    "the running game (build {}) speaks live protocol {}, and this galaxy-gm \
+                     speaks {PROTOCOL}; run the game's own: galaxy-gm --build {} live ...",
+                    game.build, game.protocol, game.build
+                ),
             ));
         }
-        Err(mpsc::RecvTimeoutError::Timeout) => {
-            return Err(WireError::runtime(format!(
-                "the game did not answer within {} s. Is it paused at a note (F8), or \
-                 minimized so its ticks stopped?",
-                timeout.as_secs()
-            )));
+        let stream = game.endpoint.connect().map_err(|e| {
+            WireError::new(
+                2,
+                "no_game",
+                format!("the game (pid {}) stopped answering: {e}", game.pid),
+            )
+        })?;
+        Ok(Connection {
+            stream: Arc::new(stream),
+            token: game.token.clone(),
+            next: 1,
+            stale: false,
+        })
+    }
+
+    /// Sends one request and waits up to `timeout` for its reply.
+    pub fn call(&mut self, op: &Op, timeout: Duration) -> Result<Value, WireError> {
+        if self.stale {
+            return Err(WireError::runtime(
+                "an earlier request on this connection went unanswered",
+            ));
         }
-    };
-    let response: Response = serde_json::from_str(&reply)
-        .map_err(|e| WireError::runtime(format!("the game's reply is not one: {e}")))?;
-    match (response.ok, response.result, response.error) {
-        (true, Some(result), _) => Ok(result),
-        (_, _, Some(error)) => Err(error),
-        _ => Err(WireError::runtime(
-            "the game's reply has neither result nor error",
-        )),
+        let id = self.next;
+        self.next += 1;
+        let wire = serde_json::to_value(op).expect("ops serialize");
+        let request = Request {
+            id,
+            token: self.token.clone(),
+            op: wire["op"].as_str().unwrap_or_default().to_owned(),
+            args: wire.get("args").cloned().unwrap_or(json!({})),
+        };
+        let line = serde_json::to_string(&request).expect("requests serialize");
+        let mut send = &*self.stream;
+        send.write_all(format!("{line}\n").as_bytes())
+            .and_then(|()| send.flush())
+            .map_err(|e| WireError::runtime(format!("can't send to the game: {e}")))?;
+        // Named pipes have no read timeout, so the read runs on a thread of its own. One
+        // request is out at a time, so the reader takes no more than its reply's line.
+        let (tx, rx) = mpsc::channel();
+        let stream = self.stream.clone();
+        std::thread::spawn(move || {
+            let mut reply = String::new();
+            let read = BufReader::new(&*stream).read_line(&mut reply);
+            let _ = tx.send(read.map(|_| reply));
+        });
+        let reply = match rx.recv_timeout(timeout) {
+            Ok(Ok(reply)) if !reply.trim().is_empty() => reply,
+            Ok(Ok(_)) | Ok(Err(_)) | Err(mpsc::RecvTimeoutError::Disconnected) => {
+                self.stale = true;
+                return Err(WireError::runtime(
+                    "the game closed the connection without answering (did it quit?)",
+                ));
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                self.stale = true;
+                return Err(WireError::runtime(format!(
+                    "the game did not answer within {} s. Is it paused at a note (F8), or \
+                     minimized so its ticks stopped?",
+                    timeout.as_secs()
+                )));
+            }
+        };
+        let response: Response = serde_json::from_str(&reply)
+            .map_err(|e| WireError::runtime(format!("the game's reply is not one: {e}")))?;
+        match (response.ok, response.result, response.error) {
+            (true, Some(result), _) => Ok(result),
+            (_, _, Some(error)) => Err(error),
+            _ => Err(WireError::runtime(
+                "the game's reply has neither result nor error",
+            )),
+        }
     }
 }
