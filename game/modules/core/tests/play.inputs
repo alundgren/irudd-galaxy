@@ -16,119 +16,119 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 900
+tick = 960
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 # The exchange building itself: hover, then click; the cut lands in Tova's room.
 [[pointer]]
-tick = 1854
+tick = 1638
 action = "move"
 widget = "target_exchange"
 [[click]]
-tick = 1864
+tick = 1648
 widget = "target_exchange"
 
 # Tova at her counter: her introduction, then a line about the hold.
 [[click]]
-tick = 1899
+tick = 1683
 widget = "speaker.core.lantern_trader"
 [[click]]
-tick = 1914
+tick = 1698
 widget = "talk.core.lantern_trader_intro"
 [[click]]
-tick = 1929
+tick = 1713
 widget = "talk.core.lantern_trader_intro"
 [[click]]
-tick = 1944
+tick = 1728
 widget = "talk.core.lantern_trader_intro"
 [[click]]
-tick = 1959
+tick = 1743
 widget = "speaker.core.lantern_trader"
 [[click]]
-tick = 1979
+tick = 1763
 widget = "talk.core.lantern_trader_talk"
 [[click]]
-tick = 1994
+tick = 1778
 widget = "sell_ore"
 
 # Back with Esc; the office from the key, its cut landed by a click.
 [[key]]
-tick = 2019
+tick = 1803
 key = "escape"
 [[click]]
-tick = 2054
+tick = 1838
 widget = "key_office"
 [[click]]
-tick = 2060
+tick = 1844
 widget = "point:640,140"
 
 # Bram at his desk introduces himself, one line per click on his bubble.
 [[click]]
-tick = 2084
+tick = 1868
 widget = "speaker.core.lantern_master"
 [[click]]
-tick = 2104
+tick = 1888
 widget = "talk.core.lantern_master_intro"
 [[click]]
-tick = 2119
+tick = 1903
 widget = "talk.core.lantern_master_intro"
 [[click]]
-tick = 2134
+tick = 1918
 widget = "talk.core.lantern_master_intro"
 [[click]]
-tick = 2149
+tick = 1933
 widget = "talk.core.lantern_master_intro"
 [[click]]
-tick = 2164
+tick = 1948
 widget = "talk.core.lantern_master_intro"
 
 # Back with a right-click; the log, shut with Esc; then launch.
 [[key]]
-tick = 2184
+tick = 1968
 key = "mouse_right"
 [[click]]
-tick = 2229
+tick = 2013
 widget = "log_open"
 [[key]]
-tick = 2254
+tick = 2038
 key = "escape"
 [[click]]
-tick = 2269
+tick = 2053
 widget = "launch"
 [[note]]
 tick = 30
 text = "Flying into solid ironstone."
 [[note]]
-tick = 870
-text = "24 ore aboard: the two rocks they came from are cut down to pebbles."
+tick = 930
+text = "24 ore aboard: three small rocks cut down to pebbles, and a start on a fourth."
 [[note]]
-tick = 1754
+tick = 1538
 text = "Docked: the station up close, its buildings are the menu."
 [[note]]
-tick = 1857
+tick = 1641
 text = "Pointing at the exchange: it lifts, gets an outline and the pointer is a hand."
 [[note]]
-tick = 1879
+tick = 1663
 text = "Clicked the exchange: a cut to a title card naming the place, then the room."
 [[note]]
-tick = 1906
+tick = 1690
 text = "Tova introduces herself from behind her counter, in a bubble on her."
 [[note]]
-tick = 1969
+tick = 1753
 text = "Clicked again, Tova talks about the hold instead of repeating."
 [[note]]
-tick = 2009
+tick = 1793
 text = "Sold 24 ore; the crate stack and credits grew, and Tova goes to stack crates."
 [[note]]
-tick = 2066
+tick = 1850
 text = "The office cut landed at once on a click."
 [[note]]
-tick = 2094
+tick = 1878
 text = "Bram's first line: his name as a heading, his job quieter, one sentence, a small Continue."
 [[note]]
-tick = 2239
+tick = 2023
 text = "The log: newest first, each conversation one entry with speaker and station."
 [[note]]
-tick = 2344
+tick = 2128
 text = "Launched back into space."

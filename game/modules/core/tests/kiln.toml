@@ -1,5 +1,5 @@
 seed = 7
-ticks = 2216
+ticks = 1977
 [[input]]
 tick = 1
 name = "core.ahead"
@@ -12,20 +12,20 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 900
+tick = 960
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 1976
+tick = 1737
 name = "core.open"
 [[input]]
-tick = 2036
+tick = 1797
 name = "core.sell"
 [[input]]
-tick = 2096
+tick = 1857
 name = "core.close"
 [[input]]
-tick = 2156
+tick = 1917
 name = "core.launch"
 
 [[expect]]
@@ -43,77 +43,85 @@ field = "x"
 at_most = 9
 
 [[expect]]
-tick = 870
+tick = 930
 entity = "ship"
 component = "hold"
 field = "ore"
 equals = 24
 
 [[expect]]
-tick = 870
+tick = 930
 entity = "rock1"
 component = "ore"
 field = "left"
 equals = 0
 
 [[expect]]
-tick = 870
+tick = 930
 entity = "rock1"
 component = "engine.model"
 field = "morph"
 equals = 1.0
 
 [[expect]]
-tick = 1966
+tick = 1727
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.kiln"
 
 [[expect]]
-tick = 2016
+tick = 1777
 entity = "ship"
 component = "pilot"
 field = "room"
 equals = "core.kiln_exchange"
 
 [[expect]]
-tick = 2046
+tick = 1807
 entity = "ship"
 component = "pilot"
 field = "credits"
 equals = 379
 
 [[expect]]
-tick = 2046
+tick = 1807
 entity = "ship"
 component = "hold"
 field = "ore"
 equals = 0
 
+# The counted docking eased Lantern Dock's ore line too, from 38 towards its 60.
 [[expect]]
-tick = 2046
+tick = 1807
+entity = "lantern_ore"
+component = "market"
+field = "stock"
+equals = 50
+
+[[expect]]
+tick = 1807
 entity = "kiln_ore"
 component = "market"
 field = "stock"
-equals = 105
+equals = 74
 
 [[expect]]
-tick = 2046
+tick = 1807
 entity = "kiln_stock"
 component = "engine.model"
 field = "scale"
-equals = 0.9999999999999999
+equals = 1.08
 
 [[expect]]
-tick = 2216
+tick = 1977
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.reach"
 
 [[expect]]
-tick = 2216
+tick = 1977
 entity = "ship"
 component = "engine.model"
 field = "scale"

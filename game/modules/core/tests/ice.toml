@@ -2,7 +2,7 @@
 # drift and presses Space, and the nearest rock is ice3, a small pale floe. The order cuts
 # it down and moves on through the drift until 24 ice fill the hold, none of it ore.
 seed = 7
-ticks = 2000
+ticks = 1560
 
 [[input]]
 tick = 1
@@ -20,16 +20,16 @@ name = "ahead"
 payload = { down = true }
 
 [[input]]
-tick = 900
+tick = 600
 name = "ahead"
 payload = { down = false }
 
 [[input]]
-tick = 960
+tick = 660
 name = "mine"
 
 [[expect]]
-tick = 962
+tick = 662
 entity = "ship"
 component = "pilot"
 field = "target"

@@ -2,10 +2,10 @@
 # the same route headless). W flies up to the first rock, and a click on a rock across
 # the field says it is out of reach. Space held puts the beam on the first rock, chips
 # fly back up the beam to the nose, each unit lands in the hold with an amber puff and a
-# count, and the twelfth cuts it down. A turn and a nudge put the nose on the next rock,
-# whose twelve fill the hold. Turned round onto Lantern Dock, W flies her the long way
-# there; a touch of D re-aims her, and W let go coasts the ship to a stop in its glowing
-# ring and the clamps take her in with a puff. Nine notes.
+# count, and the seventh cuts it down. A turn and a short run put the nose on the big
+# east seam, whose soft stone cuts faster and fills the hold. Turned onto Lantern Dock,
+# W flies her there; a touch re-aims her, and W let go coasts the ship to a stop in its
+# glowing ring and the clamps take her in with a puff. Nine notes.
 [[input]]
 tick = 4
 name = "core.ahead"
@@ -17,10 +17,10 @@ name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
 [[click]]
-tick = 25
+tick = 40
 widget = "rock_rock3"
 [[note]]
-tick = 30
+tick = 41
 text = "Clicked a rock across the field: too far for the hand cutter, and it says so."
 [[note]]
 tick = 44
@@ -37,92 +37,102 @@ text = "Space held: the amber beam runs from the nose to the rock, sparks where 
 tick = 61
 text = "First unit: a fistful of stone breaks off towards the ship, the hold puffs amber and counts +1."
 [[note]]
-tick = 392
-text = "Twelfth unit: the rock is cut down to pebbles and the beam lets go."
+tick = 242
+text = "Seventh unit: the rock is cut down to pebbles and the beam lets go."
 [[input]]
-tick = 395
+tick = 243
 name = "core.mine"
 source = "keyboard"
 payload = { down = false }
 [[input]]
-tick = 400
+tick = 248
 name = "core.left"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 410
+tick = 249
 name = "core.left"
 source = "keyboard"
 payload = { down = false }
 [[input]]
-tick = 420
+tick = 253
 name = "core.ahead"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 432
+tick = 359
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
 [[input]]
-tick = 460
+tick = 419
+name = "core.right"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 423
+name = "core.right"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 429
 name = "core.mine"
 source = "keyboard"
 payload = { down = true }
 [[note]]
-tick = 812
+tick = 461
+text = "On the big east seam: the units come faster and the count says rich seam."
+[[note]]
+tick = 783
 text = "Twenty-fourth unit: the hold is full with a bigger puff, the beam lets go, and the hint says to fly into a berth's ring."
 [[input]]
-tick = 830
+tick = 799
 name = "core.mine"
 source = "keyboard"
 payload = { down = false }
 [[input]]
-tick = 840
-name = "core.left"
-source = "keyboard"
-payload = { down = true }
-[[input]]
-tick = 868
-name = "core.left"
-source = "keyboard"
-payload = { down = false }
-[[input]]
-tick = 872
-name = "core.ahead"
-source = "keyboard"
-payload = { down = true }
-[[note]]
-tick = 1000
-text = "Flying to Lantern Dock, a long way out: the exhaust trails behind and the view looks a little ahead."
-[[input]]
-tick = 1559
-name = "core.ahead"
-source = "keyboard"
-payload = { down = false }
-[[input]]
-tick = 1604
+tick = 806
 name = "core.right"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 1608
+tick = 826
 name = "core.right"
 source = "keyboard"
 payload = { down = false }
 [[input]]
-tick = 1612
+tick = 830
 name = "core.ahead"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 1629
+tick = 1304
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 1349
+name = "core.right"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 1356
+name = "core.right"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 1360
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 1388
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
 [[note]]
-tick = 1672
+tick = 1432
 text = "Coasted to a stop inside the berth's glowing ring."
 [[note]]
-tick = 1684
+tick = 1444
 text = "The clamps take her in with a puff of vapour."

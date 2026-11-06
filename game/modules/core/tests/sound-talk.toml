@@ -4,7 +4,7 @@
 # the last one too as the talk ends, and another stale click on the finished last line
 # adds nothing. A talk heard again blips again.
 seed = 3
-ticks = 2194
+ticks = 1978
 
 [[input]]
 tick = 1
@@ -18,122 +18,122 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 900
+tick = 960
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 1704
+tick = 1488
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 1650 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 1434 }
 # Into Bram's office, where he is met.
 [[input]]
-tick = 1724
+tick = 1508
 name = "core.open"
 payload = { facility = "core.lantern_office" }
 [[input]]
-tick = 1727
+tick = 1511
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 1724 }
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 1508 }
 [[input]]
-tick = 1764
+tick = 1548
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_master_intro" }
 [[input]]
-tick = 1824
+tick = 1608
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
 [[input]]
-tick = 1824
+tick = 1608
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
 [[input]]
-tick = 1829
+tick = 1613
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
 [[expect]]
-tick = 1829
+tick = 1613
 entity = "lantern_master_intro"
 component = "engine.talk"
 field = "current"
 equals = "core.lantern_master_intro2"
 [[expect]]
-tick = 1829
+tick = 1613
 facts = "engine.talk_next"
 equals = 3
 [[expect]]
-tick = 1829
+tick = 1613
 facts = "talk_line"
 equals = 1
 
 [[input]]
-tick = 1884
+tick = 1668
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro2" }
 [[input]]
-tick = 1944
+tick = 1728
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro3" }
 [[input]]
-tick = 2004
+tick = 1788
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro4" }
 [[input]]
-tick = 2064
+tick = 1848
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro5" }
 [[input]]
-tick = 2066
+tick = 1850
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro5" }
 [[expect]]
-tick = 2069
+tick = 1853
 entity = "lantern_master_intro"
 component = "engine.talk"
 field = "active"
 equals = false
 [[expect]]
-tick = 2069
+tick = 1853
 facts = "talk_line"
 equals = 5
 
 # His everyday line, heard twice: each time the talk starts and the line is clicked, it
 # blips again.
 [[input]]
-tick = 2154
+tick = 1938
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_master_talk" }
 [[input]]
-tick = 2164
+tick = 1948
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_talk", line = "core.lantern_master_now" }
 [[input]]
-tick = 2174
+tick = 1958
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_master_talk" }
 [[input]]
-tick = 2184
+tick = 1968
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_talk", line = "core.lantern_master_now" }
 [[expect]]
-tick = 2165
+tick = 1949
 facts = "talk_line"
 equals = 6
 [[expect]]
-tick = 2185
+tick = 1969
 facts = "talk_line"
 equals = 7

@@ -12,13 +12,13 @@ tick = 90
 name = "ahead"
 payload = { down = false }
 
-# On the surface: the rock (at x 12) stops it short.
+# On the surface: the rock (at x 12) stops it short of the 8.9 it would reach unhindered.
 [[expect]]
 tick = 24
 entity = "ship"
 component = "engine.position"
 field = "x"
-at_most = 8.3
+at_most = 8.7
 
 # Pressed against the curved side, it slides round it instead of sticking or passing.
 [[expect]]

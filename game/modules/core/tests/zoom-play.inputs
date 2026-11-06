@@ -3,50 +3,50 @@
 # the HUD and is drawn once she is beside the ship; then zoomed fully out, where she is
 # named, and a Dock order to Cinder Kiln, where she and Quiet Lamp lie moored without
 # labels once she has flown on there. Six notes.
-[[zoom]]
-tick = 10
-steps = 20.0
 [[input]]
 tick = 1
 name = "core.right"
 payload = { down = true }
+[[zoom]]
+tick = 10
+steps = 20.0
 [[input]]
 tick = 16
 name = "core.right"
 payload = { down = false }
 [[input]]
-tick = 580
+tick = 370
 name = "core.ahead"
 payload = { down = true }
 [[note]]
-tick = 1100
+tick = 657
 text = "Zoomed fully in: Little Mercy is still off screen, so no label of hers is drawn."
 [[note]]
-tick = 1180
+tick = 737
 text = "Zoomed in, she passes below the ship: her label would sit on the message, so it yields."
 [[note]]
-tick = 1196
+tick = 753
 text = "Zoomed in, she is beside the ship: named, clear of the orders, status and message."
 [[input]]
-tick = 1220
+tick = 777
 name = "core.ahead"
 payload = { down = false }
 [[zoom]]
-tick = 1240
+tick = 797
 steps = -40.0
 [[input]]
-tick = 1250
+tick = 807
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[note]]
-tick = 1280
+tick = 837
 text = "Zoomed fully out: Little Mercy named as she flies on towards Cinder Kiln."
 [[input]]
-tick = 2520
+tick = 1720
 name = "core.launch"
 [[note]]
-tick = 2560
+tick = 1760
 text = "Zoomed out off Cinder Kiln: Little Mercy and Quiet Lamp lie moored by it and wear no labels."
 [[note]]
-tick = 2640
+tick = 1840
 text = "Zoomed out with nothing pressed, coasting off Cinder Kiln: nothing jitters."

@@ -94,6 +94,9 @@ total = { type = "int", default = 12 }
 ware = { type = "text", default = "ore" }
 stages = { type = "text", default = "" }
 empty = { type = "text", default = "" }
+# How fast the beam cuts this rock, times the ship's own rate: the big seams are rich,
+# soft stone (1.5), so choosing one pays; the rest cut at the ship's rate (1).
+rich = { type = "number", default = 1.0 }
 
 [components.port]
 name = "text"
@@ -138,6 +141,12 @@ how = "text"
 site_model = "text"
 # What its room says once built, when nothing is traded there ("" for a room that trades).
 built = "text"
+# What the keeper waiting on it says when the first of its ware goes in ("" for nothing).
+first_word = "text"
+# The keeper's introduction for a first meeting only once it is built: the first of a
+# chain of talk lines whose texts replace their introduction's, line for line, if that
+# was never heard ("" keeps it as it is).
+met = "id"
 
 [components.facility]
 station = "id"
@@ -206,6 +215,10 @@ since = "int"
 # Taken off its route by a job (scripts/salvage.luau): adrift, in tow or moored for good.
 # The traffic script leaves it alone, though it still wears its label.
 stopped = "bool"
+# What its skipper says, once, the first time the ship flies within radio reach
+# (scripts/traffic.luau); "" for none. `hailed` once said.
+hail = "text"
+hailed = "bool"
 
 # A radio channel (scripts/radio.luau): a station broadcasting from `source` out to
 # `range` world units. Its signal is full within the inner 30% of the range and fades

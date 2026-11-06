@@ -1,6 +1,6 @@
 # The fitting cradle in the smallest window (tests/cradle-small.inputs).
 # size is physical pixels: at 125% display scaling this is the 960x540 logical window.
 inputs = "tests/cradle-small.inputs"
-ticks = 1900
+ticks = 1661
 size = [1200, 675]
 seed = 1

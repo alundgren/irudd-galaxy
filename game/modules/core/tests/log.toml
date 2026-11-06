@@ -4,7 +4,7 @@
 # the log marks what is in it as seen (the book's "N new" goes), and Lines opens one
 # visit and closes it again.
 seed = 3
-ticks = 1854
+ticks = 1638
 
 [[input]]
 tick = 1
@@ -18,49 +18,49 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 900
+tick = 960
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[expect]]
-tick = 1754
-entity = "log4"
+tick = 1538
+entity = "log5"
 component = "entry"
 field = "text"
 equals = "Docked at Lantern Dock."
 [[expect]]
-tick = 1754
-entity = "log4"
+tick = 1538
+entity = "log5"
 component = "entry"
 field = "at"
 equals = "core.lantern"
 
 [[input]]
-tick = 1794
+tick = 1578
 name = "core.log"
 [[expect]]
-tick = 1795
+tick = 1579
 entity = "ship"
 component = "logbook"
 field = "seen"
-equals = 4
+equals = 5
 
 [[input]]
-tick = 1804
+tick = 1588
 name = "core.log_visit"
 payload = { first = 4 }
 [[expect]]
-tick = 1805
+tick = 1589
 entity = "ship"
 component = "logbook"
 field = "visit"
 equals = 4
 [[input]]
-tick = 1814
+tick = 1598
 name = "core.log_visit"
 payload = { first = 4 }
 [[expect]]
-tick = 1815
+tick = 1599
 entity = "ship"
 component = "logbook"
 field = "visit"

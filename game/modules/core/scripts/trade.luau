@@ -23,15 +23,6 @@ function trade.station(ctx, line)
     return ctx.get(line.room, "facility").station
 end
 
--- Every market line at `station`.
-function trade.station_lines(ctx, station)
-    local found = {}
-    for _, id in ctx.query("market") do
-        if trade.station(ctx, ctx.get(id, "market")) == station then table.insert(found, id) end
-    end
-    return found
-end
-
 -- What `station` is still building, if anything: its site's ID and build. A build still
 -- waiting on a project's earlier steps (scripts/project.luau) isn't under way yet.
 function trade.building(ctx, station)
@@ -69,7 +60,7 @@ function trade.day(ctx)
     ctx.advance_clock("day", 1)
 end
 
--- "Lantern Dock buys ore at 13, plate at 38; sells rations at 14": every open line.
+-- "Lantern Dock buys ore at 16, plate at 38; sells rations at 14": every open line.
 function trade.posted(ctx, station)
     local buys, sells = {}, {}
     for _, room in ctx.query("facility") do

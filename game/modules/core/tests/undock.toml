@@ -3,7 +3,7 @@
 # step; the ship leaves in a straight line, and letting go coasts to a stop in a second.
 # Docked again at Cinder Kiln, D (a turn) flies it off too, turning as it goes.
 seed = 7
-ticks = 2281
+ticks = 1581
 
 [[input]]
 tick = 1
@@ -11,43 +11,43 @@ name = "dock"
 payload = { station = "core.lantern" }
 
 [[input]]
-tick = 819
+tick = 534
 name = "boost"
 payload = { down = true }
 
 [[input]]
-tick = 820
+tick = 535
 name = "boost"
 payload = { down = false }
 
 [[input]]
-tick = 869
+tick = 584
 name = "ahead"
 payload = { down = true }
 
 [[input]]
-tick = 899
+tick = 614
 name = "ahead"
 payload = { down = false }
 
 [[input]]
-tick = 969
+tick = 684
 name = "dock"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 2221
+tick = 1521
 name = "right"
 payload = { down = true }
 
 [[input]]
-tick = 2231
+tick = 1531
 name = "right"
 payload = { down = false }
 
 # Shift alone leaves the ship moored.
 [[expect]]
-tick = 868
+tick = 583
 entity = "ship"
 component = "engine.location"
 field = "place"
@@ -56,27 +56,27 @@ equals = "core.lantern"
 # W: out in the reach on the same tick, facing away from Lantern Dock (its berth faces
 # the station at -2.60), and thrusting.
 [[expect]]
-tick = 869
+tick = 584
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.reach"
 
 [[expect]]
-tick = 869
+tick = 584
 entity = "ship"
 component = "engine.position"
 field = "angle"
 at_least = 0.54
 [[expect]]
-tick = 869
+tick = 584
 entity = "ship"
 component = "engine.position"
 field = "angle"
 at_most = 0.55
 
 [[expect]]
-tick = 869
+tick = 584
 entity = "ship"
 component = "engine.helm"
 field = "thrust"
@@ -84,13 +84,13 @@ equals = 1.0
 
 # A straight line away from the berth at (-14, -12), not into the station.
 [[expect]]
-tick = 899
+tick = 614
 entity = "ship"
 component = "engine.position"
 field = "x"
 at_least = -306
 [[expect]]
-tick = 899
+tick = 614
 entity = "ship"
 component = "engine.position"
 field = "angle"
@@ -98,14 +98,14 @@ at_most = 0.55
 
 # Let go at 230: stopped a second later.
 [[expect]]
-tick = 931
+tick = 646
 entity = "ship"
 component = "engine.motion"
 field = "vx"
 equals = 0.0
 
 [[expect]]
-tick = 2220
+tick = 1520
 entity = "ship"
 component = "engine.location"
 field = "place"
@@ -113,14 +113,14 @@ equals = "core.kiln"
 
 # D flies it off Cinder Kiln too, turning right as it goes.
 [[expect]]
-tick = 2221
+tick = 1521
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.reach"
 
 [[expect]]
-tick = 2221
+tick = 1521
 entity = "ship"
 component = "engine.helm"
 field = "turn"

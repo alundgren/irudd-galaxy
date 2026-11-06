@@ -7,7 +7,7 @@
 # can't come off while 36 are aboard. The drops are the events the cradle's drop
 # targets send. tests/fit.inputs holds the same route for sim runs and shots.
 seed = 7
-ticks = 62351
+ticks = 43694
 
 # Ore runs at Cinder Kiln until one hold more pays for the lens.
 [[input]]
@@ -16,1022 +16,1022 @@ name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 796
+tick = 856
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 1706
+tick = 1466
 name = "core.open"
 
 [[input]]
-tick = 1711
+tick = 1471
 name = "core.sell"
 
 [[input]]
-tick = 1721
+tick = 1481
 name = "core.launch"
 
 [[input]]
-tick = 1731
+tick = 1491
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 3346
+tick = 2386
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 4254
+tick = 2833
 name = "core.open"
 
 [[input]]
-tick = 4259
+tick = 2838
 name = "core.sell"
 
 [[input]]
-tick = 4269
+tick = 2848
 name = "core.launch"
 
 [[input]]
-tick = 4279
+tick = 2858
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 5926
+tick = 3946
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 6837
+tick = 4461
 name = "core.open"
 
 [[input]]
-tick = 6842
+tick = 4466
 name = "core.sell"
 
 [[input]]
-tick = 6852
+tick = 4476
 name = "core.launch"
 
 [[input]]
-tick = 6862
+tick = 4486
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 8536
+tick = 5686
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 9439
+tick = 6253
 name = "core.open"
 
 [[input]]
-tick = 9444
+tick = 6258
 name = "core.sell"
 
 [[input]]
-tick = 9454
+tick = 6268
 name = "core.launch"
 
 [[input]]
-tick = 9464
+tick = 6278
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 11116
+tick = 7486
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 12028
+tick = 8052
 name = "core.open"
 
 [[input]]
-tick = 12033
+tick = 8057
 name = "core.sell"
 
 [[input]]
-tick = 12043
+tick = 8067
 name = "core.launch"
 
 [[input]]
-tick = 12053
+tick = 8077
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 13696
+tick = 9436
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 14607
+tick = 10003
 name = "core.open"
 
 [[input]]
-tick = 14612
+tick = 10008
 name = "core.sell"
 
 [[input]]
-tick = 14622
+tick = 10018
 name = "core.launch"
 
 [[input]]
-tick = 14632
+tick = 10028
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 16276
+tick = 11206
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 17187
+tick = 11773
 name = "core.open"
 
 [[input]]
-tick = 17192
+tick = 11778
 name = "core.sell"
 
 [[input]]
-tick = 17202
+tick = 11788
 name = "core.launch"
 
 [[input]]
-tick = 17212
+tick = 11798
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 18856
+tick = 13006
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 19768
+tick = 13572
 name = "core.open"
 
 [[input]]
-tick = 19773
+tick = 13577
 name = "core.sell"
 
 [[input]]
-tick = 19783
+tick = 13587
 name = "core.launch"
 
 [[input]]
-tick = 19793
+tick = 13597
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 21436
+tick = 14806
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 22347
+tick = 15373
 name = "core.open"
 
 [[input]]
-tick = 22352
+tick = 15378
 name = "core.sell"
 
 [[input]]
-tick = 22362
+tick = 15388
 name = "core.launch"
 
 [[input]]
-tick = 22372
+tick = 15398
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 24016
+tick = 16636
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 24927
+tick = 17203
 name = "core.open"
 
 [[input]]
-tick = 24932
+tick = 17208
 name = "core.sell"
 
 [[input]]
-tick = 24942
+tick = 17218
 name = "core.launch"
 # The route goes on.
 [[input]]
-tick = 24953
+tick = 17229
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 24963
+tick = 17239
 name = "core.ahead"
 payload = { down = false }
 [[input]]
-tick = 25012
+tick = 17288
 name = "core.mine"
 [[input]]
-tick = 26730
+tick = 18540
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 27647
+tick = 19112
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 27596 }
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 19061 }
 [[input]]
-tick = 27677
+tick = 19142
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
 # Too poor for the lens: nothing changes.
 [[input]]
-tick = 27687
+tick = 19152
 name = "core.fit"
 source = "ui"
 payload = { socket = "drill", value = "core.lens" }
 [[input]]
-tick = 27697
+tick = 19162
 name = "core.open"
 [[input]]
-tick = 27707
+tick = 19172
 name = "core.sell"
 [[input]]
-tick = 27717
+tick = 19182
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
 # The lens in the wrong socket, then in the drill mount: bought and fitted.
 [[input]]
-tick = 27727
+tick = 19192
 name = "core.fit"
 source = "ui"
 payload = { socket = "hold", value = "core.lens" }
 [[input]]
-tick = 27737
+tick = 19202
 name = "core.fit"
 source = "ui"
 payload = { socket = "drill", value = "core.lens" }
 # The thrusters need 2 power and 1 is free; an unfitted part can't come off.
 [[input]]
-tick = 27747
+tick = 19212
 name = "core.fit"
 source = "ui"
 payload = { socket = "engine", value = "core.thrusters" }
 [[input]]
-tick = 27752
+tick = 19217
 name = "core.unfit"
 source = "ui"
 payload = { value = "core.thrusters" }
 # Off into the locker, and on again from it for nothing.
 [[input]]
-tick = 27757
+tick = 19222
 name = "core.unfit"
 source = "ui"
 payload = { value = "core.lens" }
 [[input]]
-tick = 27767
+tick = 19232
 name = "core.fit"
 source = "ui"
 payload = { socket = "drill", value = "core.lens" }
 [[input]]
-tick = 57052
+tick = 39818
 name = "core.launch"
 # Ore runs until the pods are paid for.
 [[input]]
-tick = 27787
+tick = 19252
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 29116
+tick = 20581
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 30028
+tick = 21493
 name = "core.open"
 
 [[input]]
-tick = 30033
+tick = 21498
 name = "core.sell"
 
 [[input]]
-tick = 30043
+tick = 21508
 name = "core.launch"
 
 [[input]]
-tick = 30053
+tick = 21518
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 31366
+tick = 22456
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 32277
+tick = 23023
 name = "core.open"
 
 [[input]]
-tick = 32282
+tick = 23028
 name = "core.sell"
 
 [[input]]
-tick = 32292
+tick = 23038
 name = "core.launch"
 
 [[input]]
-tick = 32302
+tick = 23048
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 33616
+tick = 23986
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 34527
+tick = 24552
 name = "core.open"
 
 [[input]]
-tick = 34532
+tick = 24557
 name = "core.sell"
 
 [[input]]
-tick = 34542
+tick = 24567
 name = "core.launch"
 
 [[input]]
-tick = 34552
+tick = 24577
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 35866
+tick = 25516
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 36778
+tick = 26083
 name = "core.open"
 
 [[input]]
-tick = 36783
+tick = 26088
 name = "core.sell"
 
 [[input]]
-tick = 36793
+tick = 26098
 name = "core.launch"
 
 [[input]]
-tick = 36803
+tick = 26108
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 38116
+tick = 27046
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 39027
+tick = 27612
 name = "core.open"
 
 [[input]]
-tick = 39032
+tick = 27617
 name = "core.sell"
 
 [[input]]
-tick = 39042
+tick = 27627
 name = "core.launch"
 
 [[input]]
-tick = 39052
+tick = 27637
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 40366
+tick = 28546
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 41278
+tick = 29113
 name = "core.open"
 
 [[input]]
-tick = 41283
+tick = 29118
 name = "core.sell"
 
 [[input]]
-tick = 41293
+tick = 29128
 name = "core.launch"
 
 [[input]]
-tick = 41303
+tick = 29138
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 42616
+tick = 30076
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 43527
+tick = 30643
 name = "core.open"
 
 [[input]]
-tick = 43532
+tick = 30648
 name = "core.sell"
 
 [[input]]
-tick = 43542
+tick = 30658
 name = "core.launch"
 
 [[input]]
-tick = 43552
+tick = 30668
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 44866
+tick = 31576
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 45777
+tick = 32143
 name = "core.open"
 
 [[input]]
-tick = 45782
+tick = 32148
 name = "core.sell"
 
 [[input]]
-tick = 45792
+tick = 32158
 name = "core.launch"
 
 [[input]]
-tick = 45802
+tick = 32168
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 47116
+tick = 33106
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 48028
+tick = 33673
 name = "core.open"
 
 [[input]]
-tick = 48033
+tick = 33678
 name = "core.sell"
 
 [[input]]
-tick = 48043
+tick = 33688
 name = "core.launch"
 
 [[input]]
-tick = 48053
+tick = 33698
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 49366
+tick = 34636
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 50277
+tick = 35202
 name = "core.open"
 
 [[input]]
-tick = 50282
+tick = 35207
 name = "core.sell"
 
 [[input]]
-tick = 50292
+tick = 35217
 name = "core.launch"
 
 [[input]]
-tick = 50302
+tick = 35227
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 51616
+tick = 36166
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 52527
+tick = 36733
 name = "core.open"
 
 [[input]]
-tick = 52532
+tick = 36738
 name = "core.sell"
 
 [[input]]
-tick = 52542
+tick = 36748
 name = "core.launch"
 
 [[input]]
-tick = 52552
+tick = 36758
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 53866
+tick = 37726
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 54778
+tick = 38292
 name = "core.open"
 
 [[input]]
-tick = 54783
+tick = 38297
 name = "core.sell"
 
 [[input]]
-tick = 54793
+tick = 38307
 name = "core.launch"
 
 [[input]]
-tick = 54803
+tick = 38317
 name = "core.mine"
 source = "script"
 
 [[input]]
-tick = 56116
+tick = 39226
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 57027
+tick = 39793
 name = "core.open"
 
 [[input]]
-tick = 57032
+tick = 39798
 name = "core.sell"
 
 [[input]]
-tick = 57042
+tick = 39808
 name = "core.launch"
 # The route goes on.
 [[input]]
-tick = 57062
+tick = 39828
 name = "core.mine"
 [[input]]
-tick = 58450
+tick = 40870
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 59411
+tick = 41486
 name = "core.open"
 [[input]]
-tick = 59421
+tick = 41496
 name = "core.sell"
 [[input]]
-tick = 59431
+tick = 41506
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
 [[input]]
-tick = 59441
+tick = 41516
 name = "core.fit"
 source = "ui"
 payload = { socket = "hold", value = "core.pods" }
 [[input]]
-tick = 59451
+tick = 41526
 name = "core.launch"
 [[input]]
-tick = 59461
+tick = 41536
 name = "core.mine"
 [[input]]
-tick = 61220
+tick = 42950
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 62291
+tick = 43634
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
 # 36 aboard and the bare hold takes 24: the pods stay on.
 [[input]]
-tick = 62301
+tick = 43644
 name = "core.unfit"
 source = "ui"
 payload = { value = "core.pods" }
 [[input]]
-tick = 62311
+tick = 43654
 name = "core.open"
 [[input]]
-tick = 62321
+tick = 43664
 name = "core.sell"
 [[input]]
-tick = 62331
+tick = 43674
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
 [[input]]
-tick = 62341
+tick = 43684
 name = "core.unfit"
 source = "ui"
 payload = { value = "core.pods" }
 
 [[expect]]
-tick = 24953
+tick = 17229
 entity = "lens"
 component = "part"
 field = "owned"
 equals = false
 
 [[expect]]
-tick = 24953
+tick = 17229
 entity = "lens"
 component = "part"
 field = "price"
 equals = 3000
 
 [[expect]]
-tick = 24953
+tick = 17229
 entity = "pods"
 component = "part"
 field = "price"
 equals = 3500
 
 [[expect]]
-tick = 24953
+tick = 17229
 entity = "thrusters"
 component = "part"
 field = "price"
-equals = 6000
+equals = 9000
 
 [[expect]]
-tick = 24953
+tick = 17229
 entity = "ship"
 component = "fit"
 field = "hold"
 equals = 24
 
 [[expect]]
-tick = 24953
+tick = 17229
 entity = "ship"
 component = "fit"
 field = "mine"
 equals = 1
 
 [[expect]]
-tick = 27692
+tick = 19157
 entity = "lens"
 component = "part"
 field = "owned"
 equals = false
 
 [[expect]]
-tick = 27692
+tick = 19157
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 2907
+equals = 2879
 
 [[expect]]
-tick = 27692
+tick = 19157
 facts = "fitted"
 equals = 0
 
 [[expect]]
-tick = 27732
+tick = 19197
 entity = "lens"
 component = "part"
 field = "fitted"
 equals = false
 
 [[expect]]
-tick = 27732
+tick = 19197
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 3171
+equals = 3143
 
 [[expect]]
-tick = 27742
+tick = 19207
 entity = "lens"
 component = "part"
 field = "owned"
 equals = true
 
 [[expect]]
-tick = 27742
+tick = 19207
 entity = "lens"
 component = "part"
 field = "fitted"
 equals = true
 
 [[expect]]
-tick = 27742
+tick = 19207
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 171
+equals = 143
 
 [[expect]]
-tick = 27742
+tick = 19207
 entity = "ship"
 component = "pilot"
 field = "sale"
 equals = -3000
 
 [[expect]]
-tick = 27742
+tick = 19207
 entity = "ship"
 component = "pilot"
 field = "deal"
 equals = "Fitted the cutting lens."
 
 [[expect]]
-tick = 27742
+tick = 19207
 entity = "ship"
 component = "fit"
 field = "mine"
 equals = 2
 
 [[expect]]
-tick = 27742
+tick = 19207
 entity = "ship"
 component = "fit"
 field = "power"
 equals = 2
 
 [[expect]]
-tick = 27742
+tick = 19207
 entity = "ship"
 component = "fit"
 field = "mass"
 equals = 1
 
 [[expect]]
-tick = 27742
+tick = 19207
 entity = "kiln_fitter_now"
 component = "engine.talk_line"
 field = "text"
 equals = "That lens cuts twice as quick."
 
 [[expect]]
-tick = 27742
+tick = 19207
 facts = "fitted"
 equals = 1
 
 [[expect]]
-tick = 27755
+tick = 19220
 entity = "thrusters"
 component = "part"
 field = "owned"
 equals = false
 
 [[expect]]
-tick = 27755
+tick = 19220
 entity = "thrusters"
 component = "part"
 field = "fitted"
 equals = false
 
 [[expect]]
-tick = 27755
+tick = 19220
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 171
+equals = 143
 
 [[expect]]
-tick = 27755
+tick = 19220
 facts = "fitted"
 equals = 1
 
 [[expect]]
-tick = 27762
+tick = 19227
 entity = "lens"
 component = "part"
 field = "fitted"
 equals = false
 
 [[expect]]
-tick = 27762
+tick = 19227
 entity = "lens"
 component = "part"
 field = "owned"
 equals = true
 
 [[expect]]
-tick = 27762
+tick = 19227
 entity = "ship"
 component = "fit"
 field = "mine"
 equals = 1
 
 [[expect]]
-tick = 27762
+tick = 19227
 entity = "ship"
 component = "fit"
 field = "power"
 equals = 0
 
 [[expect]]
-tick = 27762
+tick = 19227
 entity = "ship"
 component = "pilot"
 field = "deal"
 equals = "Took off the cutting lens, into your locker."
 
 [[expect]]
-tick = 27772
+tick = 19237
 entity = "lens"
 component = "part"
 field = "fitted"
 equals = true
 
 [[expect]]
-tick = 27772
+tick = 19237
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 171
+equals = 143
 
 [[expect]]
-tick = 27772
+tick = 19237
 entity = "ship"
 component = "pilot"
 field = "sale"
 equals = 0
 
 [[expect]]
-tick = 27772
+tick = 19237
 entity = "ship"
 component = "fit"
 field = "mine"
 equals = 2
 
 [[expect]]
-tick = 58450
+tick = 40870
 entity = "ship"
 component = "hold"
 field = "ore"
 equals = 24
 
 [[expect]]
-tick = 58450
+tick = 40870
 facts = "mined"
-equals = 433
+equals = 363
 
 [[expect]]
-tick = 59446
+tick = 41521
 entity = "pods"
 component = "part"
 field = "fitted"
 equals = true
 
 [[expect]]
-tick = 59446
+tick = 41521
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 103
+equals = 75
 
 [[expect]]
-tick = 59446
+tick = 41521
 entity = "ship"
 component = "fit"
 field = "hold"
 equals = 36
 
 [[expect]]
-tick = 59446
+tick = 41521
 entity = "ship"
 component = "fit"
 field = "mass"
 equals = 4
 
 [[expect]]
-tick = 59446
+tick = 41521
 entity = "ship"
 component = "engine.flight"
 field = "speed"
 equals = 18.0
 
 [[expect]]
-tick = 59446
+tick = 41521
 entity = "ship"
 component = "engine.flight"
 field = "turn"
 equals = 162.0
 
 [[expect]]
-tick = 59446
+tick = 41521
 entity = "ship"
 component = "engine.model"
 field = "model"
 equals = "core.ship_pods"
 
 [[expect]]
-tick = 61220
+tick = 42950
 entity = "ship"
 component = "hold"
 field = "ore"
 equals = 36
 
 [[expect]]
-tick = 62306
+tick = 43649
 entity = "pods"
 component = "part"
 field = "fitted"
 equals = true
 
 [[expect]]
-tick = 62306
+tick = 43649
 entity = "ship"
 component = "fit"
 field = "hold"
 equals = 36
 
 [[expect]]
-tick = 62346
+tick = 43689
 entity = "pods"
 component = "part"
 field = "fitted"
 equals = false
 
 [[expect]]
-tick = 62346
+tick = 43689
 entity = "pods"
 component = "part"
 field = "owned"
 equals = true
 
 [[expect]]
-tick = 62346
+tick = 43689
 entity = "ship"
 component = "fit"
 field = "hold"
 equals = 24
 
 [[expect]]
-tick = 62346
+tick = 43689
 entity = "ship"
 component = "engine.flight"
 field = "speed"
 equals = 20.0
 
 [[expect]]
-tick = 62346
+tick = 43689
 entity = "ship"
 component = "engine.flight"
 field = "turn"
 equals = 180.0
 
 [[expect]]
-tick = 62346
+tick = 43689
 entity = "ship"
 component = "engine.model"
 field = "model"
 equals = "core.ship"
 
 [[expect]]
-tick = 62346
+tick = 43689
 facts = "fitted"
 equals = 5
 
@@ -1039,35 +1039,35 @@ equals = 5
 # only the beam: the flight stays the locked preset (an old save keeps its own hull:
 # tests/fit.luau, an_old_save_keeps_its_hull).
 [[expect]]
-tick = 24952
+tick = 17228
 entity = "ship"
 component = "fit"
 field = "hull_speed"
 equals = 20.0
 
 [[expect]]
-tick = 27757
+tick = 19222
 entity = "ship"
 component = "fit"
 field = "mine"
 equals = 1
 
 [[expect]]
-tick = 27757
+tick = 19222
 entity = "ship"
 component = "engine.flight"
 field = "speed"
 equals = 20.0
 
 [[expect]]
-tick = 27757
+tick = 19222
 entity = "ship"
 component = "engine.flight"
 field = "accel"
 equals = 30.0
 
 [[expect]]
-tick = 27757
+tick = 19222
 entity = "ship"
 component = "engine.flight"
 field = "turn"

@@ -119,6 +119,17 @@ local function build_up(ctx, site, build, ahead)
     -- The sale that builds it happens in another room; the new keeper's sign goes up
     -- once the player is about again (signs.show).
     ctx.put(keeper, "engine.life", { clock = "core.day", first = first, speed = 1.6, presentation = "instant", name = "" })
+    -- Met only now, they say what was built rather than what they hope to build: the
+    -- introduction is heard once, before or after (build.met).
+    local intro = ctx.get(keeper .. "_intro", "engine.talk")
+    if intro and not intro.seen and (build.met or "") ~= "" then
+        local line, from = intro.first, build.met
+        while line and line ~= "" and from and from ~= "" do
+            local said = ctx.get(from, "engine.talk_line")
+            ctx.patch(line, "engine.talk_line", { text = said.text })
+            line, from = ctx.get(line, "engine.talk_line").next, said.next
+        end
+    end
     -- Their thanks for the building goes on offer once the introduction is heard; the
     -- sale that built it left room in the hold.
     for _, id in ctx.query("gift") do
@@ -175,6 +186,10 @@ local function sell(event, ctx)
     elseif into > 0 then
         text ..= " " .. into .. " " .. build.ware .. " went into the " .. string.lower(build.name) .. ": "
             .. (build.given + into) .. " of " .. build.need .. "."
+        -- The first of it: the keeper waiting on the building says so, once.
+        if build.given == 0 and (build.first_word or "") ~= "" then
+            text ..= " " .. ctx.get(build.keeper, "keeper").name .. ", from the site: \u{201C}" .. build.first_word .. "\u{201D}"
+        end
     end
     ctx.put("ship", "hold", hold)
     if grew then

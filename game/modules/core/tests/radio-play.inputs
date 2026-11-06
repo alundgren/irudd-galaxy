@@ -48,19 +48,19 @@ tick = 1330
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[note]]
-tick = 2378
+tick = 1927
 text = "Docked at Cinder Kiln: no radio panel; the deck's furnace sound instead."
 [[input]]
-tick = 2578
+tick = 2127
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 2593
+tick = 2142
 name = "core.ahead"
 payload = { down = false }
 [[note]]
-tick = 2678
+tick = 2227
 text = "Flown off the Kiln: straight onto Cinder Kiln radio, Strong."
 [[note]]
-tick = 2928
+tick = 2477
 text = "Coasting off the Kiln: the radio stays put."

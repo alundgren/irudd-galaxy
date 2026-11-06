@@ -11,7 +11,7 @@
 -- The open log is LOG wide: the ship sits mid-window, 480px in at 960x540 (moored on
 -- its cradle, its tail reaches about 416px), so the log ends at 404px and the smallest
 -- window still shows the whole ship.
-local layout = { M = 24, PANEL = 520, ROOM = 430, LOG = 380, BUTTON = 62, CHIP = 270, RADIO = 420, MESSAGE = 464 }
+local layout = { M = 24, PANEL = 520, ROOM = 430, LOG = 380, BUTTON = 62, CHIP = 300, RADIO = 420, MESSAGE = 464 }
 
 -- One screen's widgets: each child places itself against the window's edges.
 function layout.frame(ui, id, children)

@@ -3,7 +3,7 @@
 # it is cut down the beam stops there instead of moving on to the next rock, with a line
 # saying how to go on. An order that names no rock still moves on (glassite.toml).
 seed = 7
-ticks = 1500
+ticks = 1050
 
 [[input]]
 tick = 1
@@ -38,47 +38,47 @@ field = "chosen"
 equals = true
 
 [[expect]]
-tick = 1400
+tick = 950
 entity = "glassite1"
 component = "ore"
 field = "left"
 equals = 0
 
 [[expect]]
-tick = 1500
+tick = 1050
 entity = "ship"
 component = "hold"
 field = "glassite"
 equals = 8
 
 [[expect]]
-tick = 1500
+tick = 1050
 entity = "ship"
 component = "hold"
 field = "ore"
 equals = 0
 
 [[expect]]
-tick = 1500
+tick = 1050
 entity = "ship"
 component = "pilot"
 field = "mining"
 equals = false
 
 [[expect]]
-tick = 1500
+tick = 1050
 entity = "ship"
 component = "pilot"
 field = "approach"
 equals = false
 
 [[expect]]
-tick = 1500
+tick = 1050
 facts = "mined"
 equals = 8
 
 [[expect]]
-tick = 1500
+tick = 1050
 entity = "log2"
 component = "entry"
 field = "text"

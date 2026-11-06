@@ -5,7 +5,7 @@
 # last channel turns the radio off, and R again turns it on at the first. Docked, the radio
 # is quiet and R does nothing.
 seed = 7
-ticks = 1814
+ticks = 1549
 
 [[input]]
 tick = 120
@@ -76,7 +76,7 @@ name = "dock"
 payload = { station = "core.lantern" }
 
 [[input]]
-tick = 1764
+tick = 1499
 name = "radio"
 payload = { down = true }
 
@@ -210,25 +210,25 @@ equals = 3
 
 # Docked: quiet, and R does nothing.
 [[expect]]
-tick = 1764
+tick = 1499
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.lantern"
 
 [[expect]]
-tick = 1764
+tick = 1499
 facts = "radio_off"
 equals = 3
 
 [[expect]]
-tick = 1765
+tick = 1500
 entity = "ship"
 component = "radio"
 field = "on"
 equals = true
 
 [[expect]]
-tick = 1765
+tick = 1500
 facts = "radio_lantern"
 equals = 3

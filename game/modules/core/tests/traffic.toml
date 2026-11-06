@@ -5,7 +5,7 @@
 # off Cinder Kiln, flies back and moors off Lantern Dock. The traders' arrivals never
 # dock the player, and nothing takes damage.
 seed = 7
-ticks = 7400
+ticks = 5200
 
 [[input]]
 tick = 1
@@ -18,12 +18,12 @@ name = "right"
 payload = { down = false }
 
 [[input]]
-tick = 580
+tick = 370
 name = "ahead"
 payload = { down = true }
 
 [[input]]
-tick = 1220
+tick = 777
 name = "ahead"
 payload = { down = false }
 
@@ -41,54 +41,54 @@ component = "engine.steer"
 field = "mode"
 equals = "follow"
 
-# Unbumped she would be at y -414.9 here; the ship's push moved her south.
+# Unbumped she would be at y -257.0 here; the ship's push moved her south.
 [[expect]]
-tick = 1300
+tick = 841
 entity = "mercy"
 component = "engine.position"
 field = "y"
-at_most = -417.5
+at_most = -257.4
 
 [[expect]]
-tick = 2600
+tick = 1750
 entity = "mercy"
 component = "trader"
 field = "moored"
 equals = true
 [[expect]]
-tick = 2600
+tick = 1750
 entity = "mercy"
 component = "engine.position"
 field = "x"
-at_least = 359.9
+at_least = 215.9
 [[expect]]
-tick = 2600
+tick = 1750
 entity = "mercy"
 component = "engine.position"
 field = "x"
-at_most = 360.1
+at_most = 216.1
 
 [[expect]]
-tick = 2600
+tick = 1750
 entity = "lamp"
 component = "trader"
 field = "leg"
 equals = "out"
 [[expect]]
-tick = 2600
+tick = 1750
 entity = "lamp"
 component = "trader"
 field = "moored"
 equals = true
 
 [[expect]]
-tick = 3000
+tick = 2000
 entity = "lamp"
 component = "trader"
 field = "leg"
 equals = "home"
 [[expect]]
-tick = 3000
+tick = 2000
 entity = "lamp"
 component = "trader"
 field = "moored"
@@ -103,7 +103,7 @@ equals = true
 entity = "lamp"
 component = "engine.position"
 field = "x"
-at_most = -338.9
+at_most = -208.9
 
 [[expect]]
 facts = "docked"

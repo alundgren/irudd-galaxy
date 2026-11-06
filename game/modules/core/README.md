@@ -14,7 +14,7 @@ power and mass. Five traders fly their own routes across
 the reach while you work, and in flight the radio plays each station's channel
 over the tug's quiet hum. Out in the reach the rocks turn slowly, the stations' rings
 turn and their lamps breathe, steam drifts off the stacks, and the stars drift in layers
-as you fly. The field holds 84 ore, 100 ice and 30 glassite, and a rock cut down to
+as you fly. The field holds 127 ore, 100 ice and 30 glassite, and a rock cut down to
 pebbles grows back to half on your next counted visit to a station; there is no timed
 objective.
 
@@ -92,37 +92,105 @@ way it lies (`rules.bearings`), so the far ones are always findable.
 | Leg | Units | Cruise | Boost |
 | --- | --- | --- | --- |
 | New game to the ore drift | 0: you start in it | | |
-| Ore drift to Lantern Dock's berth | about 464 | 23 s | 12 s |
-| Ore drift to Cinder Kiln's berth | about 556 | 28 s | 14 s |
-| Lantern Dock to Cinder Kiln | about 670 | 34 s | 17 s |
-| New game to the ice drift | about 726 | 36 s | 18 s |
-| Ice drift to Lantern Dock | about 505 | 25 s | 13 s |
-| New game to the glassite drift | about 713 | 36 s | 18 s |
-| Glassite drift to Cinder Kiln | about 878 | 44 s | 22 s |
+| Ore drift to Lantern Dock's berth | about 274 | 14 s | 7 s |
+| Ore drift to Cinder Kiln's berth | about 328 | 16 s | 8 s |
+| Lantern Dock to Cinder Kiln | about 393 | 20 s | 10 s |
+| New game to the ice drift | about 434 | 22 s | 11 s |
+| Ice drift to Lantern Dock | about 303 | 15 s | 8 s |
+| New game to the glassite drift | about 428 | 21 s | 11 s |
+| Glassite drift to Cinder Kiln | about 524 | 26 s | 13 s |
 
-Measured headless on seed 7 with scripted Mine and Dock orders, which cut and fly a
-little better than a hand does:
+The legs are short so that the work between them carries the hour: which rocks to cut,
+how to come at them, where to sell. Three rocks in the ore drift (rock5, rock8, rock9)
+are rich seams that give half as much again for the same cutting, and Hessa on the Cold
+Kettle hails you on your first or second flight out, whichever comes first, with her
+own trouble (see "Flight and traffic"). At Lantern Dock, Ines Varga waits at the bare
+galley site, and a click on her hears why she wants it built ("Trade, prices and the
+galley").
 
-- A hold of 24 ore takes two rocks and is full 27 seconds in (about 35 by hand).
-- A round trip (cut a hold, fly to the Kiln, dock, sell, fly back out) takes 77 to 88
-  seconds scripted, about 80 to 110 by hand.
-- The first hold sells for 379 cr at the Kiln (283 at Lantern Dock), the next for 346,
-  and then 264 a hold as the Kiln's stock fills; visits ease it back.
-- The first part in reach is the cutting lens, 3000 cr, after the 11th hold: 15.5
-  minutes scripted, about 20 by hand. The hold pods, 3500 cr, follow after the 24th
-  hold (32 minutes, about 40 by hand), and the thrusters, 6000 cr, come in reach at the
-  39th (56 minutes, about 70 by hand). The first hour buys one or two small parts.
-- The reach rig, the first assist, needs 80 full holds and 15000 cr: fitted 116
-  minutes into the scripted route, two and a half hours or more by hand. The docking
-  jets need 160 holds and 30000 cr: the credits come in at the 170th hold, four
-  hours into the scripted route, five or more by hand.
-- From a new game to the galley built takes 4.8 minutes on the scripted trade route
-  (`trade.inputs`), about 7 by hand.
+What a first trip earns depends on those choices. From a new game, the bare hull and
+fresh prices, with scripted orders:
 
-`tests/opening.toml` guards these: the hold not full 20 seconds in and full at 27, the
-Kiln still far off halfway there and reached 29 seconds after the order, the first
-hold's 379 cr, and the lens's price and the assists' gates. `tests/assists.toml` plays
-the gates out in full.
+| First trip | Seconds | Credits | Credits a minute |
+| --- | --- | --- | --- |
+| Nearest rocks, sold at the Kiln | 49.0 | 379 | 464 |
+| Nearest rocks, sold at Lantern Dock | 46.0 | 379 | 494 |
+| The west seam, sold at the Kiln | 43.5 | 379 | 523 |
+| The east seam, sold at the Kiln | 40.8 | 379 | 557 |
+| Ice, sold at Lantern Dock | 66.8 | 538 | 483 |
+| Glassite, sold at the Kiln | 79.8 | 926 | 696 |
+
+Further out pays clearly more per load: a load of near ore sells for 347 to 379 cr, a
+load of ice from the far west drift for 512 to 538 at Lantern Dock, and one of glassite
+from the far north-east for 887 to 926 at the Kiln. The rich seams pay the same per load
+as the small rocks: their stone is softer to cut, not worth more, so a seam pays per
+minute rather than per load. Both stations pay the same for ore, and each one's price
+falls as its stock fills, so where to sell is a choice too.
+
+**Where to sell, simulated routes.** Six holds of near ore from a new game, seed 7, the
+bare hull, scripted Mine and Dock orders, no parts bought, no assists; each hold sold by
+one strategy:
+
+| Strategy | Holds 1 to 6 (cr) | After 4 | After 6 | Credits a minute |
+| --- | --- | --- | --- | --- |
+| Always the Kiln | 379, 341, 302, 273, 264, 264 | 1295 | 1823 | 327 |
+| Always Lantern Dock | 379, 341, 302, 273, 264, 264 | 1295 | 1823 | 336 |
+| Alternating | 379, 347, 347, 347, 347, 347 | 1420 (+10%) | 2114 (+16%) | 389 |
+| Whichever posts more | 379, 347, 347, 347, 347, 347 | 1420 (+10%) | 2114 (+16%) | 389 |
+
+Spreading the holds pays from the second hold on, and the gap grows with every hold
+sold at one station. A station never crashes: its ore line stops falling at 264 a hold
+(11 a unit), which still pays for the trip. The numbers: both ore lines have base 16,
+target 60, a starting stock of 38 and a rate of 12, and a counted docking at either
+station eases every line at both (below).
+
+Each part favours its own kind of trip. **Simulated routes:** one trip from Cinder Kiln's
+berth with the loadout fitted in its cradle, seed 7, scripted Mine and Dock orders, fresh
+prices, no assists. Credits a minute, with the change from the bare hull:
+
+| Trip (credits a load, bare / with pods) | Bare | Lens | Pods | Thrusters | Lens and pods | Pods and thrusters |
+| --- | --- | --- | --- | --- | --- | --- |
+| Nearest rocks, to the Kiln (347 / 492) | 460 | 564 (+23%) | 470 (+2%) | 512 (+11%) | 567 | 491 |
+| Seams, to the Kiln (347 / 492) | 418 | 478 (+14%) | 505 (+21%) | 462 (+11%) | 585 | 530 |
+| Ice, to Lantern Dock (512 / 742) | 378 | 445 (+18%) | 479 (+27%) | 432 (+14%) | 554 | 511 |
+| Glassite, to the Kiln (887 / 1059) | 602 | 728 (+21%) | 670 (+11%) | 719 (+19%) | 727 | 733 |
+
+The lens pays on cutting, most among the small near rocks. The pods pay where a bigger
+load is worth the trip: the big seams and the far ice (glassite's four rocks hold only
+30, so they barely fill). The thrusters pay on distance, most on the glassite run. The
+lens and the thrusters can't run together (3 power), and the pods with either cost 10%
+of speed, so the second part is a choice of how you work.
+
+**The pacing below is a simulated route, not play.** Assumptions: seed 7; the bare hull
+at the start; scripted Mine and Dock orders, which cut and fly a little better than a
+hand does; ore only, sold each trip at whichever station pays more for it then, Lantern
+Dock on a tie (prices fall as a station's stock fills and visits ease them back); it buys
+the lens and then the
+pods at the Kiln as soon as it can, never the thrusters; no assists. It guards the
+tuning against drift. It doesn't prove the hour is fun.
+
+- The hold of 24 is full 27 seconds into the first cutting (about 35 by hand), and the
+  Dock order then reaches the Kiln's clamps in 19 seconds.
+- A trip (cut a hold, fly in, dock, sell, fly back out) takes 48 to 69 seconds, a median
+  of 64; the cutting is a median 44 of them.
+- The first hold sells for 379 cr, then 347 a hold: the better price takes it to the other
+  station each time, so neither's stock fills (always at one station, a hold is down to
+  264 by the fifth).
+- The cutting lens, 3000 cr, comes after the 10th hold: 9.8 minutes on the route, about
+  13 by hand. The hold pods, 3500 cr, follow after the 20th (18.4 minutes, about 24 by
+  hand). The tuned thrusters, 9000 cr, are in reach about the 41st hold (some 42 minutes
+  on the route, close to an hour by hand). The first hour buys the two small parts.
+- The reach rig, the first assist, needs 100 full holds and 15000 cr. On the bare-hull
+  route that never buys a part, it fits 101 minutes in, so close to two hours or more by
+  hand. The docking jets need 200 full holds and 30000 cr; on the same route, with the rig
+  cutting from then on, the holds are the gate and they fit 197 minutes in.
+- From a new game to the galley built takes 3.5 minutes on the scripted trade route
+  (`trade.inputs`), about 5 by hand.
+
+`tests/opening.toml` guards these: the hold not full 20 seconds into the cutting and full
+at 27, the Kiln still far off halfway there and reached 19 seconds after the order, the
+first hold's 379 cr, and the lens's price and the assists' gates. `tests/beats.toml`
+guards the first trip's messages, and `tests/assists.toml` plays the gates out in full.
 
 ## Mining and docking by hand
 
@@ -135,8 +203,9 @@ with sparks and dust where it bites and chips flying back up it. The first unit 
 loose half a second in and one every second after (two with the lens); the time counts
 however it is broken up, so turning off and back on loses nothing. Each unit throws a
 chunk of stone from the cut to the nose, an amber puff at the hold and a `+N` beside the
-hold's count. A rock holds 8 to 20, so a hold of 24 takes two or three rocks: nudge the
-nose onto the next one when the beam lets go of a spent rock. The 24th unit (36th with
+hold's count. A small rock holds 6 to 14 and a seam 20 to 30, so a hold of 24 takes three
+or four small rocks, or one seam (the smallest with a start on the next): nudge the nose
+onto the next one when the beam lets go of a spent rock. The 24th unit (36th with
 the pods) is the hold's own beat: a bigger puff, a small camera kick, and the beam lets go. A rock cut to pebbles crumbles with its own
 burst and kick, and the log says how many rocks still hold ore, before the full hold
 when the same unit fills it.
@@ -155,15 +224,30 @@ Two controls are earned in the cradle's control rack (`start.toml`, socket `rack
 
 | Control | Price | Orrin fits it after | What a press does once it is fitted |
 | --- | --- | --- | --- |
-| Reach rig | 15000 cr | 80 full holds | Space, or a click on a rock, flies out to a rock and cuts it from 16 units off, aiming itself; its beam is long and cyan (`beams.reach`) |
-| Docking jets | 30000 cr | 160 full holds | E, or a click on a station, flies the ship into its berth from anywhere |
+| Reach rig | 15000 cr | 100 full holds | Space, or a click on a rock, flies out to a rock and cuts it from 16 units off, aiming itself; its beam is long and cyan (`beams.reach`) |
+| Docking jets | 30000 cr | 200 full holds | E, or a click on a station, flies the ship into its berth from anywhere |
 
 Both are earned by work as well as paid for (`part.holds`): the pilot's `holds` counts
 every hold cut full, by hand or not, and until it reaches a control's number the rack
-shows that control resting with Orrin's own words, "Bring in 80 full holds and I'll fit
+shows that control resting with Orrin's own words, "Bring in 100 full holds and I'll fit
 it.", and how many you've brought. Neither can be fitted in the first hour: the rig comes
-some two to three hours in, the jets about twice that. A bought control is never taken
+some two hours in or later, the jets past three. A bought control is never taken
 off.
+
+What each takes over, and what stays yours:
+
+- **The reach rig takes over the cutting work:** flying up to a rock, holding the nose
+  on it and holding Space. From where you set it going it flies out, stands off, aims
+  its own beam and moves on to the nearest rock with anything left until the hold is
+  full. **Yours still:** which rock it starts on (a rich seam fills most of a hold before
+  it moves on to the nearest rock, which may be a poor one), what to cut (ore, ice or glassite, far out),
+  when to stop and sell, where (each station's price falls as its stock fills), what to
+  buy next, and all the flying between. Any flying by hand drops its order.
+- **The docking jets take over the last of each leg:** the line into the berth's ring and
+  the slow coast in. E or a click on a station flies her there from anywhere. **Yours
+  still:** which station to fly to and when, what is in the hold when you get there, the
+  tow (the jets can't berth a barge in tow, so towing her home stays a job by hand), and
+  everything at the rocks.
 
 ## Flight and traffic
 
@@ -201,11 +285,18 @@ Five traders work the reach (`scripts/traffic.luau`), each its own hull and live
   Cinder Kiln's far sides.
 - Quiet Lamp, a lamp launch, flies the long way round the north of the field between the
   stations' outer sides.
-- Tern, a courier, runs the buoyed lane straight across the reach (x = 5, north to
+- Tern, a courier, runs the buoyed lane across the reach (x 3 to 5, north to
   south), crossing the player's runs between the berths and the ore. It rests at the
   north buoys first and sets off about half a minute in.
 - Cold Kettle, an ice barge, hauls slowly from the ice camp beyond the west drift to a
-  mooring off Lantern Dock's south-west.
+  mooring off Lantern Dock's south-west. Her skipper hails you once, early, over the
+  radio (`trader.hail`): "Hessa on Cold Kettle's radio: “New tug? I haul Lantern's water
+  in from the ice. If my lamps go dark out west, come looking.”" It comes after your
+  first full hold, when you fly within 150 units of her or she moors at Lantern Dock,
+  and only while you are flying (faster than 8 units a second, no dock order flying
+  you in), so no cut's, full hold's or docking's message covers it. It goes into the
+  log, so a person and a question are there in the first minutes; the salvage job
+  later (below, "Cold Kettle adrift") is her lamps going dark.
 - Pell's Luck, a prospector's tug, runs from the glassite out north-east to a mooring off
   Cinder Kiln's far east side.
 
@@ -228,22 +319,25 @@ Measured on films of the ship's probes (`galaxy film --probes-only`, then
 `galaxy-gm film show`): turns at 180.1° a second; top speed 20, 95% of it 0.67 seconds
 after W; letting go at full speed coasts 9.7 units and stops 1.0 seconds later; in a
 90° turn under thrust the course lags the nose by up to 27° and tracks it again a
-third of a second after the turn ends. The mining approach parks 0.003 units from the
-rock's surface and stays within 0.05 of it while the rock is cut down (11.6 seconds,
-twelve cuts, the rock turning).
+third of a second after the turn ends. The mining approach parks 0.004 units from the
+rock's surface and stays within 0.05 of it while the rock is cut down (rock1 on seed 7:
+6.9 seconds, seven cuts, the rock turning).
 
 ## The field and the sky
 
 The reach is laid out in drifts (`start.toml`), each its own material with its own
 silhouette and colour, in several sizes (`engine.model` scale; a bigger rock holds more):
 
-- **The ore drift** round the middle: rust-brown ironstone in three shapes (`rock`, the
-  long `rock_lump` and the blocky `rock_chunk`), seven rocks of 8 to 18 ore. rock1 stays
-  the nearest rock to the start and to both berths, so the first Space finds ore.
-- **The ice drift** out west past Lantern Dock: eight pale mint-cream floes (`ice`, the
+- **The ore drift** round the start: rust-brown ironstone in two shapes (`rock` and the
+  long `rock_lump`). Six small rocks of 6 to 14 ore sit close in; rock1 is the nearest to
+  the start, so the first Space finds ore. Three big seams lie further out, one west and
+  two east, 20 to 30 ore each, and they are rich (`ore.rich` 1.5): soft stone that cuts
+  half again as fast, so a unit comes loose every two thirds of a second and the count
+  says "rich seam". Choosing a seam over the small rocks fills a hold sooner.
+- **The ice drift** far out west of Lantern Dock: eight pale mint-cream floes (`ice`, the
   tall `ice_shard`) with blue-violet shadow faces (`looks.ice`), 8 to 20 ice each.
-- **Glassite**, far out north-east: two dark violet rocks bristling with glowing lilac
-  crystals, 5 and 4 units. As a rock is mined its crystals break off and wear to stumps:
+- **Glassite**, far out north-east: four dark violet rocks bristling with glowing lilac
+  crystals, 6 to 9 units. As a rock is mined its crystals break off and wear to stumps:
   `ore.stages` names its four models (`glassite`, `glassite_chipped`, `glassite_worn`,
   `glassite_stubs`), each taking an equal share of the rock's units, while the rock part
   they all share keeps shrinking through `engine.model` morph. Once it is empty it becomes
@@ -457,7 +551,8 @@ click, and an unanswered offer is still on offer.
 
 The station's people live there. Each keeper stands in their own room and has a
 day of two acts (`start.toml`, `engine.life`): Tova behind her counter, then
-stacking crates; Bram at his desk, then posting prices; Ines cooking, then serving;
+stacking crates; Bram at his desk, then posting prices; Ines waiting on the plate at
+the bare site, then, once her galley is built, cooking and serving;
 and so on. One day runs for both stations and moves on with the work done there, a trade or a fit,
 never with time, so after a sale you watch Tova get up from the counter and walk
 to the crate stack. A walk you leave in the middle finishes while you are away.
@@ -478,8 +573,8 @@ to the crate stack. A walk you leave in the middle finishes while you are away.
 - **Office**: every station's posted prices, what a station is building and how
   far it has got, and how much ore the field still holds.
 - **Galley site** (Lantern Dock): what will be built, how much plate is in, and
-  what it will bring. Once built it is the **Galley**, kept by Ines Varga, who
-  sells rations.
+  what it will bring. Ines Varga waits there from the start; once built it is her
+  **Galley**, and she sells rations.
 - **Greenhouse** (Lantern Dock, once Ines's job is taken on): what it waits on, then
   how much ice is in. Once built, Noor Hale tends its beds.
 - **Fitting cradle** (Cinder Kiln): Orrin Vale fits parts to the ship (below).
@@ -500,28 +595,38 @@ by half the shortfall, within 70% to 130% of base (`scripts/rules.luau`). A
 trade is priced unit by unit, so selling a hold of ore pays a little less for the last
 than the first and splitting a trade never pays more.
 
-Markets move on visits, never on time. A counted visit eases each of that
-station's lines back towards its target by its rate. A docking counts only when
+Markets move on visits, never on time. A counted visit eases every line, at both
+stations, back towards its target by its rate: the trip took time everywhere, so a
+station you leave alone recovers while you sell at the other ("Where to sell" above
+measures what that is worth). A docking counts only when
 the ship has really been away since it last docked there: flown 20 units from
 the berth, mined, or docked at the other station. A quick launch-and-redock is
 still a docking, with its log line, but it is not a visit and settles nothing.
 
-The galley site stands on Lantern Dock's deck as a scaffold from the start. Bram
-mentions it, the office and the site's own room show its progress, and the
-exchange's plate line says the plate builds it. Plate sold at Lantern Dock goes
-into the galley at the posted price, without filling the stock, until 40 are in.
-The sale that completes it turns the scaffold into the galley, brings Ines into
-stand by it with her own introduction, and opens rations, a new good and a
-return cargo for the Kiln run. The Kiln's exchange posts its rations price from
+The galley site stands on Lantern Dock's deck as a scaffold from the start, and Ines
+Varga waits in it, where its tables will stand (`waiting on plate`). Bram mentions the
+galley, the office and the site's own room show its progress, and the exchange's plate
+line says the plate builds it. Ines is why it matters: a click on her at the site hears
+what she wants it for ("The crews here eat cold tins between shifts. I want them at a
+table, eating hot."), and her everyday line counts the plate still to come (`27 plate
+to go, and the crews eat hot.`). Plate sold at Lantern Dock goes into the galley at the
+posted price, without filling the stock, until 40 are in. The first of it brings her
+word into the sale's log entry (`Ines Varga, from the site: "That's the first of it! I
+can almost hear the stove."`). The sale that completes it turns the scaffold into the
+galley, with Ines at her stove and hatch, and opens rations, a new good and a return
+cargo for the Kiln run. She is introduced once: met only after it is built, her
+introduction says the galley is built instead (`build.met`), and either way her thanks
+come next. The Kiln's exchange posts its rations price from
 the start, and Sefa mentions her crews would pay for them.
 
 Measured on the headless route `tests/trade.toml` (seed 7, flights scripted): one hold of
-ore sells for 379 cr at the Kiln and 283 at Lantern Dock; each plate run buys what the
-credits allow (13, 15, then 16 plate) and earns 102, 63 and 22 cr as the Kiln's plate
-stock runs down faster than visits restock it; a hold of rations earns 77 cr. The galley
-is built on the third plate delivery, 3.7 minutes of scripted flying after the first sale
-(4.8 from a new game), with 566 cr in hand; the route ends at 643 cr. Flown by hand,
-with the docking rings and the hand cutting, that is some seven minutes.
+ore sells for 379 cr at the Kiln; each plate run buys what the credits allow (13, 15,
+then 17 plate) and earns 76, 66 and 59 cr as both plate lines ease back towards their
+targets, the Kiln's price rising and Lantern Dock's falling; a hold of rations earns 49
+cr. The galley is built on the third plate delivery, 2.5 minutes of scripted flying
+after the first sale (3.5 from a new game), with 580 cr in hand; the route ends at 629
+cr. Flown by hand,
+with the docking rings and the hand cutting, that is some five minutes.
 
 ## After the galley: Ines's greenhouse
 
@@ -563,7 +668,7 @@ we have tonight, for our greenhouse."), each docking's log line gives the cause,
 three later counted dockings there before the strings come down.
 
 Measured on the headless route in `tests/greenhouse.toml` (seed 7): the galley is built
-at tick 8610 and the greenhouse at 19920, 11310 ticks (6.3 minutes of scripted play)
+at tick 6296 and the greenhouse at 13563, 7267 ticks (4.0 minutes of scripted play)
 over five trips out: glassite, ore while the panes fire, the panes to Lantern Dock, and
 two runs of ice. Hand flying, docking and reading the talk stretch each trip.
 
@@ -625,14 +730,16 @@ before they can pipe her." to "The beds drink from her tanks now. Look at them!"
 
 **Measured** (ticks are 1/30 s), headless, flights and tows scripted, from a finished
 greenhouse to the payoff:
-- kept: Noor's ask at tick 27130, the work done by 37466, so 10336 ticks (5.7 min);
-- mended: the fee answered at 39564, so 12434 ticks (6.9 min).
+- kept: Noor's ask at tick 18279 (`kettle.toml`), the work done by 24991, so 6712 ticks
+  (3.7 min);
+- mended: the fee answered at 26519 (`kettle-mend.toml`), so 8240 ticks (4.6 min).
 
-The tow is the long stretch: from where she lies to Lantern Dock's ring takes 50
-seconds at the towing speed, to Cinder Kiln's 105. A player reads about 21 lines at a
-couple of seconds each, flies 8 legs by hand, tows her home by hand and trades at each
-of 7 dockings, which puts ordinary play at roughly 12 to 15 minutes, inside the 10 to 20
-minute aim. The knobs are the trips the work takes (`WORK`, 2), what each delivery
+The tow is the long stretch: she lies about 311 units from Lantern Dock's ring, some 30
+seconds at the towing speed (32 from the line passed to the clamps, scripted), and 687
+from Cinder Kiln's, over a minute. A player reads about 21 lines at a couple of seconds
+each, flies 8 legs by hand, tows her home by hand and trades at each of 7 dockings,
+which puts ordinary play at roughly 9 to 12 minutes, at the short end of the 10 to 20
+minute aim now that the legs are shorter. The knobs are the trips the work takes (`WORK`, 2), what each delivery
 needs (12), and where she lies. The playtester should measure it before any of them
 change.
 
@@ -650,7 +757,7 @@ its rack, priced, so the first visit already shows what to aim for:
 | --- | --- | --- | --- | --- | --- |
 | Cutting lens | Drill mount | 3000 cr | mines 2 ore a second instead of 1 | 2 | 1 |
 | Hold pods | Hold | 3500 cr | the hold carries 36 instead of 24 | 0 | 3 |
-| Tuned thrusters | Engine | 6000 cr | top speed 25 instead of 20 | 2 | 1 |
+| Tuned thrusters | Engine | 9000 cr | top speed 25 instead of 20 | 2 | 1 |
 
 They are priced for the first hour: the lens after some ten ore runs, the pods after as
 many again, and the thrusters past the hour (below, "The opening hour").
@@ -662,7 +769,7 @@ half), so the pods with anything else make the ship slower with wider turns. The
 control rack holds the controls the ship flies by: the hand cutter and hand berthing
 are always there, and the reach rig and the docking jets are bought from a row of
 buttons under the sockets (`Reach rig · 15000 cr`), resting until the work is done with
-Orrin's own words and the count so far (`Orrin: "Bring in 80 full holds and I'll fit
+Orrin's own words and the count so far (`Orrin: "Bring in 100 full holds and I'll fit
 it." You've brought 12`), then with the reason while they can't be paid for. Controls cost no power or mass and never come off. The rules are
 `scripts/fit.luau`; the room is `scripts/cradle.luau`.
 
@@ -701,8 +808,9 @@ saves and resumes.
 Measured on the headless routes `tests/trade.inputs` and `tests/fit.inputs` (seed 7):
 the beam cuts once a second, so a hold of 24 takes 24 cuts bare and 12 with the lens,
 and 36 with the pods take 18. From launching at the Kiln to docking at Lantern Dock
-takes 34.9 seconds bare or with the lens and 38.6 with the lens and pods (top speed 18,
-turns 162° a second); the thrusters' 25 a second would save about a fifth of it. The
+by a Dock order takes 21.1 seconds bare or with the lens and 22.5 with the lens and pods
+(top speed 18, turns 162° a second); the thrusters' 25 a second would save about a fifth
+of it. The
 lens is paid for after the 11th Kiln sale and the pods after the 24th.
 
 ## The keepers talk
@@ -719,8 +827,8 @@ their own idle line; the dockmaster about the galley's plate while it is being
 built, then the ore left in the field (`scripts/voices.luau`). Talk ends when you launch and never
 becomes the flight message.
 
-Once her galley stands and she has introduced herself, Ines thanks you for the
-plate and offers a ration on the house, with `Take it` and `No, thanks` in the
+Once her galley stands and she has introduced herself, Ines thanks you again for the
+plate and offers a ration on the house (never before it stands), with `Take it` and `No, thanks` in the
 bubble. Taking it puts one ration in the hold with a receipt in the log; either
 answer ends the offer for good, and her greenhouse ask follows (below). While the
 hold is full the offer waits, unanswered, and she says her everyday line instead.
@@ -825,7 +933,7 @@ strip, the station key and the talk around them still wear the base looks; they 
 onto the kit's looks in a later change.
 
 Measured on films of the headless trade route's first flight (`tests/trade.inputs`,
-ticks 900 to 1760, 287 frames at each size, probes only): at 1280x720 and at 960x540
+ticks 960 to 1526, 1133 frames at each size, probes only): at 1280x720 and at 960x540
 the ship is never under the radio, the status chip or the log's book (closest 275 and
 138 pixels, from the radio).
 
@@ -912,7 +1020,7 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are eighty-four Luau rule tests (hold, depletion, prices against stock and their
+There are eighty-five Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
@@ -925,21 +1033,24 @@ flickering for a minute, a stronger station taking over only when steady, a brie
 keeping the channel, a chosen channel holding, and Prev and Next stepping through, and
 in `tests/mining.luau` the cutter's reach from the nose, aim within the slack, a unit
 for every second of beam time however it is broken up, the berth ring, regrowth to half
-and the worked-out message for an empty and a full hold) and forty-four scenarios (two of them, `sound.toml` and
+and the worked-out message for an empty and a full hold) and forty-six scenarios (two of them, `sound.toml` and
 `sound-talk.toml`, under the sound below):
-the opening's pace (`opening.toml`, above under "The opening hour"),
+the opening's pace (`opening.toml`, above under "The opening hour"), both beats on
+one unit (`beats.toml`: the 24th unit cuts a rock down and fills the hold at once, and the
+log keeps the rock's line first and the full hold's last, so the hold's message shows),
 mining and docking by hand (`hand-mining.toml`: Space out of reach says so, the beam on
 the rock on the tick Space is pressed, a unit at half a second and one a second after,
-the twelfth cutting the rock down and letting the beam go, a short turn and nudge onto
-the next rock, its twelve filling the hold and letting the beam go once, then turned and
+the seventh cutting the rock down and letting the beam go, a turn and a short run onto
+the east seam, which says it is rich and cuts half again as fast, its units filling the
+hold and letting the beam go once, then turned and
 flown the long way into Lantern Dock's ring by keys alone and clamped in; `hand-aim.toml`: turning lifts the beam, a quarter
 turn off says to point the nose, turning back resumes with no beam time lost, a click
 latches the beam and flying lifts it, a far rock is too far, and E without the jets
 flies nowhere and says how docking is done), the earned controls (`assists.toml`: after
-the first sale neither control fits, and sixty holds in, the rig's price in hand,
-Orrin still refuses it for the work; at eighty full holds the rig is bought and, from
+the first sale neither control fits, and eighty holds in, the rig's price in hand,
+Orrin still refuses it for the work; at a hundred full holds the rig is bought and, from
 the Kiln's berth with no key held, flies her out and cuts the hold full, aiming itself;
-at 160 holds and 30000 cr the jets fit, a bought control can't come off, and E flies her
+at 200 holds and 30000 cr the jets fit, a bought control can't come off, and E flies her
 in from the reach. It is several hours of play, so it is the longest scenario, about
 four minutes headless; `rig-stop.toml`, the same route to the rig: a tap of W while the
 rig's beam is on a rock drops the order and no more ore comes in), the radio (`radio.toml`: Lantern Dock's channel in the first
@@ -968,7 +1079,10 @@ retiring), one conversation (a sale in the middle of an introduction leaves it o
 (buying refused with a full hold, ore and plate priced unit by unit, plate into
 the galley, a quick redock tap that is not a visit, the site trading nothing
 before it is built, visits restocking, the galley built with its keeper and her
-sign, rations bought and sold, visit and docking counts), back (a building clicked cuts into its room, Esc, right-click and B cut back out to the station, Esc shuts the log, signs worn only in their keeper's own room and resting while the view moves, launching from a room), and
+sign, rations bought and sold, visit and docking counts), Ines at the bare site
+(`ines.toml`: there from the start, her introduction on why she wants the galley, her
+line counting the plate to come and her thanks not yet on offer, her word on the first
+plate in the sale's log entry, and no second introduction once it stands), back (a building clicked cuts into its room, Esc, right-click and B cut back out to the station, Esc shuts the log, signs worn only in their keeper's own room and resting while the view moves, launching from a room), and
 Ines's gift taken (one ration and its receipt, her follow-up line, one log entry
 with the answer, the offer gone), declined (nothing changes hands, a late second
 answer is stale, the offer gone), waiting while the hold is full, and going back
@@ -1016,42 +1130,43 @@ records `engine.place_arrived` when a cut or glide lands; scenarios give it by h
 where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
 routes, and so is `fit.inputs`. Twelve bots run in a window: `hand-mining.inputs` mines and
-docks with the keys a player presses and clicks a far rock (`hand-mining.bot.toml`, 1709
+docks with the keys a player presses and clicks a far rock (`hand-mining.bot.toml`, 1469
 ticks, nine notes), and eight more use real screen clicks, their flights between
 stations given as scripted Mine and Dock: `play.inputs` docks (the view glides in),
 points at and clicks the exchange building (a cut into the room), talks to Tova at
 her counter, lands the office's cut with a click and talks to Bram at his desk, goes
 back with Esc and with a right-click, shuts the log with Esc and takes twelve notes
-(`play.bot.toml`, 2364 ticks), and
-`trade-play.inputs` plays the whole trade loop through the galley and Ines's gift
-with twelve notes (`trade.bot.toml`, 11253 ticks), and `greenhouse-play.inputs` carries
-on from it through Ines's greenhouse (`greenhouse.bot.toml`, 26055 ticks, 26 notes): her
+(`play.bot.toml`, 2148 ticks), and
+`trade-play.inputs` plays the whole trade loop, meeting Ines at the bare galley site
+before the first plate, through the galley and her gift with twelve notes
+(`trade.bot.toml`, 8584 ticks), and `greenhouse-play.inputs` carries
+on from it through Ines's greenhouse (`greenhouse.bot.toml`, 18886 ticks, 26 notes): her
 ask accepted and the plot on the deck, Sefa's introduction and the glassite handed over,
 an ore trip, the panes waiting on a full hold and then loaded as Ines's, handed to her,
 the scaffold and glaziers, two runs of ice, the greenhouse and its lamp strings, her
 thanks, Noor in the greenhouse and the station's dome from the reach, and `kettle-play.inputs`
-carries on from that through Cold Kettle's job (`kettle.bot.toml`, 34905 ticks, 42
+carries on from that through Cold Kettle's job (`kettle.bot.toml`, 25246 ticks, 42
 notes): Noor's ask accepted, out to the barge by hand keys, a line passed with a click
 on her, a hand swing round the ice that slips it, passed again and towed home, moored
 and the plate handed over with Bram's gold button, two trips out, the supper on the
 deck, the greenhouse in bloom with Hessa minding the tanks, and Noor's thanks in the
 galley, and `back-talk.inputs` plays
 that loop up to Ines's offer, then goes back with Esc on the unanswered offer and
-with a right-click on its first line, takes it the third time, goes back out with B while Tova speaks in her exchange, then comes back in and hears her again (`back-talk.bot.toml`, 10140 ticks, thirteen notes), and `fit-play.inputs` plays the fitting loop with real drags
-(`fit.bot.toml`, FITPLAY_TICKS ticks, thirteen notes): ore runs until the lens is one hold away, the cradle on the first visit, the lens
+with a right-click on its first line, takes it the third time, goes back out with B while Tova speaks in her exchange, then comes back in and hears her again (`back-talk.bot.toml`, 7826 ticks, thirteen notes), and `fit-play.inputs` plays the fitting loop with real drags
+(`fit.bot.toml`, 44694 ticks, thirteen notes): ore runs until the lens is one hold away, the cradle on the first visit, the lens
 held with no credits and every socket's refusal, a click on the resting Buy 1 with a
 full hold (reported in `resting_clicks`, nothing bought), the lens fitted, the
 thrusters refused for power while held, Orrin's talk, mining with the lens, the pods
 fitted over the free mass, and the pods refused coming off with 36 aboard, and
-`flight.inputs` flies with the traffic (`flight.bot.toml`, 3446 ticks, nine notes): across
+`flight.inputs` flies with the traffic (`flight.bot.toml`, 2366 ticks, nine notes): across
 Little Mercy's route with her label showing, bumping her aside (her label below her,
 clear of your ship), pointing at her, docking
 at Lantern Dock, flying straight off with W, coasting to a stop and mining from the
-rock's surface, and `radio-play.inputs` plays the radio (`radio.bot.toml`, 2938 ticks, ten
+rock's surface, and `radio-play.inputs` plays the radio (`radio.bot.toml`, 2487 ticks, ten
 notes): Lantern Dock from the first second and through mining, the ticker's next line,
 Next, Off and On, Prev and R clicked and pressed, docking at Cinder Kiln with the radio
 hidden, and flying off onto the Kiln's channel, and `zoom-play.inputs` flies with the
-traffic zoomed fully in and then fully out (`zoom.bot.toml`, 2650 ticks, six notes):
+traffic zoomed fully in and then fully out (`zoom.bot.toml`, 1850 ticks, six notes):
 Little Mercy off screen with no label drawn, her label yielding while it would sit on the
 message, named beside the ship clear of the HUD, then named zoomed out as she flies on, and after a Dock order to Cinder Kiln, Mercy
 and Quiet Lamp moored by it with none, and nothing jittering with nothing pressed. Nine declare 1280x720 physical pixels; `cradle-small.bot.toml` and
@@ -1092,10 +1207,10 @@ there. Run from the repo root with an external working folder in place of
 `evidence`:
 
 ```sh
-galaxy sim run --modules game/modules/core --seed 7 --ticks 1904 --inputs game/modules/core/tests/loop.inputs --save evidence/room.db
+galaxy sim run --modules game/modules/core --seed 7 --ticks 1658 --inputs game/modules/core/tests/loop.inputs --save evidence/room.db
 galaxy sim load evidence/room.db --modules game/modules/core --ticks 190 --inputs game/modules/core/tests/loop.inputs
-galaxy sim run --modules game/modules/core --seed 7 --ticks 2094 --inputs evidence/loop-resumed.inputs
-galaxy play --modules game/modules --load evidence/room.db --ticks 2000
+galaxy sim run --modules game/modules/core --seed 7 --ticks 1848 --inputs evidence/loop-resumed.inputs
+galaxy play --modules game/modules --load evidence/room.db --ticks 1760
 ```
 
 The first tick after a resume starts with the engine's `engine.resumed` input, so a
@@ -1104,19 +1219,19 @@ after the save. `evidence/loop-resumed.inputs` is `loop.inputs` plus:
 
 ```toml
 [[input]]
-tick = 1905
+tick = 1659
 name = "engine.resumed"
 source = "resume"
 ```
 
 Without it the uninterrupted run's hash differs, as it should. Every comparison below
-adds that input on the tick after its save. The tick-1904 save is inside Lantern Dock's
+adds that input on the tick after its save. The tick-1658 save is inside Lantern Dock's
 exchange with 24 ore aboard. The same holds for a save taken just after the galley is
-built: run `trade.inputs` to tick 8625 with `--save`, load it for 365 ticks, and
-compare with an uninterrupted 8990-tick run; the galley, Ines and her sign come back
-with it. A save taken in the fitting cradle with the lens and pods fitted
-(`fit.inputs` to tick 59446) resumes for 2960 ticks to the same hash as an uninterrupted
-62406-tick run, and reopens in the window with both parts on and the hold at 36. A save
+built: run `trade.inputs` to tick 6311 with `--save`, load it for 365 ticks, and
+compare with an uninterrupted 6676-tick run; the galley, Ines and her sign come back
+with it. A save taken in the fitting cradle at the end of the fitting route, the lens
+on and the pods back in the locker (`fit.inputs` to tick 43784), resumes for 2960 ticks
+to the same hash as an uninterrupted 46744-tick run. A save
 from before the opening-hour pass loads and plays in its own smaller reach, its hull
 keeping the 6-unit hold; start a new game for the wide reach. A save from before
 the cradle existed still loads and plays, without the cradle; start a new game to
@@ -1132,7 +1247,7 @@ plays with its rocks still; its rings, lamps and stars move anyway, as they are 
 A save from before Ines's greenhouse, taken just after the galley was built, loads and
 plays with its galley and credits, without the greenhouse; start a new game for it.
 A save taken while the greenhouse goes up (`tests/greenhouse.toml`'s inputs to tick
-16000, glaziers at work) resumes for 4200 ticks to the same hash as an uninterrupted
+11000, glaziers at work) resumes for 4200 ticks to the same hash as an uninterrupted
 run, through the ice and the greenhouse built. Saves made before Cold Kettle's job, on
 the build before it (mid-greenhouse, and with the lamp night over), load and play with
 their credits, hold and greenhouse, without the job; start a new game for it. Resumed or hot
@@ -1183,7 +1298,8 @@ barge are the only offers so far.
 
 Cold Kettle's job is the first with a real choice, but its stretch of attention is one
 tow, and its work is two trips of whatever you were doing anyway. On the measured route
-it plays in about 5 to 7 minutes, short of the 10 to 20 minute aim. Her sparks are a few
+it plays in about 4 to 5 minutes scripted, some 9 to 12 by hand, at the short end of the
+10 to 20 minute aim. Her sparks are a few
 pixels at the reach's zoom, and the supper tables are small on the deck. A guest in the
 galley stands at the front of the room, in front of the table, because the panel
 covers the right of the room at 960x540 and three name signs don't fit beside each
