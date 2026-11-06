@@ -207,17 +207,23 @@ function rules.compass(dx, dy)
     return ns .. "-" .. ew
 end
 
--- Stations further than this from the ship are named in the bottom strip with the way
--- they lie; nearer, the station is on screen and wears its own name.
-rules.FAR = 70
+-- A station inside this box round the ship (half-width, half-height) is well on screen at
+-- the starting view (64 units tall, so 32 up and down and at least 42 across in a 4:3 or
+-- wider window) and wears its own name; outside it the bottom strip names it with the way
+-- it lies. The box is kept inside the view, so a station is never both off screen and
+-- unnamed; near the box's edge it may be on screen and named twice, which does no harm.
+rules.ON_SCREEN = { x = 40, y = 24 }
 
--- "Lantern Dock south-west · Cinder Kiln south-east": each far station in `stations`
--- ({ name, x, y }, in order) and the way it lies from `at`; "" when none is far.
+-- "Lantern Dock south-west · Cinder Kiln south-east": each station in `stations`
+-- ({ name, x, y }, in order) not well on screen from `at`, and the way it lies; "" when
+-- every station is on screen.
 function rules.bearings(at, stations)
     local parts = {}
     for _, s in stations do
         local dx, dy = s.x - at.x, s.y - at.y
-        if dx * dx + dy * dy > rules.FAR ^ 2 then table.insert(parts, s.name .. " " .. rules.compass(dx, dy)) end
+        if math.abs(dx) > rules.ON_SCREEN.x or math.abs(dy) > rules.ON_SCREEN.y then
+            table.insert(parts, s.name .. " " .. rules.compass(dx, dy))
+        end
     end
     return table.concat(parts, " · ")
 end
