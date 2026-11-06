@@ -841,6 +841,13 @@ tick = 25066
 name = "engine.place_arrived"
 source = "travel"
 payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 25063 }
+# Met only now, Bram starts with the barge off his berth, and leaves out his greeting.
+[[expect]]
+tick = 25066
+entity = "lantern_master_intro_news"
+component = "engine.talk_line"
+field = "text"
+equals = "So you're the pilot who towed Cold Kettle in."
 [[input]]
 tick = 25067
 name = "engine.talk_start"
@@ -850,7 +857,7 @@ payload = { talk = "core.lantern_master_intro" }
 tick = 25068
 name = "engine.talk_next"
 source = "ui"
-payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro_news" }
 [[input]]
 tick = 25069
 name = "engine.talk_next"

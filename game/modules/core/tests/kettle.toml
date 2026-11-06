@@ -865,8 +865,22 @@ entity = "lantern_master_act2"
 component = "engine.act"
 field = "state"
 equals = "planning Cold Kettle's pipes"
+# He gets up and goes to his board to plan them, there in the office; leaving finishes
+# the walk.
 [[expect]]
 tick = 21545
+entity = "lantern_master_act2"
+component = "engine.act"
+field = "next"
+equals = "core.lantern_master_watch"
+[[expect]]
+tick = 21575
+entity = "lantern_master"
+component = "engine.location"
+field = "spot"
+equals = "core.lantern_office_room_board"
+[[expect]]
+tick = 21575
 entity = "lantern_master"
 component = "engine.being"
 field = "state"
