@@ -154,7 +154,7 @@ return {
             if not receipt then receipt = project.chosen(ctx, talk, choice, open, ctx.get("ship", "hold")) end
             if not receipt then receipt = salvage.chosen(ctx, talk, choice, open) end
             -- Told what the player saw: the keeper remembers it, and word of it spreads.
-            if rumour.chosen(ctx, talk) then ctx.record("heard", {}) end
+            if rumour.chosen(ctx, talk, answer and answer.next) then ctx.record("heard", {}) end
             local id, entry = heard(ctx, talk)
             if id then
                 ctx.patch(id, "entry", { text = entry.text .. " " .. said, open = open })

@@ -723,7 +723,8 @@ to the far drift and back with a question. It is world state (`rumour` on
    lit up`, and hers is part answer, part open: "So Pell wasn't spinning tales."
    "Glassite grows thickest round old things like that." "Who set it there, nobody
    knows." "It was old before the Kiln was lit." It hints at a longer arc without
-   explaining it.
+   explaining it. Once answered, the talk starts at her reply: left before it ends, it
+   picks up there, saves included, and the question is never asked twice.
 
 **History.** Whoever would know remembers, and nobody asks again what the player has
 told. Been out there before hearing the lead, the player gets no lead, and Sefa's line
@@ -1161,7 +1162,7 @@ flickering for a minute, a stronger station taking over only when steady, a brie
 keeping the channel, a chosen channel holding, and Prev and Next stepping through, and
 in `tests/mining.luau` the cutter's reach from the nose, aim within the slack, a unit
 for every second of beam time however it is broken up, the berth ring, regrowth to half
-and the worked-out message for an empty and a full hold) and fifty-eight scenarios (two of them, `sound.toml` and
+and the worked-out message for an empty and a full hold) and fifty-nine scenarios (two of them, `sound.toml` and
 `sound-talk.toml`, under the sound below):
 the opening's pace (`opening.toml`, above under "The opening hour"), both beats on
 one unit (`beats.toml`: the 24th unit cuts a rock down and fills the hold at once, and the
@@ -1229,7 +1230,8 @@ no lead and her question waits for the handover), the first rumour
 (`glassite-lead.toml`: the ask accepted, Sefa's lead at the Kiln before anything else and
 put away once heard, the flight north and the ring waking with its log line, the
 glassite handed over first, then her question, the answer and her reply, Mags met after
-with the news first and no longer news once heard), its choices (`greenhouse-choices.toml`:
+with the news first and no longer news once heard; `glassite-reask.toml`: the exchange
+left mid-reply, and back, she picks up her reply and doesn't ask again), its choices (`greenhouse-choices.toml`:
 "Not now" offered again on the next docking, the glassite offer off with 3 aboard and
 on with 8, the panes waiting on a full hold, Ines's panes not sold at the exchange,
 the receipts), Sefa's gold button (`sefa-hand.toml`: one press hands her the glassite

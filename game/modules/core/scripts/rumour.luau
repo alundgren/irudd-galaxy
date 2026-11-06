@@ -135,11 +135,14 @@ function rumour.said(ctx, talk, line, text, open)
 end
 
 -- The player answered the question: told, whatever was chosen, since the answer is
--- what they saw. Returns true when this was the rumour's.
-function rumour.chosen(ctx, talk)
+-- what they saw. The talk now starts at the reply (`reply`, the answer's next line), so
+-- left before it ends, it picks up there and the question is never asked again.
+-- Returns true when this was the rumour's.
+function rumour.chosen(ctx, talk, reply)
     local id, r = rumour.find(ctx)
     if not r or talk ~= r.tell or r.told then return false end
     ctx.patch(id, "rumour", { told = true })
+    if reply then ctx.patch(talk, "engine.talk", { first = reply }) end
     return true
 end
 
