@@ -1,0 +1,109 @@
+# The opening's pace, so a change that shrinks the reach, fills the hold faster or pays
+# more shows here. A new game starts in the ore drift: a Mine order cuts two rocks and
+# the hold of 24 is full 27 seconds in, not sooner. Cinder Kiln is a long flight away:
+# 29 seconds from the Dock order to its clamps, still out in the reach halfway there.
+# The first hold sells for 379 cr, and the cheapest part, the cutting lens at 3000 cr,
+# is many holds away. README.md "The opening hour" has the whole table.
+seed = 7
+ticks = 2000
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+
+[[input]]
+tick = 60
+name = "core.mine"
+
+[[input]]
+tick = 900
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 1976
+name = "core.open"
+
+[[input]]
+tick = 1986
+name = "core.sell"
+
+# Twenty seconds of cutting in, the hold is not yet full.
+[[expect]]
+tick = 700
+entity = "ship"
+component = "hold"
+field = "ore"
+at_most = 21
+
+[[expect]]
+tick = 700
+facts = "hold_full"
+equals = 0
+
+# Full at the second rock's last unit.
+[[expect]]
+tick = 811
+facts = "hold_full"
+equals = 1
+
+[[expect]]
+tick = 811
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 24
+
+# Halfway to the Kiln: still out in the reach.
+[[expect]]
+tick = 1330
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.reach"
+
+[[expect]]
+tick = 1750
+facts = "docked"
+equals = 0
+
+# Clamped at the Kiln 865 ticks after the order.
+[[expect]]
+tick = 1765
+facts = "docked"
+equals = 1
+
+# The first hold's pay, and the lens far out of reach.
+[[expect]]
+tick = 1990
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 379
+
+[[expect]]
+tick = 1990
+entity = "lens"
+component = "part"
+field = "price"
+equals = 3000
+
+[[expect]]
+tick = 1990
+entity = "rig"
+component = "part"
+field = "holds"
+equals = 80
+
+[[expect]]
+tick = 1990
+entity = "jets"
+component = "part"
+field = "holds"
+equals = 160

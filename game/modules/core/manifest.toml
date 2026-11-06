@@ -26,6 +26,9 @@ log_open = "bool"
 # flown well clear, or mined. Quick in-and-out taps are not visits.
 last_dock = "id"
 away = "bool"
+# Full holds cut by the beam, ever: the work the fitter wants to see before he fits an
+# earned control (part `holds`).
+holds = "int"
 # The view is moving: gliding in to the station, cutting into or out of a room, or
 # gliding back out to the reach after a launch. Anchored signs and the traders' labels
 # rest until it settles, so they never crowd the moving view.
@@ -52,6 +55,9 @@ cut_work = "int"
 gained = "int"
 # What the ship is near, for the hint strip: "ring:<station>", "aim", "reach" or "".
 near = "text"
+# The stations off screen and the way each lies, for the bottom strip: the reach is
+# several screens across, so the way home is always named (rules.bearings).
+bearings = "text"
 # Out of the last berth's ring since launching: flying into a ring docks only then.
 cleared = "bool"
 
@@ -165,18 +171,23 @@ model = "text"
 owned = "bool"
 fitted = "bool"
 order = "int"
+# Full holds the pilot must have cut before the fitter will fit it: the earned controls
+# wait on demonstrated work as well as credits.
+holds = "int"
 
 # What the ship's fitted parts add up to: its hold, the ore a second its beam cuts,
 # and the power and mass in use. Set whenever a part goes on or comes off.
 # `hull_speed` is the bare hull's top speed the ship flies by: a new game sets the
 # locked flight's 20 (start.toml); a save from before it loads with the old hull's 12
-# and keeps its old flight.
+# and keeps its old flight. `hull_hold` is the bare hull's hold the same way: a new game
+# sets 24; a save from before the opening hour's retune loads with the old 6.
 [components.fit]
 hold = { type = "int", default = 6 }
 mine = { type = "int", default = 1 }
 power = "int"
 mass = "int"
 hull_speed = { type = "number", default = 12.0 }
+hull_hold = { type = "int", default = 6 }
 
 # A trader flying its own route (scripts/traffic.luau): two legs, each a chain of
 # waypoints from `out` or `home` ending in a docking onto `out_moor` or `home_moor`.

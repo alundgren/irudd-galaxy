@@ -1,9 +1,9 @@
-# Bram first met just after the galley is finished: the tenth plate is sold at Lantern
+# Bram first met just after the galley is finished: the fortieth plate is sold at Lantern
 # Dock, then the office opens and his introduction plays before any other trade or
 # docking. It ends on the galley being open, not on raising it. The route is the one in
 # tests/trade.toml up to that sale.
 seed = 7
-ticks = 2560
+ticks = 8710
 
 [[input]]
 tick = 1
@@ -17,162 +17,162 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 900
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 600
+tick = 1976
 name = "core.open"
 [[input]]
-tick = 605
+tick = 1981
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 610
+tick = 1986
 name = "core.sell"
 [[input]]
-tick = 620
+tick = 1996
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 640
+tick = 2016
 name = "core.launch"
 [[input]]
-tick = 650
+tick = 2026
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 960
+tick = 3292
 name = "core.open"
 [[input]]
-tick = 970
+tick = 3302
 name = "core.sell"
 [[input]]
-tick = 980
+tick = 3312
 name = "core.launch"
 [[input]]
-tick = 985
+tick = 3317
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 1030
+tick = 3362
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 1035
+tick = 3367
 name = "core.buy"
 payload = { ware = "rations", units = 0 }
 [[input]]
-tick = 1040
+tick = 3372
 name = "core.close"
 [[input]]
-tick = 1100
+tick = 3432
 name = "core.launch"
 [[input]]
-tick = 1110
+tick = 3442
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 1410
+tick = 4695
 name = "core.open"
 [[input]]
-tick = 1420
+tick = 4705
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 1440
+tick = 4725
 name = "core.launch"
 [[input]]
-tick = 1450
+tick = 4735
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 1760
+tick = 6001
 name = "core.open"
 [[input]]
-tick = 1770
+tick = 6011
 name = "core.sell"
 [[input]]
-tick = 1790
+tick = 6031
 name = "core.launch"
 [[input]]
-tick = 1800
+tick = 6041
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 2100
+tick = 7294
 name = "core.open"
 [[input]]
-tick = 2110
+tick = 7304
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 2130
+tick = 7324
 name = "core.launch"
 [[input]]
-tick = 2140
+tick = 7334
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2450
+tick = 8600
 name = "core.open"
 [[input]]
-tick = 2460
+tick = 8610
 name = "core.sell"
 [[input]]
-tick = 2290
+tick = 8440
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 8373 }
 [[input]]
-tick = 2480
+tick = 8630
 name = "core.open"
 payload = { facility = "core.lantern_office" }
 [[input]]
-tick = 2520
+tick = 8670
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 2480 }
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 8630 }
 [[input]]
-tick = 2530
+tick = 8680
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_master_intro" }
 [[input]]
-tick = 2535
+tick = 8685
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
 [[input]]
-tick = 2540
+tick = 8690
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro2" }
 [[input]]
-tick = 2545
+tick = 8695
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro3" }
 [[input]]
-tick = 2550
+tick = 8700
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro4" }
 
 [[expect]]
-tick = 2560
+tick = 8710
 entity = "lantern_galley"
 component = "build"
 field = "done"
 equals = true
 [[expect]]
-tick = 2560
+tick = 8710
 entity = "lantern_master_intro"
 component = "engine.talk"
 field = "current"
 equals = "core.lantern_master_intro5"
 [[expect]]
-tick = 2560
+tick = 8710
 entity = "lantern_master_intro5"
 component = "engine.talk_line"
 field = "text"

@@ -1,209 +1,3302 @@
-# The controls you earn. Both rest in the cradle's control rack until they can be paid
-# for. After the first sale the docking jets are bought (80 cr); the reach rig can't be
-# yet. Out in the reach, E then flies her into the nearest berth by itself. Two holds
-# later the reach rig is bought too: from Cinder Kiln's berth, Space puts its long
-# beam straight on the first rock, sixteen units off, aiming itself, and it cuts the
-# hold full with no key held. Bought controls stay fitted: dragging one to the tray
-# takes nothing off. The flights between sales are scripted orders, which fly themselves.
+# The controls you earn. Both rest in the cradle's control rack until the pilot has done
+# the work and can pay: Orrin fits the reach rig after 80 full holds cut and the docking
+# jets after 160, says so in his own words, and never fits either before. After the first
+# sale neither fits; sixty holds in, the rig's price is in hand but the work isn't. At
+# eighty holds the rig is bought: from Cinder Kiln's berth, Space sends her out to the
+# nearest rock, and its long beam cuts the hold full from sixteen units off with no key
+# held. Once the jets are earned and paid for, they are bought; dragged to the tray, a
+# bought control stays fitted, and out in the reach E flies her into the nearest berth.
+# Every flight between sales is a scripted order, which flies itself. This is several
+# hours of play, so the run is long.
 seed = 7
-ticks = 1980
+ticks = 437503
 
+
+# The first hold, sold at Cinder Kiln.
 [[input]]
-tick = 1
-name = "core.ahead"
-payload = { down = true }
-[[input]]
-tick = 11
-name = "core.ahead"
-payload = { down = false }
-[[input]]
-tick = 60
+tick = 2
 name = "core.mine"
+source = "script"
 [[input]]
-tick = 330
+tick = 797
 name = "core.dock"
+source = "script"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 440
-name = "engine.place_arrived"
-source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 389 }
-[[input]]
-tick = 470
+tick = 1723
 name = "core.open"
 [[input]]
-tick = 480
+tick = 1728
 name = "core.sell"
+
+# Neither control fits after the first sale: Orrin wants the work first.
 [[input]]
-tick = 490
+tick = 1739
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
 [[input]]
-tick = 500
+tick = 1748
 name = "core.fit"
 source = "ui"
 payload = { socket = "rack", value = "core.rig" }
 [[input]]
-tick = 505
+tick = 1753
 name = "core.fit"
 source = "ui"
 payload = { socket = "rack", value = "core.jets" }
-[[input]]
-tick = 510
-name = "core.unfit"
-source = "ui"
-payload = { value = "core.jets" }
-[[input]]
-tick = 520
-name = "core.launch"
-[[input]]
-tick = 525
-name = "core.ahead"
-source = "keyboard"
-payload = { down = true }
-[[input]]
-tick = 540
-name = "core.ahead"
-source = "keyboard"
-payload = { down = false }
-[[input]]
-tick = 600
-name = "core.dock"
-source = "keyboard"
-payload = { down = true }
-[[input]]
-tick = 601
-name = "core.dock"
-source = "keyboard"
-payload = { down = false }
-[[input]]
-tick = 760
-name = "core.launch"
-[[input]]
-tick = 770
-name = "core.mine"
-[[input]]
-tick = 1050
-name = "core.dock"
-payload = { station = "core.kiln" }
-[[input]]
-tick = 1200
-name = "core.open"
-[[input]]
-tick = 1210
-name = "core.sell"
-[[input]]
-tick = 1240
-name = "core.launch"
-[[input]]
-tick = 1250
-name = "core.mine"
-[[input]]
-tick = 1530
-name = "core.dock"
-payload = { station = "core.kiln" }
-[[input]]
-tick = 1680
-name = "core.open"
-[[input]]
-tick = 1690
-name = "core.sell"
-[[input]]
-tick = 1700
-name = "core.open"
-payload = { facility = "core.kiln_cradle" }
-[[input]]
-tick = 1710
-name = "core.fit"
-source = "ui"
-payload = { socket = "rack", value = "core.rig" }
-[[input]]
-tick = 1720
-name = "core.launch"
-[[input]]
-tick = 1730
-name = "core.mine"
-source = "keyboard"
-payload = { down = true }
-[[input]]
-tick = 1731
-name = "core.mine"
-source = "keyboard"
-payload = { down = false }
-
-# The first sale pays for the jets, not the rig.
+# Refused: no full holds yet, and too few credits.
 [[expect]]
-tick = 515
-entity = "jets"
-component = "part"
-field = "fitted"
-equals = true
-[[expect]]
-tick = 515
+tick = 1758
 entity = "rig"
 component = "part"
 field = "owned"
 equals = false
 [[expect]]
-tick = 515
+tick = 1758
+entity = "jets"
+component = "part"
+field = "owned"
+equals = false
+[[expect]]
+tick = 1758
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 17
+equals = 379
 [[expect]]
-tick = 515
-facts = "core.fitted"
-equals = 1
-
-# E out in the reach: the jets fly her in.
-[[expect]]
-tick = 600
-entity = "ship"
-component = "engine.steer"
-field = "mode"
-equals = "dock"
-[[expect]]
-tick = 600
+tick = 1758
 entity = "ship"
 component = "pilot"
-field = "message"
-equals = "The docking jets take her into Cinder Kiln."
+field = "holds"
+equals = 1
 [[expect]]
-tick = 750
-facts = "core.docked"
-equals = 2
+tick = 1758
+facts = "core.fitted"
+equals = 0
+[[input]]
+tick = 1759
+name = "core.launch"
 
-# The rig, bought after the second hold, cuts from the berth with no key held.
+# Ore runs.
+[[input]]
+tick = 1765
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 3377
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 4302
+name = "core.open"
+[[input]]
+tick = 4307
+name = "core.sell"
+[[input]]
+tick = 4318
+name = "core.launch"
+[[input]]
+tick = 4324
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 5987
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 6914
+name = "core.open"
+[[input]]
+tick = 6919
+name = "core.sell"
+[[input]]
+tick = 6930
+name = "core.launch"
+[[input]]
+tick = 6936
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 8627
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 9546
+name = "core.open"
+[[input]]
+tick = 9551
+name = "core.sell"
+[[input]]
+tick = 9562
+name = "core.launch"
+[[input]]
+tick = 9568
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 11237
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 12165
+name = "core.open"
+[[input]]
+tick = 12170
+name = "core.sell"
+[[input]]
+tick = 12181
+name = "core.launch"
+[[input]]
+tick = 12187
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 13847
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 14774
+name = "core.open"
+[[input]]
+tick = 14779
+name = "core.sell"
+[[input]]
+tick = 14790
+name = "core.launch"
+[[input]]
+tick = 14796
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 16457
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 17384
+name = "core.open"
+[[input]]
+tick = 17389
+name = "core.sell"
+[[input]]
+tick = 17400
+name = "core.launch"
+[[input]]
+tick = 17406
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 19067
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 19994
+name = "core.open"
+[[input]]
+tick = 19999
+name = "core.sell"
+[[input]]
+tick = 20010
+name = "core.launch"
+[[input]]
+tick = 20016
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 21677
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 22604
+name = "core.open"
+[[input]]
+tick = 22609
+name = "core.sell"
+[[input]]
+tick = 22620
+name = "core.launch"
+[[input]]
+tick = 22626
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 24287
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 25214
+name = "core.open"
+[[input]]
+tick = 25219
+name = "core.sell"
+[[input]]
+tick = 25230
+name = "core.launch"
+[[input]]
+tick = 25236
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 26897
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 27824
+name = "core.open"
+[[input]]
+tick = 27829
+name = "core.sell"
+[[input]]
+tick = 27840
+name = "core.launch"
+[[input]]
+tick = 27846
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 29507
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 30434
+name = "core.open"
+[[input]]
+tick = 30439
+name = "core.sell"
+[[input]]
+tick = 30450
+name = "core.launch"
+[[input]]
+tick = 30456
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 32117
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 33044
+name = "core.open"
+[[input]]
+tick = 33049
+name = "core.sell"
+[[input]]
+tick = 33060
+name = "core.launch"
+[[input]]
+tick = 33066
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 34727
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 35654
+name = "core.open"
+[[input]]
+tick = 35659
+name = "core.sell"
+[[input]]
+tick = 35670
+name = "core.launch"
+[[input]]
+tick = 35676
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 37337
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 38264
+name = "core.open"
+[[input]]
+tick = 38269
+name = "core.sell"
+[[input]]
+tick = 38280
+name = "core.launch"
+[[input]]
+tick = 38286
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 39947
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 40875
+name = "core.open"
+[[input]]
+tick = 40880
+name = "core.sell"
+[[input]]
+tick = 40891
+name = "core.launch"
+[[input]]
+tick = 40897
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 42557
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 43484
+name = "core.open"
+[[input]]
+tick = 43489
+name = "core.sell"
+[[input]]
+tick = 43500
+name = "core.launch"
+[[input]]
+tick = 43506
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 45167
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 46094
+name = "core.open"
+[[input]]
+tick = 46099
+name = "core.sell"
+[[input]]
+tick = 46110
+name = "core.launch"
+[[input]]
+tick = 46116
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 47777
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 48705
+name = "core.open"
+[[input]]
+tick = 48710
+name = "core.sell"
+[[input]]
+tick = 48721
+name = "core.launch"
+[[input]]
+tick = 48727
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 50387
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 51314
+name = "core.open"
+[[input]]
+tick = 51319
+name = "core.sell"
+[[input]]
+tick = 51330
+name = "core.launch"
+[[input]]
+tick = 51336
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 52997
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 53924
+name = "core.open"
+[[input]]
+tick = 53929
+name = "core.sell"
+[[input]]
+tick = 53940
+name = "core.launch"
+[[input]]
+tick = 53946
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 55607
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 56534
+name = "core.open"
+[[input]]
+tick = 56539
+name = "core.sell"
+[[input]]
+tick = 56550
+name = "core.launch"
+[[input]]
+tick = 56556
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 58217
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 59144
+name = "core.open"
+[[input]]
+tick = 59149
+name = "core.sell"
+[[input]]
+tick = 59160
+name = "core.launch"
+[[input]]
+tick = 59166
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 60827
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 61754
+name = "core.open"
+[[input]]
+tick = 61759
+name = "core.sell"
+[[input]]
+tick = 61770
+name = "core.launch"
+[[input]]
+tick = 61776
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 63437
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 64363
+name = "core.open"
+[[input]]
+tick = 64368
+name = "core.sell"
+[[input]]
+tick = 64379
+name = "core.launch"
+[[input]]
+tick = 64385
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 66047
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 66974
+name = "core.open"
+[[input]]
+tick = 66979
+name = "core.sell"
+[[input]]
+tick = 66990
+name = "core.launch"
+[[input]]
+tick = 66996
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 68657
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 69584
+name = "core.open"
+[[input]]
+tick = 69589
+name = "core.sell"
+[[input]]
+tick = 69600
+name = "core.launch"
+[[input]]
+tick = 69606
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 71267
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 72194
+name = "core.open"
+[[input]]
+tick = 72199
+name = "core.sell"
+[[input]]
+tick = 72210
+name = "core.launch"
+[[input]]
+tick = 72216
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 73877
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 74804
+name = "core.open"
+[[input]]
+tick = 74809
+name = "core.sell"
+[[input]]
+tick = 74820
+name = "core.launch"
+[[input]]
+tick = 74826
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 76487
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 77415
+name = "core.open"
+[[input]]
+tick = 77420
+name = "core.sell"
+[[input]]
+tick = 77431
+name = "core.launch"
+[[input]]
+tick = 77437
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 79097
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 80025
+name = "core.open"
+[[input]]
+tick = 80030
+name = "core.sell"
+[[input]]
+tick = 80041
+name = "core.launch"
+[[input]]
+tick = 80047
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 81707
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 82634
+name = "core.open"
+[[input]]
+tick = 82639
+name = "core.sell"
+[[input]]
+tick = 82650
+name = "core.launch"
+[[input]]
+tick = 82656
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 84317
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 85244
+name = "core.open"
+[[input]]
+tick = 85249
+name = "core.sell"
+[[input]]
+tick = 85260
+name = "core.launch"
+[[input]]
+tick = 85266
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 86927
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 87855
+name = "core.open"
+[[input]]
+tick = 87860
+name = "core.sell"
+[[input]]
+tick = 87871
+name = "core.launch"
+[[input]]
+tick = 87877
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 89537
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 90464
+name = "core.open"
+[[input]]
+tick = 90469
+name = "core.sell"
+[[input]]
+tick = 90480
+name = "core.launch"
+[[input]]
+tick = 90486
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 92147
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 93073
+name = "core.open"
+[[input]]
+tick = 93078
+name = "core.sell"
+[[input]]
+tick = 93089
+name = "core.launch"
+[[input]]
+tick = 93095
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 94757
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 95685
+name = "core.open"
+[[input]]
+tick = 95690
+name = "core.sell"
+[[input]]
+tick = 95701
+name = "core.launch"
+[[input]]
+tick = 95707
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 97367
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 98295
+name = "core.open"
+[[input]]
+tick = 98300
+name = "core.sell"
+[[input]]
+tick = 98311
+name = "core.launch"
+[[input]]
+tick = 98317
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 99977
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 100904
+name = "core.open"
+[[input]]
+tick = 100909
+name = "core.sell"
+[[input]]
+tick = 100920
+name = "core.launch"
+[[input]]
+tick = 100926
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 102587
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 103514
+name = "core.open"
+[[input]]
+tick = 103519
+name = "core.sell"
+[[input]]
+tick = 103530
+name = "core.launch"
+[[input]]
+tick = 103536
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 105197
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 106125
+name = "core.open"
+[[input]]
+tick = 106130
+name = "core.sell"
+[[input]]
+tick = 106141
+name = "core.launch"
+[[input]]
+tick = 106147
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 107807
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 108734
+name = "core.open"
+[[input]]
+tick = 108739
+name = "core.sell"
+[[input]]
+tick = 108750
+name = "core.launch"
+[[input]]
+tick = 108756
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 110417
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 111344
+name = "core.open"
+[[input]]
+tick = 111349
+name = "core.sell"
+[[input]]
+tick = 111360
+name = "core.launch"
+[[input]]
+tick = 111366
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 113027
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 113954
+name = "core.open"
+[[input]]
+tick = 113959
+name = "core.sell"
+[[input]]
+tick = 113970
+name = "core.launch"
+[[input]]
+tick = 113976
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 115637
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 116565
+name = "core.open"
+[[input]]
+tick = 116570
+name = "core.sell"
+[[input]]
+tick = 116581
+name = "core.launch"
+[[input]]
+tick = 116587
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 118247
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 119174
+name = "core.open"
+[[input]]
+tick = 119179
+name = "core.sell"
+[[input]]
+tick = 119190
+name = "core.launch"
+[[input]]
+tick = 119196
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 120857
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 121783
+name = "core.open"
+[[input]]
+tick = 121788
+name = "core.sell"
+[[input]]
+tick = 121799
+name = "core.launch"
+[[input]]
+tick = 121805
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 123467
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 124394
+name = "core.open"
+[[input]]
+tick = 124399
+name = "core.sell"
+[[input]]
+tick = 124410
+name = "core.launch"
+[[input]]
+tick = 124416
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 126077
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 127005
+name = "core.open"
+[[input]]
+tick = 127010
+name = "core.sell"
+[[input]]
+tick = 127021
+name = "core.launch"
+[[input]]
+tick = 127027
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 128687
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 129614
+name = "core.open"
+[[input]]
+tick = 129619
+name = "core.sell"
+[[input]]
+tick = 129630
+name = "core.launch"
+[[input]]
+tick = 129636
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 131297
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 132224
+name = "core.open"
+[[input]]
+tick = 132229
+name = "core.sell"
+[[input]]
+tick = 132240
+name = "core.launch"
+[[input]]
+tick = 132246
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 133907
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 134834
+name = "core.open"
+[[input]]
+tick = 134839
+name = "core.sell"
+[[input]]
+tick = 134850
+name = "core.launch"
+[[input]]
+tick = 134856
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 136517
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 137444
+name = "core.open"
+[[input]]
+tick = 137449
+name = "core.sell"
+[[input]]
+tick = 137460
+name = "core.launch"
+[[input]]
+tick = 137466
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 139127
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 140054
+name = "core.open"
+[[input]]
+tick = 140059
+name = "core.sell"
+[[input]]
+tick = 140070
+name = "core.launch"
+[[input]]
+tick = 140076
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 141737
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 142664
+name = "core.open"
+[[input]]
+tick = 142669
+name = "core.sell"
+[[input]]
+tick = 142680
+name = "core.launch"
+[[input]]
+tick = 142686
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 144347
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 145274
+name = "core.open"
+[[input]]
+tick = 145279
+name = "core.sell"
+[[input]]
+tick = 145290
+name = "core.launch"
+[[input]]
+tick = 145296
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 146957
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 147884
+name = "core.open"
+[[input]]
+tick = 147889
+name = "core.sell"
+[[input]]
+tick = 147900
+name = "core.launch"
+[[input]]
+tick = 147906
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 149567
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 150494
+name = "core.open"
+[[input]]
+tick = 150499
+name = "core.sell"
+[[input]]
+tick = 150510
+name = "core.launch"
+[[input]]
+tick = 150516
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 152177
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 153105
+name = "core.open"
+[[input]]
+tick = 153110
+name = "core.sell"
+[[input]]
+tick = 153121
+name = "core.launch"
+[[input]]
+tick = 153127
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 154787
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 155715
+name = "core.open"
+[[input]]
+tick = 155720
+name = "core.sell"
+
+# Sixty holds in, the rig's price is in hand, but Orrin still wants eighty full holds.
+[[input]]
+tick = 155731
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 155740
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.rig" }
 [[expect]]
-tick = 1715
+tick = 155750
+entity = "ship"
+component = "pilot"
+field = "holds"
+equals = 60
+[[expect]]
+tick = 155750
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 16107
+[[expect]]
+tick = 155750
+entity = "rig"
+component = "part"
+field = "owned"
+equals = false
+[[expect]]
+tick = 155750
+facts = "core.fitted"
+equals = 0
+[[input]]
+tick = 155751
+name = "core.launch"
+[[input]]
+tick = 155757
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 157427
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 158354
+name = "core.open"
+[[input]]
+tick = 158359
+name = "core.sell"
+[[input]]
+tick = 158370
+name = "core.launch"
+[[input]]
+tick = 158376
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 160037
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 160965
+name = "core.open"
+[[input]]
+tick = 160970
+name = "core.sell"
+[[input]]
+tick = 160981
+name = "core.launch"
+[[input]]
+tick = 160987
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 162647
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 163575
+name = "core.open"
+[[input]]
+tick = 163580
+name = "core.sell"
+[[input]]
+tick = 163591
+name = "core.launch"
+[[input]]
+tick = 163597
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 165257
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 166184
+name = "core.open"
+[[input]]
+tick = 166189
+name = "core.sell"
+[[input]]
+tick = 166200
+name = "core.launch"
+[[input]]
+tick = 166206
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 167867
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 168794
+name = "core.open"
+[[input]]
+tick = 168799
+name = "core.sell"
+[[input]]
+tick = 168810
+name = "core.launch"
+[[input]]
+tick = 168816
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 170477
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 171404
+name = "core.open"
+[[input]]
+tick = 171409
+name = "core.sell"
+[[input]]
+tick = 171420
+name = "core.launch"
+[[input]]
+tick = 171426
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 173087
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 174015
+name = "core.open"
+[[input]]
+tick = 174020
+name = "core.sell"
+[[input]]
+tick = 174031
+name = "core.launch"
+[[input]]
+tick = 174037
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 175697
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 176624
+name = "core.open"
+[[input]]
+tick = 176629
+name = "core.sell"
+[[input]]
+tick = 176640
+name = "core.launch"
+[[input]]
+tick = 176646
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 178307
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 179234
+name = "core.open"
+[[input]]
+tick = 179239
+name = "core.sell"
+[[input]]
+tick = 179250
+name = "core.launch"
+[[input]]
+tick = 179256
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 180917
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 181845
+name = "core.open"
+[[input]]
+tick = 181850
+name = "core.sell"
+[[input]]
+tick = 181861
+name = "core.launch"
+[[input]]
+tick = 181867
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 183527
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 184455
+name = "core.open"
+[[input]]
+tick = 184460
+name = "core.sell"
+[[input]]
+tick = 184471
+name = "core.launch"
+[[input]]
+tick = 184477
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 186137
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 187064
+name = "core.open"
+[[input]]
+tick = 187069
+name = "core.sell"
+[[input]]
+tick = 187080
+name = "core.launch"
+[[input]]
+tick = 187086
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 188747
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 189674
+name = "core.open"
+[[input]]
+tick = 189679
+name = "core.sell"
+[[input]]
+tick = 189690
+name = "core.launch"
+[[input]]
+tick = 189696
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 191357
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 192285
+name = "core.open"
+[[input]]
+tick = 192290
+name = "core.sell"
+[[input]]
+tick = 192301
+name = "core.launch"
+[[input]]
+tick = 192307
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 193967
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 194894
+name = "core.open"
+[[input]]
+tick = 194899
+name = "core.sell"
+[[input]]
+tick = 194910
+name = "core.launch"
+[[input]]
+tick = 194916
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 196577
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 197504
+name = "core.open"
+[[input]]
+tick = 197509
+name = "core.sell"
+[[input]]
+tick = 197520
+name = "core.launch"
+[[input]]
+tick = 197526
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 199187
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 200114
+name = "core.open"
+[[input]]
+tick = 200119
+name = "core.sell"
+[[input]]
+tick = 200130
+name = "core.launch"
+[[input]]
+tick = 200136
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 201797
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 202724
+name = "core.open"
+[[input]]
+tick = 202729
+name = "core.sell"
+[[input]]
+tick = 202740
+name = "core.launch"
+[[input]]
+tick = 202746
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 204407
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 205334
+name = "core.open"
+[[input]]
+tick = 205339
+name = "core.sell"
+[[input]]
+tick = 205350
+name = "core.launch"
+[[input]]
+tick = 205356
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 207017
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 207944
+name = "core.open"
+[[input]]
+tick = 207949
+name = "core.sell"
+
+# Eighty full holds: the rig fits, for its price.
+[[input]]
+tick = 207960
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 207969
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.rig" }
+[[expect]]
+tick = 207979
+entity = "ship"
+component = "pilot"
+field = "holds"
+equals = 80
+[[expect]]
+tick = 207979
 entity = "rig"
 component = "part"
 field = "fitted"
 equals = true
 [[expect]]
-tick = 1731
+tick = 207979
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 6387
+[[expect]]
+tick = 207979
+facts = "core.fitted"
+equals = 1
+[[input]]
+tick = 207980
+name = "core.launch"
+
+# From Cinder Kiln's berth, Space sends her out to the nearest rock with no key held.
+[[input]]
+tick = 207995
+name = "core.mine"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 207996
+name = "core.mine"
+source = "keyboard"
+payload = { down = false }
+[[expect]]
+tick = 207997
 entity = "ship"
 component = "pilot"
 field = "mining"
-equals = true
+equals = false
 [[expect]]
-tick = 1731
+tick = 207997
+entity = "ship"
+component = "engine.steer"
+field = "mode"
+equals = "hold"
+# The rig's long beam cuts from sixteen units off.
+[[expect]]
+tick = 208830
 entity = "ship"
 component = "engine.beam"
 field = "look"
 equals = "core.reach"
 [[expect]]
-tick = 1731
+tick = 208830
 entity = "ship"
 component = "engine.beam"
 field = "target"
-equals = "core.rock1"
+equals = "core.rock7"
+# It cuts the hold full by itself.
 [[expect]]
-tick = 1960
+tick = 209566
 entity = "ship"
 component = "hold"
 field = "ore"
-equals = 6
+equals = 24
+[[input]]
+tick = 209567
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 210500
+name = "core.open"
+[[input]]
+tick = 210505
+name = "core.sell"
+[[input]]
+tick = 210516
+name = "core.launch"
+
+# Ore runs until the jets can be earned and paid for.
+[[input]]
+tick = 210522
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 212117
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 213046
+name = "core.open"
+[[input]]
+tick = 213051
+name = "core.sell"
+[[input]]
+tick = 213062
+name = "core.launch"
+[[input]]
+tick = 213068
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 214667
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 215597
+name = "core.open"
+[[input]]
+tick = 215602
+name = "core.sell"
+[[input]]
+tick = 215613
+name = "core.launch"
+[[input]]
+tick = 215619
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 217187
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 218121
+name = "core.open"
+[[input]]
+tick = 218126
+name = "core.sell"
+[[input]]
+tick = 218137
+name = "core.launch"
+[[input]]
+tick = 218143
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 219737
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 220698
+name = "core.open"
+[[input]]
+tick = 220703
+name = "core.sell"
+[[input]]
+tick = 220714
+name = "core.launch"
+[[input]]
+tick = 220720
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 222347
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 223283
+name = "core.open"
+[[input]]
+tick = 223288
+name = "core.sell"
+[[input]]
+tick = 223299
+name = "core.launch"
+[[input]]
+tick = 223305
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 224897
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 225830
+name = "core.open"
+[[input]]
+tick = 225835
+name = "core.sell"
+[[input]]
+tick = 225846
+name = "core.launch"
+[[input]]
+tick = 225852
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 227447
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 228379
+name = "core.open"
+[[input]]
+tick = 228384
+name = "core.sell"
+[[input]]
+tick = 228395
+name = "core.launch"
+[[input]]
+tick = 228401
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 230027
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 230957
+name = "core.open"
+[[input]]
+tick = 230962
+name = "core.sell"
+[[input]]
+tick = 230973
+name = "core.launch"
+[[input]]
+tick = 230979
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 232547
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 233481
+name = "core.open"
+[[input]]
+tick = 233486
+name = "core.sell"
+[[input]]
+tick = 233497
+name = "core.launch"
+[[input]]
+tick = 233503
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 235097
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 236023
+name = "core.open"
+[[input]]
+tick = 236028
+name = "core.sell"
+[[input]]
+tick = 236039
+name = "core.launch"
+[[input]]
+tick = 236045
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 237617
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 238547
+name = "core.open"
+[[input]]
+tick = 238552
+name = "core.sell"
+[[input]]
+tick = 238563
+name = "core.launch"
+[[input]]
+tick = 238569
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 240137
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 241071
+name = "core.open"
+[[input]]
+tick = 241076
+name = "core.sell"
+[[input]]
+tick = 241087
+name = "core.launch"
+[[input]]
+tick = 241093
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 242687
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 243618
+name = "core.open"
+[[input]]
+tick = 243623
+name = "core.sell"
+[[input]]
+tick = 243634
+name = "core.launch"
+[[input]]
+tick = 243640
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 245237
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 246167
+name = "core.open"
+[[input]]
+tick = 246172
+name = "core.sell"
+[[input]]
+tick = 246183
+name = "core.launch"
+[[input]]
+tick = 246189
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 247787
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 248708
+name = "core.open"
+[[input]]
+tick = 248713
+name = "core.sell"
+[[input]]
+tick = 248724
+name = "core.launch"
+[[input]]
+tick = 248730
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 250307
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 251237
+name = "core.open"
+[[input]]
+tick = 251242
+name = "core.sell"
+[[input]]
+tick = 251253
+name = "core.launch"
+[[input]]
+tick = 251259
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 252827
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 253758
+name = "core.open"
+[[input]]
+tick = 253763
+name = "core.sell"
+[[input]]
+tick = 253774
+name = "core.launch"
+[[input]]
+tick = 253780
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 255377
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 256308
+name = "core.open"
+[[input]]
+tick = 256313
+name = "core.sell"
+[[input]]
+tick = 256324
+name = "core.launch"
+[[input]]
+tick = 256330
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 257957
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 258886
+name = "core.open"
+[[input]]
+tick = 258891
+name = "core.sell"
+[[input]]
+tick = 258902
+name = "core.launch"
+[[input]]
+tick = 258908
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 260477
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 261412
+name = "core.open"
+[[input]]
+tick = 261417
+name = "core.sell"
+[[input]]
+tick = 261428
+name = "core.launch"
+[[input]]
+tick = 261434
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 263027
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 263965
+name = "core.open"
+[[input]]
+tick = 263970
+name = "core.sell"
+[[input]]
+tick = 263981
+name = "core.launch"
+[[input]]
+tick = 263987
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 265607
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 266542
+name = "core.open"
+[[input]]
+tick = 266547
+name = "core.sell"
+[[input]]
+tick = 266558
+name = "core.launch"
+[[input]]
+tick = 266564
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 268157
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 269091
+name = "core.open"
+[[input]]
+tick = 269096
+name = "core.sell"
+[[input]]
+tick = 269107
+name = "core.launch"
+[[input]]
+tick = 269113
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 270707
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 271647
+name = "core.open"
+[[input]]
+tick = 271652
+name = "core.sell"
+[[input]]
+tick = 271663
+name = "core.launch"
+[[input]]
+tick = 271669
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 273287
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 274218
+name = "core.open"
+[[input]]
+tick = 274223
+name = "core.sell"
+[[input]]
+tick = 274234
+name = "core.launch"
+[[input]]
+tick = 274240
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 275867
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 276797
+name = "core.open"
+[[input]]
+tick = 276802
+name = "core.sell"
+[[input]]
+tick = 276813
+name = "core.launch"
+[[input]]
+tick = 276819
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 278387
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 279317
+name = "core.open"
+[[input]]
+tick = 279322
+name = "core.sell"
+[[input]]
+tick = 279333
+name = "core.launch"
+[[input]]
+tick = 279339
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 280907
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 281841
+name = "core.open"
+[[input]]
+tick = 281846
+name = "core.sell"
+[[input]]
+tick = 281857
+name = "core.launch"
+[[input]]
+tick = 281863
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 283457
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 284391
+name = "core.open"
+[[input]]
+tick = 284396
+name = "core.sell"
+[[input]]
+tick = 284407
+name = "core.launch"
+[[input]]
+tick = 284413
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 286007
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 286940
+name = "core.open"
+[[input]]
+tick = 286945
+name = "core.sell"
+[[input]]
+tick = 286956
+name = "core.launch"
+[[input]]
+tick = 286962
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 288557
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 289482
+name = "core.open"
+[[input]]
+tick = 289487
+name = "core.sell"
+[[input]]
+tick = 289498
+name = "core.launch"
+[[input]]
+tick = 289504
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 291077
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 292007
+name = "core.open"
+[[input]]
+tick = 292012
+name = "core.sell"
+[[input]]
+tick = 292023
+name = "core.launch"
+[[input]]
+tick = 292029
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 293597
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 294527
+name = "core.open"
+[[input]]
+tick = 294532
+name = "core.sell"
+[[input]]
+tick = 294543
+name = "core.launch"
+[[input]]
+tick = 294549
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 296117
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 297042
+name = "core.open"
+[[input]]
+tick = 297047
+name = "core.sell"
+[[input]]
+tick = 297058
+name = "core.launch"
+[[input]]
+tick = 297064
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 298637
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 299568
+name = "core.open"
+[[input]]
+tick = 299573
+name = "core.sell"
+[[input]]
+tick = 299584
+name = "core.launch"
+[[input]]
+tick = 299590
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 301217
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 302147
+name = "core.open"
+[[input]]
+tick = 302152
+name = "core.sell"
+[[input]]
+tick = 302163
+name = "core.launch"
+[[input]]
+tick = 302169
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 303737
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 304668
+name = "core.open"
+[[input]]
+tick = 304673
+name = "core.sell"
+[[input]]
+tick = 304684
+name = "core.launch"
+[[input]]
+tick = 304690
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 306287
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 307225
+name = "core.open"
+[[input]]
+tick = 307230
+name = "core.sell"
+[[input]]
+tick = 307241
+name = "core.launch"
+[[input]]
+tick = 307247
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 308867
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 309800
+name = "core.open"
+[[input]]
+tick = 309805
+name = "core.sell"
+[[input]]
+tick = 309816
+name = "core.launch"
+[[input]]
+tick = 309822
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 311417
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 312351
+name = "core.open"
+[[input]]
+tick = 312356
+name = "core.sell"
+[[input]]
+tick = 312367
+name = "core.launch"
+[[input]]
+tick = 312373
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 313967
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 314907
+name = "core.open"
+[[input]]
+tick = 314912
+name = "core.sell"
+[[input]]
+tick = 314923
+name = "core.launch"
+[[input]]
+tick = 314929
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 316547
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 317481
+name = "core.open"
+[[input]]
+tick = 317486
+name = "core.sell"
+[[input]]
+tick = 317497
+name = "core.launch"
+[[input]]
+tick = 317503
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 319127
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 320058
+name = "core.open"
+[[input]]
+tick = 320063
+name = "core.sell"
+[[input]]
+tick = 320074
+name = "core.launch"
+[[input]]
+tick = 320080
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 321677
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 322608
+name = "core.open"
+[[input]]
+tick = 322613
+name = "core.sell"
+[[input]]
+tick = 322624
+name = "core.launch"
+[[input]]
+tick = 322630
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 324227
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 325162
+name = "core.open"
+[[input]]
+tick = 325167
+name = "core.sell"
+[[input]]
+tick = 325178
+name = "core.launch"
+[[input]]
+tick = 325184
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 326807
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 327740
+name = "core.open"
+[[input]]
+tick = 327745
+name = "core.sell"
+[[input]]
+tick = 327756
+name = "core.launch"
+[[input]]
+tick = 327762
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 329357
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 330284
+name = "core.open"
+[[input]]
+tick = 330289
+name = "core.sell"
+[[input]]
+tick = 330300
+name = "core.launch"
+[[input]]
+tick = 330306
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 331877
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 332808
+name = "core.open"
+[[input]]
+tick = 332813
+name = "core.sell"
+[[input]]
+tick = 332824
+name = "core.launch"
+[[input]]
+tick = 332830
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 334427
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 335352
+name = "core.open"
+[[input]]
+tick = 335357
+name = "core.sell"
+[[input]]
+tick = 335368
+name = "core.launch"
+[[input]]
+tick = 335374
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 336977
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 337907
+name = "core.open"
+[[input]]
+tick = 337912
+name = "core.sell"
+[[input]]
+tick = 337923
+name = "core.launch"
+[[input]]
+tick = 337929
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 339497
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 340422
+name = "core.open"
+[[input]]
+tick = 340427
+name = "core.sell"
+[[input]]
+tick = 340438
+name = "core.launch"
+[[input]]
+tick = 340444
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 342017
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 342946
+name = "core.open"
+[[input]]
+tick = 342951
+name = "core.sell"
+[[input]]
+tick = 342962
+name = "core.launch"
+[[input]]
+tick = 342968
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 344567
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 345499
+name = "core.open"
+[[input]]
+tick = 345504
+name = "core.sell"
+[[input]]
+tick = 345515
+name = "core.launch"
+[[input]]
+tick = 345521
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 347117
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 348048
+name = "core.open"
+[[input]]
+tick = 348053
+name = "core.sell"
+[[input]]
+tick = 348064
+name = "core.launch"
+[[input]]
+tick = 348070
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 349667
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 350595
+name = "core.open"
+[[input]]
+tick = 350600
+name = "core.sell"
+[[input]]
+tick = 350611
+name = "core.launch"
+[[input]]
+tick = 350617
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 352217
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 353151
+name = "core.open"
+[[input]]
+tick = 353156
+name = "core.sell"
+[[input]]
+tick = 353167
+name = "core.launch"
+[[input]]
+tick = 353173
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 354767
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 355704
+name = "core.open"
+[[input]]
+tick = 355709
+name = "core.sell"
+[[input]]
+tick = 355720
+name = "core.launch"
+[[input]]
+tick = 355726
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 357317
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 358253
+name = "core.open"
+[[input]]
+tick = 358258
+name = "core.sell"
+[[input]]
+tick = 358269
+name = "core.launch"
+[[input]]
+tick = 358275
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 359897
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 360830
+name = "core.open"
+[[input]]
+tick = 360835
+name = "core.sell"
+[[input]]
+tick = 360846
+name = "core.launch"
+[[input]]
+tick = 360852
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 362477
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 363413
+name = "core.open"
+[[input]]
+tick = 363418
+name = "core.sell"
+[[input]]
+tick = 363429
+name = "core.launch"
+[[input]]
+tick = 363435
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 365027
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 365953
+name = "core.open"
+[[input]]
+tick = 365958
+name = "core.sell"
+[[input]]
+tick = 365969
+name = "core.launch"
+[[input]]
+tick = 365975
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 367547
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 368480
+name = "core.open"
+[[input]]
+tick = 368485
+name = "core.sell"
+[[input]]
+tick = 368496
+name = "core.launch"
+[[input]]
+tick = 368502
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 370127
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 371052
+name = "core.open"
+[[input]]
+tick = 371057
+name = "core.sell"
+[[input]]
+tick = 371068
+name = "core.launch"
+[[input]]
+tick = 371074
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 372647
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 373578
+name = "core.open"
+[[input]]
+tick = 373583
+name = "core.sell"
+[[input]]
+tick = 373594
+name = "core.launch"
+[[input]]
+tick = 373600
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 375197
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 376135
+name = "core.open"
+[[input]]
+tick = 376140
+name = "core.sell"
+[[input]]
+tick = 376151
+name = "core.launch"
+[[input]]
+tick = 376157
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 377747
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 378679
+name = "core.open"
+[[input]]
+tick = 378684
+name = "core.sell"
+[[input]]
+tick = 378695
+name = "core.launch"
+[[input]]
+tick = 378701
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 380327
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 381257
+name = "core.open"
+[[input]]
+tick = 381262
+name = "core.sell"
+[[input]]
+tick = 381273
+name = "core.launch"
+[[input]]
+tick = 381279
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 382847
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 383777
+name = "core.open"
+[[input]]
+tick = 383782
+name = "core.sell"
+[[input]]
+tick = 383793
+name = "core.launch"
+[[input]]
+tick = 383799
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 385367
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 386297
+name = "core.open"
+[[input]]
+tick = 386302
+name = "core.sell"
+[[input]]
+tick = 386313
+name = "core.launch"
+[[input]]
+tick = 386319
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 387917
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 388848
+name = "core.open"
+[[input]]
+tick = 388853
+name = "core.sell"
+[[input]]
+tick = 388864
+name = "core.launch"
+[[input]]
+tick = 388870
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 390467
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 391398
+name = "core.open"
+[[input]]
+tick = 391403
+name = "core.sell"
+[[input]]
+tick = 391414
+name = "core.launch"
+[[input]]
+tick = 391420
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 393017
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 393948
+name = "core.open"
+[[input]]
+tick = 393953
+name = "core.sell"
+[[input]]
+tick = 393964
+name = "core.launch"
+[[input]]
+tick = 393970
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 395597
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 396528
+name = "core.open"
+[[input]]
+tick = 396533
+name = "core.sell"
+[[input]]
+tick = 396544
+name = "core.launch"
+[[input]]
+tick = 396550
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 398147
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 399083
+name = "core.open"
+[[input]]
+tick = 399088
+name = "core.sell"
+[[input]]
+tick = 399099
+name = "core.launch"
+[[input]]
+tick = 399105
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 400697
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 401624
+name = "core.open"
+[[input]]
+tick = 401629
+name = "core.sell"
+[[input]]
+tick = 401640
+name = "core.launch"
+[[input]]
+tick = 401646
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 403217
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 404151
+name = "core.open"
+[[input]]
+tick = 404156
+name = "core.sell"
+[[input]]
+tick = 404167
+name = "core.launch"
+[[input]]
+tick = 404173
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 405797
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 406734
+name = "core.open"
+[[input]]
+tick = 406739
+name = "core.sell"
+[[input]]
+tick = 406750
+name = "core.launch"
+[[input]]
+tick = 406756
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 408347
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 409282
+name = "core.open"
+[[input]]
+tick = 409287
+name = "core.sell"
+[[input]]
+tick = 409298
+name = "core.launch"
+[[input]]
+tick = 409304
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 410897
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 411824
+name = "core.open"
+[[input]]
+tick = 411829
+name = "core.sell"
+[[input]]
+tick = 411840
+name = "core.launch"
+[[input]]
+tick = 411846
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 413447
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 414379
+name = "core.open"
+[[input]]
+tick = 414384
+name = "core.sell"
+[[input]]
+tick = 414395
+name = "core.launch"
+[[input]]
+tick = 414401
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 416027
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 416960
+name = "core.open"
+[[input]]
+tick = 416965
+name = "core.sell"
+[[input]]
+tick = 416976
+name = "core.launch"
+[[input]]
+tick = 416982
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 418577
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 419512
+name = "core.open"
+[[input]]
+tick = 419517
+name = "core.sell"
+[[input]]
+tick = 419528
+name = "core.launch"
+[[input]]
+tick = 419534
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 421127
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 422055
+name = "core.open"
+[[input]]
+tick = 422060
+name = "core.sell"
+[[input]]
+tick = 422071
+name = "core.launch"
+[[input]]
+tick = 422077
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 423677
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 424609
+name = "core.open"
+[[input]]
+tick = 424614
+name = "core.sell"
+[[input]]
+tick = 424625
+name = "core.launch"
+[[input]]
+tick = 424631
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 426227
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 427152
+name = "core.open"
+[[input]]
+tick = 427157
+name = "core.sell"
+[[input]]
+tick = 427168
+name = "core.launch"
+[[input]]
+tick = 427174
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 428747
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 429678
+name = "core.open"
+[[input]]
+tick = 429683
+name = "core.sell"
+[[input]]
+tick = 429694
+name = "core.launch"
+[[input]]
+tick = 429700
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 431327
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 432252
+name = "core.open"
+[[input]]
+tick = 432257
+name = "core.sell"
+[[input]]
+tick = 432268
+name = "core.launch"
+[[input]]
+tick = 432274
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 433847
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 434776
+name = "core.open"
+[[input]]
+tick = 434781
+name = "core.sell"
+[[input]]
+tick = 434792
+name = "core.launch"
+[[input]]
+tick = 434798
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 436367
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 437300
+name = "core.open"
+[[input]]
+tick = 437305
+name = "core.sell"
+
+# The jets fit; dragged to the tray, a bought control stays fitted.
+[[input]]
+tick = 437316
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 437325
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.jets" }
+[[input]]
+tick = 437330
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.jets" }
 [[expect]]
-facts = "core.hold_full"
-equals = 4
+tick = 437335
+entity = "ship"
+component = "pilot"
+field = "holds"
+equals = 170
+[[expect]]
+tick = 437335
+entity = "jets"
+component = "part"
+field = "fitted"
+equals = true
+[[expect]]
+tick = 437335
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 147
+[[input]]
+tick = 437336
+name = "core.launch"
+
+# Out in the reach, E: the jets fly her into the nearest berth.
+[[input]]
+tick = 437346
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 437361
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 437421
+name = "core.dock"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 437422
+name = "core.dock"
+source = "keyboard"
+payload = { down = false }
+[[expect]]
+tick = 437422
+entity = "ship"
+component = "engine.steer"
+field = "mode"
+equals = "dock"
+[[expect]]
+tick = 437422
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "The docking jets take her into Cinder Kiln."
+[[expect]]
+tick = 437473
+facts = "core.docked"
+equals = 171

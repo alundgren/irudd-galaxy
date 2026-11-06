@@ -1,5 +1,5 @@
 seed = 7
-ticks = 840
+ticks = 2094
 [[input]]
 tick = 1
 name = "core.ahead"
@@ -12,20 +12,20 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 900
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 600
+tick = 1854
 name = "core.open"
 [[input]]
-tick = 660
+tick = 1914
 name = "core.sell"
 [[input]]
-tick = 720
+tick = 1974
 name = "core.close"
 [[input]]
-tick = 780
+tick = 2034
 name = "core.launch"
 
 [[expect]]
@@ -43,77 +43,77 @@ field = "x"
 at_most = 9
 
 [[expect]]
-tick = 300
+tick = 870
 entity = "ship"
 component = "hold"
 field = "ore"
-equals = 6
+equals = 24
 
 [[expect]]
-tick = 300
+tick = 870
 entity = "rock1"
 component = "ore"
 field = "left"
-equals = 6
+equals = 0
 
 [[expect]]
-tick = 300
+tick = 870
 entity = "rock1"
 component = "engine.model"
 field = "morph"
-equals = 0.5
+equals = 1.0
 
 [[expect]]
-tick = 590
+tick = 1844
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.lantern"
 
 [[expect]]
-tick = 640
+tick = 1894
 entity = "ship"
 component = "pilot"
 field = "room"
 equals = "core.lantern_exchange"
 
 [[expect]]
-tick = 670
+tick = 1924
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 73
+equals = 283
 
 [[expect]]
-tick = 670
+tick = 1924
 entity = "ship"
 component = "hold"
 field = "ore"
 equals = 0
 
 [[expect]]
-tick = 670
+tick = 1924
 entity = "lantern_ore"
 component = "market"
 field = "stock"
-equals = 33
+equals = 105
 
 [[expect]]
-tick = 670
+tick = 1924
 entity = "lantern_stock"
 component = "engine.model"
 field = "scale"
-equals = 0.92
+equals = 0.9999999999999999
 
 [[expect]]
-tick = 840
+tick = 2094
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.reach"
 
 [[expect]]
-tick = 840
+tick = 2094
 entity = "ship"
 component = "engine.model"
 field = "scale"
@@ -121,7 +121,7 @@ equals = 1
 
 [[expect]]
 facts = "mined"
-equals = 6
+equals = 24
 [[expect]]
 facts = "sold"
 equals = 1

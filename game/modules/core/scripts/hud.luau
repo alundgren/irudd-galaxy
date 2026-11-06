@@ -126,6 +126,12 @@ return {
             -- changes, then the one key still to learn, the key itself standing out.
             local bottom = { ui.text { id = "message", width = layout.MESSAGE - 20, text = pilot.message, size = kit.SIZE.body,
                 cue = "flash" } }
+            -- The stations off screen and the way each lies: no arrows, but the way home
+            -- is never lost in a reach several screens across.
+            if pilot.bearings ~= "" then
+                table.insert(bottom, ui.text { id = "bearings", width = layout.MESSAGE - 20, size = kit.SIZE.small,
+                    icon = "station", text = pilot.bearings })
+            end
             local key = hint(ctx)
             if key then
                 table.insert(bottom, ui.text { id = "hints", width = layout.MESSAGE - 20, size = kit.SIZE.small, spans = kit.hint(key) })

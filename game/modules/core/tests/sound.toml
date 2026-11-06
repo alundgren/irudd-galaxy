@@ -7,7 +7,7 @@
 # Docked, a movement key flying off cues once. A click on a screen button, and a room or
 # the log opening and closing, cue nothing here: [ui] in audio.toml sounds them.
 seed = 7
-ticks = 760
+ticks = 2136
 
 [[input]]
 tick = 1
@@ -54,46 +54,46 @@ payload = { tune = "next" }
 tick = 60
 name = "mine"
 [[input]]
-tick = 340
+tick = 910
 name = "mine"
 payload = { down = true }
 [[input]]
-tick = 341
+tick = 911
 name = "mine"
 payload = { down = false }
 [[input]]
-tick = 350
+tick = 920
 name = "dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 600
+tick = 1976
 name = "open"
 [[input]]
-tick = 610
+tick = 1986
 name = "open"
 [[input]]
-tick = 620
+tick = 1996
 name = "close"
 payload = { down = true }
 [[input]]
-tick = 621
+tick = 1997
 name = "close"
 payload = { down = false }
 [[input]]
-tick = 630
+tick = 2006
 name = "close"
 [[input]]
-tick = 640
+tick = 2016
 name = "log"
 [[input]]
-tick = 650
+tick = 2026
 name = "log"
 [[input]]
-tick = 700
+tick = 2076
 name = "ahead"
 payload = { down = true }
 [[input]]
-tick = 710
+tick = 2086
 name = "ahead"
 payload = { down = false }
 
@@ -137,61 +137,61 @@ tick = 60
 facts = "ui_click"
 equals = 2
 
-# Six units fill the bare hull's hold, each with a chip, the three chips in turn, and
+# Twenty-four units fill the bare hull's hold, each with a chip, the three chips in turn, and
 # the last one chimes.
 [[expect]]
-tick = 339
+tick = 909
 facts = "mined"
-equals = 6
+equals = 24
 [[expect]]
-tick = 339
+tick = 909
 facts = "chip1"
-equals = 2
+equals = 8
 [[expect]]
-tick = 339
+tick = 909
 facts = "chip2"
-equals = 2
+equals = 8
 [[expect]]
-tick = 339
+tick = 909
 facts = "chip3"
-equals = 2
+equals = 8
 [[expect]]
-tick = 339
+tick = 909
 facts = "hold_full"
 equals = 1
 [[expect]]
-tick = 339
+tick = 909
 facts = "refused"
 equals = 0
 [[expect]]
-tick = 345
+tick = 915
 facts = "refused"
 equals = 1
 
 # The dock order clicks; arriving clunks (the docked fact).
 [[expect]]
-tick = 599
+tick = 1975
 facts = "ui_click"
 equals = 3
 [[expect]]
-tick = 599
+tick = 1975
 facts = "docked"
 equals = 1
 
 # Opening the exchange, Back and the log record no cue here: [ui] in audio.toml sounds a
 # room's panel and the log as they open and close, by key or click.
 [[expect]]
-tick = 655
+tick = 2031
 facts = "ui_click"
 equals = 3
 
 # W flies off the dock: one undock and one thrust; letting go stops it.
 [[expect]]
-tick = 705
+tick = 2081
 facts = "undocked"
 equals = 1
 [[expect]]
-tick = 705
+tick = 2081
 facts = "thrust_on"
 equals = 3
 [[expect]]

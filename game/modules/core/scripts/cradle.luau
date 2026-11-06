@@ -15,12 +15,16 @@ local signs = require("./signs")
 
 local cradle = {}
 
--- Every part in the world, in tray order, as fit.luau tables.
+-- Every part in the world, in tray order, as fit.luau tables, each with the full holds
+-- the pilot has cut so far (fit.verdict weighs a part's `holds` against them).
 function cradle.parts(ctx)
     local list = {}
+    local pilot = ctx.get("ship", "pilot")
+    local brought = pilot and pilot.holds or 0
     for _, id in ctx.query("part") do
         local p = ctx.get(id, "part")
         p.id = id
+        p.brought = brought
         table.insert(list, p)
     end
     table.sort(list, function(a, b) return a.order < b.order end)
@@ -31,7 +35,7 @@ end
 -- rate, and its look (fitted pods show on the hull). `parts` is after the caller's
 -- writes.
 function cradle.apply(ctx, parts)
-    local t = fit.totals(parts, nil, nil, fit.hull_speed(ctx))
+    local t = fit.totals(parts, nil, nil, fit.hull_speed(ctx), fit.hull_hold(ctx))
     ctx.patch("ship", "fit", { hold = t.hold, mine = t.mine, power = t.power, mass = t.mass })
     ctx.patch("ship", "engine.flight", { speed = t.top, turn = t.turn })
     local look = "core.ship"
@@ -77,7 +81,7 @@ function cradle.fit(event, ctx)
     local socket = event.payload.socket
     if not p or not socket then return end
     local load = rules.load(ctx.get("ship", "hold"))
-    if fit.verdict(p, socket, parts, pilot.credits, load) ~= "" then return end
+    if fit.verdict(p, socket, parts, pilot.credits, load, fit.hull_hold(ctx)) ~= "" then return end
     local cost = p.owned and 0 or p.price
     p.owned, p.fitted = true, true
     ctx.patch(p.id, "part", { owned = true, fitted = true })
@@ -101,7 +105,7 @@ function cradle.unfit(event, ctx)
     local p = find(parts, event.payload.value)
     if not p then return end
     local load = rules.load(ctx.get("ship", "hold"))
-    if fit.verdict(p, "locker", parts, pilot.credits, load) ~= "" then return end
+    if fit.verdict(p, "locker", parts, pilot.credits, load, fit.hull_hold(ctx)) ~= "" then return end
     p.fitted = false
     ctx.patch(p.id, "part", { fitted = false })
     cradle.apply(ctx, parts)
@@ -210,7 +214,7 @@ function cradle.preview(ctx, ui, pilot, right)
     local doing = chosen.fitted and "If you take off the " or "If you fit the "
     local lines = { ui.text { id = "preview_title", width = PREVIEW - 20, size = kit.SIZE.small, look = kit.LOOK.plate_name,
         text = doing .. string.lower(chosen.name) } }
-    for i, c in fit.change_list(chosen, parts, fit.hull_speed(ctx)) do
+    for i, c in fit.change_list(chosen, parts, fit.hull_speed(ctx), fit.hull_hold(ctx)) do
         local spans = { string.upper(string.sub(c.text, 1, 1)) .. string.sub(c.text, 2) }
         if c.good ~= nil then
             table.insert(spans, " ")
@@ -232,7 +236,7 @@ end
 function cradle.rows(ctx, ui, pilot, title, keeper)
     local parts = cradle.parts(ctx)
     local load = rules.load(ctx.get("ship", "hold"))
-    local t = fit.totals(parts, nil, nil, fit.hull_speed(ctx))
+    local t = fit.totals(parts, nil, nil, fit.hull_speed(ctx), fit.hull_hold(ctx))
     -- Under the title, the keeper; after a fit, the receipt instead, in the same place.
     local under = ui.text { id = "keeper", width = INNER, size = kit.SIZE.small, text = keeper or "" }
     if pilot.deal ~= "" then under = receipt(ui, pilot) end
@@ -258,7 +262,7 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
     -- in full in its place. What it changes is the preview box (cradle.preview), so the
     -- button has no hover: at 960x540 the only room for one is over that box.
     local function offer(target, id, width, height, verb)
-        local why = fit.verdict(chosen, target, parts, pilot.credits, load)
+        local why = fit.verdict(chosen, target, parts, pilot.credits, load, fit.hull_hold(ctx))
         if why ~= "" then return ui.text { id = id, width = width, height = height, size = 16, text = "Cannot: " .. why } end
         return kit.button(ui, { id = id, width = width, height = height, size = 16, pad = 6, text = verb,
             on = target == "locker" and "unfit" or "fit",
@@ -271,7 +275,7 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
     for _, s in fit.SOCKETS do
         local accepts, notes, inside, waiting = {}, {}, nil, nil
         for _, p in parts do
-            accepts[p.id] = fit.verdict(p, s.id, parts, pilot.credits, load)
+            accepts[p.id] = fit.verdict(p, s.id, parts, pilot.credits, load, fit.hull_hold(ctx))
             if accepts[p.id] == "" then notes[p.id] = fit.note(p) end
             if p.fitted and p.socket == s.id then inside = card(ui, p) end
             if not p.fitted and p.socket == s.id then waiting = p end
@@ -298,7 +302,7 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
                 table.insert(rack, ui.text { id = "rack_" .. short(p.id), width = (INNER - 96) // 2, size = 16, icon = "check",
                     text = p.name, hover = about })
             else
-                local why = fit.verdict(p, "rack", parts, pilot.credits, load)
+                local why = fit.verdict(p, "rack", parts, pilot.credits, load, fit.hull_hold(ctx))
                 table.insert(rack, kit.button(ui, { id = "rack_" .. short(p.id), width = (INNER - 96) // 2, height = 44, size = 16, pad = 4,
                     text = p.name .. " · " .. p.price .. " cr", hover = about, resting = why ~= "" and why or nil,
                     on = "fit", payload = { socket = "rack", value = p.id } }, "primary"))
@@ -327,7 +331,7 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
         table.insert(tray, here or ui.text { id = "off_" .. s.id, width = TRAY, height = LOOSE, size = 16, text = "On the ship" })
     end
     for _, p in parts do
-        accepts[p.id] = fit.verdict(p, "locker", parts, pilot.credits, load)
+        accepts[p.id] = fit.verdict(p, "locker", parts, pilot.credits, load, fit.hull_hold(ctx))
     end
     table.insert(children, ui.drop_target { id = "tray", width = INNER, size = 16, pad = 4, on = "unfit", accepts = accepts,
         text = "Parts tray: drop a part here to take it off",

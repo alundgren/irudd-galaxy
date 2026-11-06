@@ -1,6 +1,6 @@
 # Back while someone speaks (tests/back-talk.inputs). size is physical pixels: at 125%
 # display scaling this is the 1024x576 logical window. Read its problems: none expected.
 inputs = "tests/back-talk.inputs"
-ticks = 3990
+ticks = 10140
 size = [1280, 720]
 seed = 1

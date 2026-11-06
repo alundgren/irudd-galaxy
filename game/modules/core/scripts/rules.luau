@@ -1,7 +1,7 @@
 -- Plain rules with no world access, so tests can call them directly.
 local rules = {
     -- The bare hull's hold; fitted parts can add to it (fit.luau, fit.hold).
-    CAPACITY = 6,
+    CAPACITY = 24,
     -- The hand cutter reaches this far from the ship's centre to the rock's surface,
     -- world units: a ship parked against a rock is about 1.7 off it, so this is a
     -- couple of ship lengths of stand-off. The reach rig cuts from much further.
@@ -193,6 +193,33 @@ function rules.worked_out(load, cargo, buyers)
     if #buyers == 0 then return field .. " You carry " .. cargo .. "." end
     local verb = #buyers == 1 and " buys" or " buy"
     return field .. " You carry " .. cargo .. ": " .. table.concat(buyers, " and ") .. verb .. " it."
+end
+
+-- Where a point `dx`, `dy` off lies, in one of eight words (north is +y). Slopes, not
+-- trigonometry, so every machine gives the same word.
+function rules.compass(dx, dy)
+    local ax, ay = math.abs(dx), math.abs(dy)
+    local slope = 0.41421356 -- tan 22.5 degrees
+    local ns = dy >= 0 and "north" or "south"
+    local ew = dx >= 0 and "east" or "west"
+    if ay <= slope * ax then return ew end
+    if ax <= slope * ay then return ns end
+    return ns .. "-" .. ew
+end
+
+-- Stations further than this from the ship are named in the bottom strip with the way
+-- they lie; nearer, the station is on screen and wears its own name.
+rules.FAR = 70
+
+-- "Lantern Dock south-west · Cinder Kiln south-east": each far station in `stations`
+-- ({ name, x, y }, in order) and the way it lies from `at`; "" when none is far.
+function rules.bearings(at, stations)
+    local parts = {}
+    for _, s in stations do
+        local dx, dy = s.x - at.x, s.y - at.y
+        if dx * dx + dy * dy > rules.FAR ^ 2 then table.insert(parts, s.name .. " " .. rules.compass(dx, dy)) end
+    end
+    return table.concat(parts, " · ")
 end
 
 -- A counted visit eases a line back towards its target by its rate.

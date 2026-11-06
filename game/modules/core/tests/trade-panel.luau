@@ -12,7 +12,7 @@ end
 -- Docked at Lantern Dock in its exchange (the ship is in the exchange's room, a place
 -- inside the station's), with every ware aboard and a deal just made.
 -- The exchange here trades all five wares, more than any core room does, as the worst case.
-local function world(hold, deal)
+local function world(hold, deal, markets)
     local w = {
         ship = {
             pilot = { room = ROOM, credits = 69, deal = deal, sale = 37, log_open = false, gliding = false },
@@ -36,7 +36,7 @@ local function world(hold, deal)
         ["core.m_plate"] = { market = line("plate", "buys", 34, 18) },
         ["core.m_rations"] = { market = line("rations", "sells", 14, 30) },
     }
-    local kinds = { market = { "core.m_ore", "core.m_ice", "core.m_glassite", "core.m_plate", "core.m_rations" },
+    local kinds = { market = markets or { "core.m_ore", "core.m_ice", "core.m_glassite", "core.m_plate", "core.m_rations" },
         build = { "core.galley" }, facility = { ROOM } }
     return {
         get = function(id, component) return w[id] and w[id][component] end,
@@ -52,8 +52,8 @@ local ui = setmetatable({}, { __index = function(_, kind)
     end
 end })
 
-local function panel(hold, deal)
-    local frame = station.screen(world(hold, deal), ui)
+local function panel(hold, deal, markets)
+    local frame = station.screen(world(hold, deal, markets), ui)
     return frame.children[1]
 end
 
@@ -82,17 +82,19 @@ return {
         assert(list.kind == "scroll", "the wares are a scrolling list")
         -- 540 tall, less the margins, the title, keeper, a two-line ledger, Sell
         -- everything, the receipt and the sheet's own frame.
-        assert(list.height <= 150, "the list is " .. list.height .. "px, more than 960x540 leaves it")
+        assert(list.height <= 166, "the list is " .. list.height .. "px, more than 960x540 leaves it")
         assert(index_of(list.children, "sell_plate"), "each ware's own Sell is in the list")
     end,
 
     a_short_list_does_not_stand_taller_than_its_rows = function()
-        local p = panel({ ore = 0, ice = 0, glassite = 0, plate = 0, rations = 0 }, "")
+        local p = panel({ ore = 0, ice = 0, glassite = 0, plate = 0, rations = 0 }, "",
+            { "core.m_ore", "core.m_plate", "core.m_rations" })
         local wares = p.children[index_of(p.children, "wares")]
         local list = wares.children[#wares.children]
         assert(index_of(p.children, "sell") == nil and index_of(p.children, "receipt") == nil)
-        -- The frame, the heads, four ware rows, the galley line and the rations row with
-        -- its buttons: all of it shows, with nothing to scroll.
-        assert(list.height == 24 + 24 + 4 * 32 + 26 + 94, "the list is " .. list.height .. "px")
+        -- The frame, Tova's buys and their heads, two ware rows, the galley line, her
+        -- sells and the rations row with its buttons: all of it shows, with nothing to
+        -- scroll.
+        assert(list.height == 24 + 32 + 2 * 32 + 26 + 32 + 94, "the list is " .. list.height .. "px")
     end,
 }

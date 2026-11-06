@@ -2,7 +2,7 @@
 # stops on the rock's surface (it would be at x 13 by tick 30 if it passed through),
 # then glances off round the rock rather than through it, and the rock turns slowly but
 # never moves.
-ticks = 90
+ticks = 91
 [[input]]
 tick = 1
 name = "ahead"

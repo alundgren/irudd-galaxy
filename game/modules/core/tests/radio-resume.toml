@@ -4,7 +4,7 @@
 # resuming on tick 301 brings one more Lantern Dock cue. Turned off, resuming on tick 461
 # cues nothing; on again, then docked, resuming on tick 1161 cues nothing either.
 seed = 7
-ticks = 1220
+ticks = 1889
 
 [[input]]
 tick = 301
@@ -34,7 +34,7 @@ name = "dock"
 payload = { station = "core.lantern" }
 
 [[input]]
-tick = 1161
+tick = 1830
 name = "engine.resumed"
 source = "resume"
 
@@ -84,23 +84,23 @@ facts = "radio_lantern"
 equals = 3
 
 [[expect]]
-tick = 1160
+tick = 1829
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.lantern"
 
 [[expect]]
-tick = 1160
+tick = 1829
 facts = "radio_off"
 equals = 2
 
 [[expect]]
-tick = 1219
+tick = 1888
 facts = "radio_lantern"
 equals = 3
 
 [[expect]]
-tick = 1219
+tick = 1888
 facts = "radio_off"
 equals = 2

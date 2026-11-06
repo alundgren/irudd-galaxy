@@ -1,4 +1,4 @@
-ticks = 2100
+ticks = 6690
 [[input]]
 tick = 1
 name = "core.ahead"
@@ -11,107 +11,107 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 900
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 600
+tick = 1854
 name = "core.open"
 [[input]]
-tick = 660
+tick = 1914
 name = "core.sell"
 [[input]]
-tick = 720
+tick = 1974
 name = "core.close"
 [[input]]
-tick = 780
+tick = 2034
 name = "core.launch"
 
 [[input]]
-tick = 900
+tick = 2154
 name = "core.mine"
 
 [[input]]
-tick = 1200
+tick = 3750
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[input]]
-tick = 1500
+tick = 4775
 name = "core.open"
 
 [[input]]
-tick = 1560
+tick = 4835
 name = "core.sell"
 
 [[input]]
-tick = 1561
+tick = 4836
 name = "core.sell"
 
 [[input]]
-tick = 1620
+tick = 4895
 name = "core.close"
 
 [[input]]
-tick = 1680
+tick = 4955
 name = "core.launch"
 
 [[input]]
-tick = 1740
+tick = 5015
 name = "core.mine"
 
 [[expect]]
-tick = 1590
+tick = 4865
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 142
+equals = 542
 
 [[expect]]
-tick = 1590
+tick = 4865
 entity = "lantern_ore"
 component = "market"
 field = "stock"
-equals = 36
+equals = 120
 
-# The second hold worked rock1 out; docking again brought fresh stone into it, half
-# its twelve.
+# The second hold worked rock1 out again; docking again brought fresh stone into it,
+# half its twelve.
 [[expect]]
-tick = 1590
+tick = 4865
 entity = "rock1"
 component = "ore"
 field = "left"
 equals = 6
 
-# The second hold's last unit is rock1's last too: the log keeps both beats, the rock's
+# The first hold's last unit is rock2's last too: the log keeps both beats, the rock's
 # first and the full hold last.
 [[expect]]
-tick = 1150
-entity = "log5"
+tick = 850
+entity = "log2"
 component = "entry"
 field = "text"
-equals = "Rock cut down to pebbles. 6 more rocks hold ore."
+equals = "Rock cut down to pebbles. 5 more rocks hold ore."
 
 [[expect]]
-tick = 1150
-entity = "log6"
+tick = 850
+entity = "log3"
 component = "entry"
 field = "text"
-equals = "Hold full: 6 ore aboard."
+equals = "Hold full: 24 ore aboard."
 
 [[expect]]
-tick = 1150
+tick = 3700
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Hold full: 6 ore aboard."
+equals = "Hold full: 24 ore aboard."
 
 [[expect]]
-tick = 2100
+tick = 6690
 entity = "ship"
 component = "hold"
 field = "ore"
-equals = 6
+equals = 24
 
 [[expect]]
 facts = "sold"

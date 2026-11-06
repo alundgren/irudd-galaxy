@@ -10,18 +10,18 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 900
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 600
+tick = 1854
 name = "core.open"
 [[input]]
-tick = 660
+tick = 1914
 name = "core.sell"
 [[input]]
-tick = 720
+tick = 1974
 name = "core.close"
 [[input]]
-tick = 780
+tick = 2034
 name = "core.launch"

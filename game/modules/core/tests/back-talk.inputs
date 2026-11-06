@@ -22,274 +22,274 @@ tick = 60
 name = "core.mine"
 
 [[input]]
-tick = 330
+tick = 900
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 715
+tick = 2091
 widget = "sign_exchange"
 
 [[note]]
-tick = 723
+tick = 2099
 text = "Kiln exchange: a full hold of ore; buying plate rests until I sell."
 
 [[click]]
-tick = 748
+tick = 2124
 widget = "sell_ore"
 
 [[click]]
-tick = 763
+tick = 2139
 widget = "buymax_plate"
 
 [[note]]
-tick = 771
+tick = 2147
 text = "Sold the ore, bought plate; each unit of plate asked a little more."
 
 [[click]]
-tick = 786
+tick = 2162
 widget = "close"
 
 [[click]]
-tick = 819
+tick = 2195
 widget = "launch"
 
 [[input]]
-tick = 859
+tick = 2235
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[click]]
-tick = 1204
+tick = 3536
 widget = "sign_galley"
 
 [[note]]
-tick = 1212
-text = "Lantern Dock: the galley site, 0 of 10 plate in."
+tick = 3544
+text = "Lantern Dock: the galley site, 0 of 40 plate in."
 
 [[click]]
-tick = 1237
+tick = 3569
 widget = "close"
 
 [[click]]
-tick = 1270
+tick = 3602
 widget = "sign_exchange"
 
 [[click]]
-tick = 1303
+tick = 3635
 widget = "sell_plate"
 
 [[note]]
-tick = 1311
-text = "Plate sold into the galley: 3 of 10."
+tick = 3643
+text = "Plate sold into the galley: 13 of 40."
 
 [[click]]
-tick = 1326
+tick = 3658
 widget = "close"
 
 [[click]]
-tick = 1359
+tick = 3691
 widget = "launch"
 
 [[input]]
-tick = 1399
+tick = 3731
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[note]]
-tick = 1549
+tick = 3881
 text = "A quick undock and redock: still one visit, nothing restocked."
 
 [[click]]
-tick = 1564
+tick = 3896
 widget = "launch"
 
 [[input]]
-tick = 1604
+tick = 3936
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 1949
+tick = 5234
 widget = "sign_exchange"
 
 [[click]]
-tick = 1982
+tick = 5267
 widget = "buymax_plate"
 
 [[click]]
-tick = 1997
+tick = 5282
 widget = "close"
 
 [[click]]
-tick = 2030
+tick = 5315
 widget = "launch"
 
 [[input]]
-tick = 2070
+tick = 5355
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[click]]
-tick = 2415
+tick = 6656
 widget = "sign_exchange"
 
 [[click]]
-tick = 2448
+tick = 6689
 widget = "sell_plate"
 
 [[click]]
-tick = 2463
+tick = 6704
 widget = "close"
 
 [[click]]
-tick = 2496
+tick = 6737
 widget = "launch"
 
 [[input]]
-tick = 2536
+tick = 6777
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 2881
+tick = 8075
 widget = "sign_exchange"
 
 [[click]]
-tick = 2914
+tick = 8108
 widget = "buymax_plate"
 
 [[click]]
-tick = 2929
+tick = 8123
 widget = "close"
 
 [[click]]
-tick = 2962
+tick = 8156
 widget = "launch"
 
 [[input]]
-tick = 3002
+tick = 8196
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[click]]
-tick = 3347
+tick = 9497
 widget = "sign_exchange"
 
 [[click]]
-tick = 3380
+tick = 9530
 widget = "sell_plate"
 
 [[note]]
-tick = 3388
-text = "The tenth plate: the galley is built."
+tick = 9538
+text = "The fortieth plate: the galley is built."
 
 [[click]]
-tick = 3403
+tick = 9553
 widget = "close"
 
 [[note]]
-tick = 3411
+tick = 9561
 text = "The station has grown: the galley stands where the scaffold was, with Ines by it."
 
 [[click]]
-tick = 3436
+tick = 9586
 widget = "sign_galley"
 
 [[click]]
-tick = 3469
+tick = 9619
 widget = "speaker.core.lantern_cook"
 
 [[note]]
-tick = 3477
+tick = 9627
 text = "Ines introduces herself."
 
 [[click]]
-tick = 3492
+tick = 9642
 widget = "talk.core.lantern_cook_intro"
 
 [[click]]
-tick = 3507
+tick = 9657
 widget = "talk.core.lantern_cook_intro"
 
 [[click]]
-tick = 3522
+tick = 9672
 widget = "talk.core.lantern_cook_intro"
 
 [[click]]
-tick = 3537
+tick = 9687
 widget = "speaker.core.lantern_cook"
 [[click]]
-tick = 3552
+tick = 9702
 widget = "talk.core.lantern_cook_gift"
 
 # Back with the offer unanswered: Esc.
 [[key]]
-tick = 3567
+tick = 9717
 key = "escape"
 [[note]]
-tick = 3572
+tick = 9722
 text = "Back from Ines's unanswered offer: the bubble goes, the HUD shows."
 
 # In again: her offer, still open, begins at its first line; Back on that line: a
 # right-click.
 [[click]]
-tick = 3600
+tick = 9750
 widget = "key_galley"
 [[click]]
-tick = 3633
+tick = 9783
 widget = "speaker.core.lantern_cook"
 [[key]]
-tick = 3648
+tick = 9798
 key = "mouse_right"
 [[note]]
-tick = 3653
+tick = 9803
 text = "Back from her first line: the bubble goes again."
 
 # In once more, and take it this time.
 [[click]]
-tick = 3681
+tick = 9831
 widget = "key_galley"
 [[click]]
-tick = 3714
+tick = 9864
 widget = "speaker.core.lantern_cook"
 [[click]]
-tick = 3729
+tick = 9879
 widget = "talk.core.lantern_cook_gift"
 [[click]]
-tick = 3744
+tick = 9894
 widget = "choice.core.lantern_cook_gift_take"
 [[click]]
-tick = 3759
+tick = 9909
 widget = "talk.core.lantern_cook_gift"
 [[note]]
-tick = 3767
+tick = 9917
 text = "The gift taken after all: one ration in the hold."
 [[click]]
-tick = 3774
+tick = 9924
 widget = "close"
 
 # In the exchange: Tova's line, then B cuts back out to the station, which ends it.
 [[click]]
-tick = 3810
+tick = 9960
 widget = "key_exchange"
 [[click]]
-tick = 3850
+tick = 10000
 widget = "speaker.core.lantern_trader"
 [[key]]
-tick = 3865
+tick = 10015
 key = "b"
 [[note]]
-tick = 3874
+tick = 10024
 text = "Going back out while Tova spoke ended her bubble."
 
 # In again: a click on Tova begins a conversation afresh.
 [[click]]
-tick = 3905
+tick = 10055
 widget = "key_exchange"
 [[click]]
-tick = 3945
+tick = 10095
 widget = "speaker.core.lantern_trader"
 [[note]]
-tick = 3962
+tick = 10112
 text = "Back in the exchange, Tova speaks again at a click."

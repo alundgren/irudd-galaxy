@@ -1,10 +1,11 @@
 # Traffic: Little Mercy waits moored off Lantern Dock, sets off on her own after her
 # wait, and is bumped aside when the player's ship flies across her route; she still
-# reaches her mooring off Cinder Kiln. Quiet Lamp flies the long way round the field,
-# moors off Cinder Kiln, flies back and moors off Lantern Dock. The traders' arrivals
-# never dock the player, and nothing takes damage.
+# reaches her mooring off Cinder Kiln. The ship turns south and flies out to wait on her
+# lane, well south of the field. Quiet Lamp flies the long way round the field, moors
+# off Cinder Kiln, flies back and moors off Lantern Dock. The traders' arrivals never
+# dock the player, and nothing takes damage.
 seed = 7
-ticks = 1500
+ticks = 7400
 
 [[input]]
 tick = 1
@@ -17,12 +18,12 @@ name = "right"
 payload = { down = false }
 
 [[input]]
-tick = 140
+tick = 580
 name = "ahead"
 payload = { down = true }
 
 [[input]]
-tick = 290
+tick = 1220
 name = "ahead"
 payload = { down = false }
 
@@ -40,54 +41,54 @@ component = "engine.steer"
 field = "mode"
 equals = "follow"
 
-# Unbumped she would be at y -38.6 here; the ship's push moved her south.
+# Unbumped she would be at y -414.9 here; the ship's push moved her south.
 [[expect]]
-tick = 210
+tick = 1300
 entity = "mercy"
 component = "engine.position"
 field = "y"
-at_most = -39.5
+at_most = -417.5
 
 [[expect]]
-tick = 400
+tick = 2600
 entity = "mercy"
 component = "trader"
 field = "moored"
 equals = true
 [[expect]]
-tick = 400
+tick = 2600
 entity = "mercy"
 component = "engine.position"
 field = "x"
-at_least = 29.9
+at_least = 359.9
 [[expect]]
-tick = 400
+tick = 2600
 entity = "mercy"
 component = "engine.position"
 field = "x"
-at_most = 30.1
+at_most = 360.1
 
 [[expect]]
-tick = 450
+tick = 2600
 entity = "lamp"
 component = "trader"
 field = "leg"
 equals = "out"
 [[expect]]
-tick = 450
+tick = 2600
 entity = "lamp"
 component = "trader"
 field = "moored"
 equals = true
 
 [[expect]]
-tick = 700
+tick = 3000
 entity = "lamp"
 component = "trader"
 field = "leg"
 equals = "home"
 [[expect]]
-tick = 700
+tick = 3000
 entity = "lamp"
 component = "trader"
 field = "moored"
@@ -102,7 +103,7 @@ equals = true
 entity = "lamp"
 component = "engine.position"
 field = "x"
-at_most = -38.9
+at_most = -338.9
 
 [[expect]]
 facts = "docked"

@@ -2,7 +2,7 @@
 # Open the office from its sign, switch straight to the exchange with M, try the
 # refused actions, talk to the keeper, sell, go back, use the log and launch.
 seed = 3
-ticks = 760
+ticks = 2014
 
 [[input]]
 tick = 1
@@ -16,44 +16,44 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 900
 name = "core.dock"
 payload = { station = "core.lantern" }
 # The arrival cut lands, as a window's play records it.
 [[input]]
-tick = 450
+tick = 1704
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 396 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 1650 }
 
 # The office opens from its sign; selling there is refused.
 [[input]]
-tick = 600
+tick = 1854
 name = "core.open"
 payload = { facility = "core.lantern_office" }
 [[input]]
-tick = 605
+tick = 1859
 name = "core.sell"
 [[expect]]
-tick = 606
+tick = 1860
 entity = "ship"
 component = "pilot"
 field = "room"
 equals = "core.lantern_office"
 [[expect]]
-tick = 606
+tick = 1860
 entity = "ship"
 component = "hold"
 field = "ore"
-equals = 6
+equals = 24
 
 # Another station's building can't be opened from here.
 [[input]]
-tick = 610
+tick = 1864
 name = "core.open"
 payload = { facility = "core.kiln_exchange" }
 [[expect]]
-tick = 611
+tick = 1865
 entity = "ship"
 component = "pilot"
 field = "room"
@@ -61,10 +61,10 @@ equals = "core.lantern_office"
 
 # The log stays shut while a room has the focus.
 [[input]]
-tick = 612
+tick = 1866
 name = "core.log"
 [[expect]]
-tick = 613
+tick = 1867
 entity = "ship"
 component = "pilot"
 field = "log_open"
@@ -72,11 +72,11 @@ equals = false
 
 # M opens the exchange directly from the office.
 [[input]]
-tick = 615
+tick = 1869
 name = "core.open"
 payload = { down = true }
 [[expect]]
-tick = 616
+tick = 1870
 entity = "ship"
 component = "pilot"
 field = "room"
@@ -84,68 +84,68 @@ equals = "core.lantern_exchange"
 
 # The cut lands, and the keeper speaks when clicked.
 [[input]]
-tick = 618
+tick = 1872
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 615 }
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 1869 }
 [[input]]
-tick = 620
+tick = 1874
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_trader_intro" }
 [[expect]]
-tick = 621
+tick = 1875
 entity = "lantern_trader_intro"
 component = "engine.talk"
 field = "active"
 equals = true
 
 [[input]]
-tick = 630
+tick = 1884
 name = "core.sell"
 [[input]]
-tick = 631
+tick = 1885
 name = "core.sell"
 [[expect]]
-tick = 632
+tick = 1886
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 73
+equals = 283
 [[expect]]
-tick = 632
+tick = 1886
 entity = "ship"
 component = "pilot"
 field = "sale"
-equals = 73
+equals = 283
 [[expect]]
-tick = 632
+tick = 1886
 entity = "lantern_ore"
 component = "market"
 field = "stock"
-equals = 33
+equals = 105
 [[expect]]
-tick = 632
-entity = "log2"
+tick = 1886
+entity = "log4"
 component = "entry"
 field = "text"
 equals = "Docked at Lantern Dock."
 [[expect]]
-tick = 632
-entity = "log3"
+tick = 1886
+entity = "log5"
 component = "entry"
 field = "text"
-equals = "Sold 6 ore to Lantern Dock for 73 cr."
+equals = "Sold 24 ore to Lantern Dock for 283 cr."
 
 # Back to the whole station, then the log opens and closes.
 [[input]]
-tick = 640
+tick = 1894
 name = "core.close"
 [[input]]
-tick = 645
+tick = 1899
 name = "core.log"
 [[expect]]
-tick = 646
+tick = 1900
 entity = "ship"
 component = "pilot"
 field = "log_open"
@@ -153,11 +153,11 @@ equals = true
 
 # Opening a room closes the log.
 [[input]]
-tick = 650
+tick = 1904
 name = "core.open"
 payload = { facility = "core.lantern_office" }
 [[expect]]
-tick = 651
+tick = 1905
 entity = "ship"
 component = "pilot"
 field = "log_open"
@@ -165,14 +165,14 @@ equals = false
 
 # The skiff keeps ferrying across the deck while the player is docked.
 [[expect]]
-tick = 700
+tick = 1954
 entity = "lantern_skiff"
 component = "engine.walk"
 field = "active"
 equals = true
 
 [[input]]
-tick = 720
+tick = 1974
 name = "core.launch"
 [[expect]]
 entity = "ship"

@@ -1,14 +1,14 @@
 # The radio tunes itself without flickering. A new game finds Lantern Dock's channel
-# in its first second and starts its music once. Mining a whole hold at the first rock,
-# where Cinder Kiln comes in a little stronger, the radio keeps Lantern Dock: no second
-# cue, no switch. Docking at Cinder Kiln stops the music; flying off there tunes
-# straight to the Kiln's own channel with one cue, its signal Strong. Flying back
-# across to Lantern Dock, the Kiln's channel holds over the rocks and Lantern Dock's
-# takes over once, near its berth, after it has been clearly stronger for a few seconds.
-# The order is cancelled short of the berth's ring, where the clamps would take her in:
-# the order's route bends round the field, and stops about 5.6 units off the berth.
+# in its first second and starts its music once. Mining a whole hold at the first rocks,
+# the radio keeps Lantern Dock: no second cue, no switch. On the long flight out to
+# Cinder Kiln its channel takes over once, when it has been clearly stronger for a few
+# seconds. Docking there stops the music; flying off tunes straight back to the Kiln's
+# own channel with one cue, its signal Strong. Flying back across to Lantern Dock, the
+# Kiln's channel holds over the field and Lantern Dock's takes over once, on the way in.
+# The order is cancelled short of the berth's ring, where the clamps would take her in,
+# and the ship coasts to a stop about 15 units off the berth.
 seed = 7
-ticks = 1500
+ticks = 3500
 
 [[input]]
 tick = 90
@@ -16,31 +16,31 @@ name = "mine"
 payload = { down = true }
 
 [[input]]
-tick = 600
+tick = 1170
 name = "dock"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 900
+tick = 2278
 name = "ahead"
 payload = { down = true }
 
 [[input]]
-tick = 901
+tick = 2279
 name = "ahead"
 payload = { down = false }
 
 [[input]]
-tick = 960
+tick = 2338
 name = "dock"
 payload = { station = "core.lantern" }
 
 [[input]]
-tick = 1005
+tick = 3315
 name = "cancel"
 payload = { down = true }
 
-# The first second out: Lantern Dock, Strong, its music cued once.
+# The first second out, far out at the field: Lantern Dock, Fair, its music cued once.
 [[expect]]
 tick = 61
 entity = "ship"
@@ -53,104 +53,104 @@ tick = 61
 entity = "ship"
 component = "radio"
 field = "level"
-equals = 3
+equals = 2
 
 [[expect]]
 tick = 61
 facts = "radio_lantern"
 equals = 1
 
-# A whole hold mined at the first rock: still Lantern Dock, cued once, and the Kiln
+# A whole hold mined at the first rocks: still Lantern Dock, cued once, and the Kiln
 # never cued.
 [[expect]]
-tick = 590
+tick = 1160
 entity = "ship"
 component = "hold"
 field = "ore"
-equals = 6
+equals = 24
 
 [[expect]]
-tick = 590
+tick = 1160
 entity = "ship"
 component = "radio"
 field = "channel"
 equals = "core.lantern_radio"
 
 [[expect]]
-tick = 590
+tick = 1160
 facts = "radio_lantern"
 equals = 1
 
 [[expect]]
-tick = 590
+tick = 1160
 facts = "radio_kiln"
 equals = 0
 
 # Docked at Cinder Kiln, the music stops once.
 [[expect]]
-tick = 880
+tick = 2258
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.kiln"
 
 [[expect]]
-tick = 880
+tick = 2258
 facts = "radio_off"
 equals = 1
 
-# Flown off at the Kiln: straight to its channel, cued once, Strong.
+# Flown off at the Kiln: straight to its channel, cued once more, Strong.
 [[expect]]
-tick = 959
+tick = 2337
 entity = "ship"
 component = "radio"
 field = "channel"
 equals = "core.kiln_radio"
 
 [[expect]]
-tick = 959
+tick = 2337
 entity = "ship"
 component = "radio"
 field = "level"
 equals = 3
 
 [[expect]]
-tick = 959
+tick = 2337
 facts = "radio_kiln"
-equals = 1
+equals = 2
 
 [[expect]]
-tick = 959
+tick = 2337
 facts = "radio_lantern"
 equals = 1
 
-# Stopped by Lantern Dock's berth: Lantern Dock takes over once, Strong.
+# Stopped by Lantern Dock's berth: Lantern Dock took over once, Strong.
 [[expect]]
-tick = 1499
+tick = 3499
 entity = "ship"
 component = "radio"
 field = "channel"
 equals = "core.lantern_radio"
 
 [[expect]]
-tick = 1499
+tick = 3499
 facts = "radio_lantern"
 equals = 2
 
 [[expect]]
-tick = 1499
+tick = 3499
 facts = "radio_kiln"
-equals = 1
+equals = 2
 
 [[expect]]
-tick = 1499
+tick = 3499
 entity = "ship"
 component = "radio"
 field = "level"
 equals = 3
 
 [[expect]]
-tick = 1499
+tick = 3499
 entity = "ship"
 component = "engine.location"
 field = "place"

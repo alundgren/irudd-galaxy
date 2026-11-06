@@ -3,57 +3,288 @@
 # panel names him meanwhile. Put back, or a fit, and the sign is worn again. The route
 # is fit-click.toml's up to the sale, then the view settles in the cradle.
 seed = 7
-ticks = 560
+ticks = 27767
+
+# Ore runs at Cinder Kiln until one hold more pays for the lens.
+[[input]]
+tick = 10
+name = "core.mine"
+source = "script"
 
 [[input]]
-tick = 1
+tick = 796
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 1706
+name = "core.open"
+
+[[input]]
+tick = 1711
+name = "core.sell"
+
+[[input]]
+tick = 1721
+name = "core.launch"
+
+[[input]]
+tick = 1731
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 3346
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 4254
+name = "core.open"
+
+[[input]]
+tick = 4259
+name = "core.sell"
+
+[[input]]
+tick = 4269
+name = "core.launch"
+
+[[input]]
+tick = 4279
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 5926
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 6837
+name = "core.open"
+
+[[input]]
+tick = 6842
+name = "core.sell"
+
+[[input]]
+tick = 6852
+name = "core.launch"
+
+[[input]]
+tick = 6862
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 8536
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 9439
+name = "core.open"
+
+[[input]]
+tick = 9444
+name = "core.sell"
+
+[[input]]
+tick = 9454
+name = "core.launch"
+
+[[input]]
+tick = 9464
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 11116
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 12028
+name = "core.open"
+
+[[input]]
+tick = 12033
+name = "core.sell"
+
+[[input]]
+tick = 12043
+name = "core.launch"
+
+[[input]]
+tick = 12053
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 13696
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 14607
+name = "core.open"
+
+[[input]]
+tick = 14612
+name = "core.sell"
+
+[[input]]
+tick = 14622
+name = "core.launch"
+
+[[input]]
+tick = 14632
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 16276
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 17187
+name = "core.open"
+
+[[input]]
+tick = 17192
+name = "core.sell"
+
+[[input]]
+tick = 17202
+name = "core.launch"
+
+[[input]]
+tick = 17212
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 18856
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 19768
+name = "core.open"
+
+[[input]]
+tick = 19773
+name = "core.sell"
+
+[[input]]
+tick = 19783
+name = "core.launch"
+
+[[input]]
+tick = 19793
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 21436
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 22347
+name = "core.open"
+
+[[input]]
+tick = 22352
+name = "core.sell"
+
+[[input]]
+tick = 22362
+name = "core.launch"
+
+[[input]]
+tick = 22372
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 24016
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 24927
+name = "core.open"
+
+[[input]]
+tick = 24932
+name = "core.sell"
+
+[[input]]
+tick = 24942
+name = "core.launch"
+# The route goes on.
+[[input]]
+tick = 24953
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 11
+tick = 24963
 name = "core.ahead"
 payload = { down = false }
 [[input]]
-tick = 60
+tick = 25012
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 26730
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 440
+tick = 27647
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 389 }
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 27596 }
 [[input]]
-tick = 470
+tick = 27677
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
 [[input]]
-tick = 480
+tick = 27687
 name = "core.fit"
 source = "ui"
 payload = { socket = "drill", value = "core.lens" }
 [[input]]
-tick = 490
+tick = 27697
 name = "core.open"
 [[input]]
-tick = 500
+tick = 27707
 name = "core.sell"
 [[input]]
-tick = 510
+tick = 27717
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
 
 [[input]]
-tick = 513
+tick = 27720
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln_cradle_room", start_tick = 510 }
+payload = { entity = "core.ship", place = "core.kiln_cradle_room", start_tick = 27717 }
 
 # Settled in the cradle: Orrin wears his sign.
 [[expect]]
-tick = 515
+tick = 27722
 entity = "kiln_fitter"
 component = "engine.life"
 field = "name"
@@ -61,12 +292,12 @@ equals = "Orrin Vale"
 
 # The lens chosen: its preview shows, and his sign goes.
 [[input]]
-tick = 520
+tick = 27727
 name = "core.choose"
 source = "ui"
 payload = { value = "core.lens" }
 [[expect]]
-tick = 521
+tick = 27728
 entity = "kiln_fitter"
 component = "engine.life"
 field = "name"
@@ -74,12 +305,12 @@ equals = ""
 
 # Put back: the sign is back.
 [[input]]
-tick = 525
+tick = 27732
 name = "core.choose"
 source = "ui"
 payload = { value = "core.lens" }
 [[expect]]
-tick = 526
+tick = 27733
 entity = "kiln_fitter"
 component = "engine.life"
 field = "name"
@@ -87,29 +318,29 @@ equals = "Orrin Vale"
 
 # Chosen again, then fitted: the choice is done, so the sign is worn again.
 [[input]]
-tick = 530
+tick = 27737
 name = "core.choose"
 source = "ui"
 payload = { value = "core.lens" }
 [[expect]]
-tick = 531
+tick = 27738
 entity = "kiln_fitter"
 component = "engine.life"
 field = "name"
 equals = ""
 [[input]]
-tick = 535
+tick = 27742
 name = "core.fit"
 source = "ui"
 payload = { socket = "drill", value = "core.lens" }
 [[expect]]
-tick = 536
+tick = 27743
 entity = "lens"
 component = "part"
 field = "fitted"
 equals = true
 [[expect]]
-tick = 536
+tick = 27743
 entity = "kiln_fitter"
 component = "engine.life"
 field = "name"
@@ -117,23 +348,23 @@ equals = "Orrin Vale"
 
 # Chosen where it is fitted, then taken off: the same.
 [[input]]
-tick = 540
+tick = 27747
 name = "core.choose"
 source = "ui"
 payload = { value = "core.lens" }
 [[expect]]
-tick = 541
+tick = 27748
 entity = "kiln_fitter"
 component = "engine.life"
 field = "name"
 equals = ""
 [[input]]
-tick = 545
+tick = 27752
 name = "core.unfit"
 source = "ui"
 payload = { value = "core.lens" }
 [[expect]]
-tick = 546
+tick = 27753
 entity = "kiln_fitter"
 component = "engine.life"
 field = "name"
