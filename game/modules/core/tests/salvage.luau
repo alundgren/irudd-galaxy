@@ -105,4 +105,20 @@ return {
         assert(salvage.click(world(job(salvage.WORKING, { at = "core.lantern" })), "core.kettle") == nil, "handed over: nothing")
         assert(salvage.click(world(job(salvage.SEARCH)), "core.lamp") == nil, "another trader: nothing")
     end,
+
+    the_skipper_met_aboard_starts_with_what_was_chosen_for_her_barge = function()
+        local kept = salvage.met("keep", false, "Cold Kettle", "Noor", "Hessa", "Lantern Dock")
+        assert(#kept == 3, "as long as her introduction")
+        assert(kept[1] == "So my Kettle stays moored here for good.", kept[1])
+        assert(kept[3] == "Her tanks for Noor's beds, then. I'd sooner have sailed her.", kept[3])
+        local bloomed = salvage.met("keep", true, "Cold Kettle", "Noor", "Hessa", "Lantern Dock")
+        assert(bloomed[3] == "Noor's beds bloom on her tanks. I'd sooner have sailed her.", bloomed[3])
+        local mended = salvage.met("mend", false, "Cold Kettle", "Noor", "Hessa", "Cinder Kiln")
+        assert(mended[1] == "You brought my Kettle to the Kiln to be mended.", mended[1])
+        assert(mended[2] == "I'm Hessa. Thirty years she and I hauled ice.", mended[2])
+        assert(mended[3] == "Noor's beds can wait. I want her sailing.", mended[3])
+        local done = salvage.met("mend", true, "Cold Kettle", "Noor", "Hessa", "Cinder Kiln")
+        assert(done[3] == "Noor's beds waited for their ice. Bless you.", done[3])
+        for _, line in kept do assert(not string.find(line, "froze", 1, true), "not the radio's story again") end
+    end,
 }

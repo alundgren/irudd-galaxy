@@ -656,7 +656,8 @@ Ines's ask as an `OFFER` once heard, then each next step as a `JOB`, in her term
    comes on only with 8 aboard, and it is the exchange's gold button, above everything
    else in the panel: `Hand Sefa 8 glassite for Ines's panes`, one press, with or without her talk (or `Hand it over` in it). Every later
    handover in these jobs is the same gold button in the keeper's room. Her act
-   at the hatch becomes `firing Ines's panes`.
+   at the hatch becomes `firing Ines's panes`, and she goes to the hatch with it there
+   and then.
 2. Go about your work: the panes are ready on the Kiln's next counted visit
    (`packing Ines's panes`). Her offer to load them waits while the hold has no room
    for 8.
@@ -711,12 +712,17 @@ went dark out west, past the ice. Will you go and find her?" `Accept` or `Not no
      would go without her ice."). She is moored at Orrin's quay.
 
    Towed on instead, the other dockmaster offers. Each offer's `Not now` leaves it.
+   The room shows the choice: kept, Bram gets up from his desk and goes to his porthole
+   to look out at her (`watching Cold Kettle`), and the porthole stays in his day (haven
+   `watch`, `places.go`); mended, Hessa comes aboard into Mags's office at once, wearing
+   her sign, and waits right of the board, clear of Mags's desk and board.
 5. **A delivery.** Kept, Bram's crew needs 12 plate for her pipes ("The Kiln sells it.");
    mended, Orrin wants 12 ore for a new pump, left with Mags. The offer comes on only with
    it aboard, and the log counts what you carry. Hessa comes aboard the station and
    talks of the work; Orrin and the dockmasters speak of it too.
-6. **The work: two trips out.** Sparks fly off her while she is piped or mended, the
-   keeper's sign says what they are doing about her ("planning Cold Kettle's pipes",
+6. **The work: two trips out.** Sparks fly off her while she is piped or mended (Bram
+   goes to his board as you hand the plate over), the keeper's sign says what they are
+   doing about her ("planning Cold Kettle's pipes",
    Orrin "mending Cold Kettle's engine"), and the log counts the trips left. She is
    ready on that station's second counted visit after the delivery.
 
@@ -843,6 +849,53 @@ plate and offers a ration on the house (never before it stands), with `Take it` 
 bubble. Taking it puts one ration in the hold with a receipt in the log; either
 answer ends the offer for good, and her greenhouse ask follows (below). While the
 hold is full the offer waits, unanswered, and she says her everyday line instead.
+
+**Shared history** (`scripts/history.luau`). The most specific line wins: when someone
+has something to say about what you have done together, it comes before their generic
+introduction and their everyday line, and they don't send you to hear what you have
+heard. Met only after it, a keeper says it first, folded in front of what is left of
+their introduction, and the line that greets a stranger (`keeper.greeting`: Bram's
+"Welcome to Lantern Dock.", Mags's "You're at Cinder Kiln.") is left out: Bram met after
+keeping Cold Kettle starts "Cold Kettle's moored off our berth for good now." and goes on
+with who he is. News is told once; newer news replaces news not yet heard. Which keepers
+have news, and of what (`salvage.news`, `project.news`):
+
+| Who | After | First line |
+| --- | --- | --- |
+| Bram | towing her in, keeping her, the bloom | "So you're the pilot who towed Cold Kettle in." "Cold Kettle's moored off our berth for good now." "Cold Kettle's our cistern now, and the beds bloom. Your doing." |
+| Bram | the greenhouse taken on, then built | "I've staked out Ines's greenhouse plot for you." "Your greenhouse is the pride of our deck." |
+| Mags | towing her in, sending her to be mended, mended, sailing | "Cold Kettle's at Orrin's quay now, on your say." "Orrin's mended Cold Kettle. Hessa's waiting on you." "Cold Kettle sails again, thanks to your tow." |
+| Orrin | her engine, mended | "Mags says you towed Cold Kettle in for me to mend." "Cold Kettle's engine purrs again. My pump, your tow." |
+| Sefa | the panes, from firing to the greenhouse | "Ines's panes are in the kiln, from your glassite." through "My glass is in Ines's greenhouse, from your glassite." |
+
+Hessa has told her story over the radio by the time she is aboard, so her introduction
+starts with what was chosen for her barge, and its last line follows the work: kept,
+"So my Kettle stays moored here for good." ... "Her tanks for Noor's beds, then. I'd
+sooner have sailed her." (once they bloom, "Noor's beds bloom on her tanks. ..."); mended,
+"You brought my Kettle to the Kiln to be mended." ... "Noor's beds can wait. I want her
+sailing." (once mended, "Noor's beds waited for their ice. Bless you."). Noor's
+introduction names your part ("Ines says you carried the glass, and the ice for the
+beds."), and Bram's last line, once the galley stands, is "Your plate built our galley.
+Go and eat there."
+
+Everyday lines remember too, below anything more pressing (what you carry that they buy,
+a job's next step): Bram's field line once the galley stands starts "Your plate built
+our galley."; Tova's idle line is "Your plate built Ines's galley. I eat there every
+shift.", then "Your ice filled Noor's beds. I still take it.", then, kept, "Noor's beds
+drink more since they bloomed. Bring me ice."; Sefa's follows the panes ("Mind Ines's
+panes. Glass doesn't bounce.", "Did Ines's panes travel well? ...", "My glass is in
+Ines's greenhouse. Go and look."). Once you have heard Ines's greenhouse ask, Bram says
+"Ines told you her plan? There's room on the deck for it." instead of "Ask her", and once
+you have heard Noor's ask, Ines says "Noor told you, then. She won't eat till Cold
+Kettle's in." instead of "Ask her what's wrong" (an offer heard records `heard`, and the
+lines follow at once). The dockmaster who didn't get the barge hears where she went
+(Mags: "Bram kept Cold Kettle for good. Hessa's grounded."; Bram: "You took Cold Kettle
+to the Kiln. Fair: she's Hessa's."), and Orrin's next line, until a fit replaces it, is
+"Bram kept Cold Kettle? I'd have had her purring." or, once she sails, "Cold Kettle sails
+on my pump now. Bring me credits next." The ration gift taken or declined opens Ines's
+greenhouse ask ("That ration was plain, I know. ..." or "You turned my ration down. ..."),
+and Hessa's fee taken or kept follows her, Noor and Ines ("Noor's ice is on me now.",
+"Hessa sends my ice free now. She says it's your doing.").
 
 Each conversation you hear is one ship log entry that names the speaker and the
 station, with the lines quoted in order and any answer you gave (`You: Take it.`),
@@ -1124,7 +1177,17 @@ and the sparks, done after two trips with the quay lamps, Hessa's story and her 
 taken, and Cold Kettle sailing home and mooring at the ice camp), its choices
 (`kettle-choices.toml`: Noor's `Not now` and her ask again, the line slipped on the
 ice by a hand swing, cast off and passed again, Bram's and Mags's `Not now`, towed on
-from Lantern Dock to the Kiln, and Hessa's fee declined), and
+from Lantern Dock to the Kiln, and Hessa's fee declined), shared history (one scenario
+a case, each failing on the core before it: `history-hessa-keep.toml`, Hessa's
+introduction once Cold Kettle is kept, its last line once the beds bloom, heard at
+Ines's table with no fee; `history-hessa-mend.toml`, her introduction once the Kiln mends
+her, her sign in Mags's office at once, its last line once mended, her line after the
+fee taken; `history-ines.toml`, Ines after Noor's whole ask and `Not now`;
+`history-bram.toml`, Bram's unheard introduction after the keep choice, starting with
+the barge, the greeting left out, the rest heard on, his last line on the galley your
+plate built; `history-room.toml`, Bram walking from his desk to the porthole as she is
+kept; `tests/history.luau` folds news in front of an introduction, once, past what was
+heard), and
 the fitting loop (`fit.toml`: ore runs that leave the lens one hold out of reach, the
 rack stocked and priced; a part that can't be paid for, in the wrong socket or short of power doing nothing; the lens
 bought and fitted with one receipt and Orrin's line, taken off (the flight staying

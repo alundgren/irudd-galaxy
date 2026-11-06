@@ -3,7 +3,7 @@ id = "core"
 version = "0.1.0"
 min_engine_version = "0.8.0"
 scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau", "scripts/tow.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit", "bump", "drive_on", "beam_on", "hitch", "hand", "slipped", "hitched"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit", "bump", "drive_on", "beam_on", "hitch", "hand", "slipped", "hitched", "heard"]
 # Bodies that start touching at least this fast (units a second) record engine.contact,
 # which sound.luau turns into a bump on the hull when the ship is one of them.
 contact_speed = 2.0
@@ -263,6 +263,10 @@ idle = "text"
 trades = "text"
 # The figure (a model) of a keeper who arrives later, when what they keep is built.
 figure = "text"
+# The line of their introduction that greets a stranger ("Welcome to Lantern Dock."),
+# left out once they have something to say about what the player has done with them
+# (scripts/history.luau); "" when it greets nobody.
+greeting = "id"
 
 # A keeper's gift, offered once in its own talk (the talk entity carries this):
 # taking it puts `units` of `ware` in the hold, and either answer ends the offer.
@@ -275,6 +279,8 @@ instead = "id"
 answered = "bool"
 # The offer has been said to the player: the log pins it until it is answered.
 heard = "bool"
+# Answered by taking it: what the keeper says later remembers which.
+taken = "bool"
 
 # A job someone gives the player, in steps (scripts/project.luau has them): the giver
 # asks once `after` (her gift) is answered; the maker turns `need` `ware` into `units`
@@ -356,6 +362,8 @@ since = "int"
 slips = "int"
 # Who feeds the station's people, and talks of the giver and the skipper meanwhile.
 cook = "id"
+# The skipper's fee for the tow, once mended: "taken" or "kept" ("" until answered).
+fee = "text"
 
 # A station a salvage job's barge may be brought to (scripts/salvage.luau). `kind` says
 # what becomes of it there: "keep" (moored for good at `moor`, its tanks for the giver's
@@ -367,7 +375,9 @@ cook = "id"
 # station at the act `life`, whose state becomes `settled` once the work is done. Then,
 # kept: `site`, `room` and `exterior` wear `site_model`, `room_model` and
 # `exterior_model`, the site's room tells `told`, `market` wants `target` stock, and
-# `thanks` (a talk) goes on offer; either way `happening` begins.
+# `thanks` (a talk) goes on offer; either way `happening` begins. `watch` is an act
+# that joins the keeper's day when they take her, in the room where they do, so the room
+# shows the choice ("" for none).
 [components.haven]
 job = "id"
 station = "id"
@@ -397,6 +407,7 @@ about = "text"
 ware = "text"
 need = "int"
 deliver = "id"
+watch = "id"
 
 [components.skiff]
 a = "id"

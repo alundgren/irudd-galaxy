@@ -185,3 +185,8 @@ at = [-0.4, 2.3, 0]
 [[marker]]
 name = "spot.window"
 at = [-2.9, 2.1, 0]
+# Where a visitor waits, right of the board: clear of the dockmaster's desk and board,
+# so their name signs never meet.
+[[marker]]
+name = "spot.visitor"
+at = [1.5, 2.4, 0]

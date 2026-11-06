@@ -6,6 +6,7 @@ local fit = require("./fit")
 local places = require("./places")
 local project = require("./project")
 local salvage = require("./salvage")
+local history = require("./history")
 
 local voices = {}
 
@@ -36,11 +37,43 @@ function voices.waiting(need, total, ware, idle)
     return need .. " " .. ware .. " to go, and the crews eat hot."
 end
 
--- The office keeper: about what the station is building, then about the field.
-function voices.master(left, need, ware, building)
+-- The office keeper: about what the station is building, then about the field. `made` is
+-- what the player's deliveries built here, said first ("Your plate built our galley."),
+-- or "".
+function voices.master(left, need, ware, building, made)
     if need > 0 then return "The " .. building .. " still needs " .. need .. " " .. ware .. "." end
-    if left > 0 then return "The field still holds " .. left .. " ore." end
-    return "The field's worked out. Good shift."
+    local lead = (made or "") ~= "" and made .. " " or ""
+    if left > 0 then return lead .. "The field still holds " .. left .. " ore." end
+    return lead .. "The field's worked out. Good shift."
+end
+
+-- The station's own build, finished (the galley; a project's build is the project's to
+-- talk about): its fields, or nil.
+local function built(ctx, station)
+    local _, job = project.find(ctx)
+    for _, id in ctx.query("build") do
+        local build = ctx.get(id, "build")
+        if build.station == station and build.done and not (job and job.site == id) then return build end
+    end
+    return nil
+end
+
+-- "Your plate built our galley.": what the player's deliveries built at `station`, or ""
+-- while nothing stands that they built.
+function voices.made(ctx, station)
+    local build = built(ctx, station)
+    return build and "Your " .. build.ware .. " built our " .. string.lower(build.name) .. "." or ""
+end
+
+-- What the exchange keeper says in place of their idle line, remembering what the player
+-- has sold them for: the barge's bloom, the project's build, the station's first build.
+local function remembered(ctx, keeper, station)
+    local says = salvage.remembers(ctx, keeper) or project.remembers(ctx, keeper, station)
+    if says then return says end
+    local build = built(ctx, station)
+    if not build then return nil end
+    local who = string.match(ctx.get(build.keeper, "keeper").name, "^%S+")
+    return "Your " .. build.ware .. " built " .. who .. "'s " .. string.lower(build.name) .. ". I eat there every shift."
 end
 
 -- The office keeper's introduction ends on the station's first build. Once it is
@@ -48,13 +81,13 @@ end
 -- raising it. `finished` names a build the caller has just finished (its reads still see
 -- it unfinished); unset, a build already marked done is looked for. Later builds (a
 -- project's) leave the intro as it is.
-function voices.intro_close(ctx, keeper, station, finished)
+function voices.intro_close(ctx, keeper, station, finished, ware)
     local name = finished
     for _, id in ctx.query("build") do
         local build = ctx.get(id, "build")
         if build.station == station and build.done then
             if finished then return end -- not the station's first
-            name = build.name
+            name, ware = build.name, build.ware
             break
         end
     end
@@ -65,7 +98,10 @@ function voices.intro_close(ctx, keeper, station, finished)
         local said = ctx.get(line, "engine.talk_line")
         if not said then return end
         if (said.next or "") == "" then
-            ctx.patch(line, "engine.talk_line", { text = "Our " .. string.lower(name) .. "'s open now. Go and eat." })
+            -- The player's deliveries built it: it is theirs to name.
+            local text = ware and "Your " .. ware .. " built our " .. string.lower(name) .. ". Go and eat there."
+                or "Our " .. string.lower(name) .. "'s open now. Go and eat."
+            ctx.patch(line, "engine.talk_line", { text = text })
             return
         end
         line = said.next
@@ -83,6 +119,9 @@ function voices.refresh(ctx, station, hold, sold, need)
         local facility = ctx.get(id, "facility")
         if facility.station == station and facility.keeper ~= "" then
             local keeper = ctx.get(facility.keeper, "keeper")
+            -- What they have to say about the player's doings comes before an introduction
+            -- they haven't given yet.
+            history.fold(ctx, facility.keeper, salvage.news(ctx, facility.keeper) or project.news(ctx, facility.keeper))
             local text
             local says = project.line(ctx, facility.keeper, hold, station)
             local site = ctx.get(id, "build")
@@ -99,7 +138,8 @@ function voices.refresh(ctx, station, hold, sold, need)
                     if market.role == "buys" then wanted[market.ware] = hold[market.ware] end
                 end
                 local list = rules.list(wanted)
-                text = voices.trader(list == "nothing" and "" or list, sold, keeper.idle)
+                text = voices.trader(list == "nothing" and "" or list, sold,
+                    remembered(ctx, facility.keeper, station) or keeper.idle)
             elseif #trade.lines(ctx, id) > 0 then
                 text = keeper.idle
             elseif facility.fits then
@@ -107,12 +147,14 @@ function voices.refresh(ctx, station, hold, sold, need)
             elseif ctx.get(id, "build") then
                 text = keeper.idle -- a built site's keeper (the greenhouse's grower)
             else
-                text = voices.master(left, build and need or 0, build and build.ware or "", build and string.lower(build.name) or "")
+                local made = voices.made(ctx, station)
+                if build and need <= 0 then made = "Your " .. build.ware .. " built our " .. string.lower(build.name) .. "." end
+                text = voices.master(left, build and need or 0, build and build.ware or "", build and string.lower(build.name) or "", made)
                 if not build then
                     voices.intro_close(ctx, facility.keeper, station)
                 elseif need <= 0 then
                     -- This very sale finished it.
-                    voices.intro_close(ctx, facility.keeper, station, build.name)
+                    voices.intro_close(ctx, facility.keeper, station, build.name, build.ware)
                 end
             end
             if text then ctx.patch(facility.keeper .. "_now", "engine.talk_line", { text = text }) end

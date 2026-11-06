@@ -26,6 +26,7 @@ local rules = require("./rules")
 local fit = require("./fit")
 local places = require("./places")
 local happen = require("./happen")
+local history = require("./history")
 
 local salvage = {
     QUIET = 0, ASKED = 1, SEARCH = 2, MOORED = 3, NEEDS = 4, WORKING = 5, DONE = 6, THANKED = 7,
@@ -194,14 +195,53 @@ function salvage.flight(ctx)
     ctx.patch("ship", "engine.flight", { speed = t.top, turn = t.turn, boost = 2.0 })
 end
 
--- An act of someone's day says something new; whoever is at that act now shows it on
--- their sign at once, not only from their next act on.
-local function restate(ctx, act, state)
-    ctx.patch(act, "engine.act", { state = state })
+local restate = places.restate
+
+-- The keeper whose day has the act `act` (an act is named for its keeper: "<keeper>_act2").
+local function owner(ctx, act)
     for _, who in ctx.query("keeper") do
-        local life = ctx.get(who, "engine.life")
-        if life and life.current == act then ctx.patch(who, "engine.being", { state = state }) end
+        if string.sub(act, 1, #who + 4) == who .. "_act" then return who end
     end
+    return nil
+end
+
+-- The skipper's introduction once her barge is taken in. She was towed home by the player
+-- and has told her story over the radio already, so she starts with what was chosen for
+-- her barge, in her own words, and its last line follows the work.
+function salvage.met(kind, done, barge, giver, skipper, haven_at)
+    local short = string.match(barge, "%S+$") or barge
+    local me = "I'm " .. skipper .. ". Thirty years she and I hauled ice."
+    if kind == "keep" then
+        return { "So my " .. short .. " stays moored here for good.", me,
+            done and giver .. "'s beds bloom on her tanks. I'd sooner have sailed her."
+                or "Her tanks for " .. giver .. "'s beds, then. I'd sooner have sailed her." }
+    end
+    return { "You brought my " .. short .. " to the " .. (string.match(haven_at, "%S+$") or haven_at) .. " to be mended.", me,
+        done and giver .. "'s beds waited for their ice. Bless you." or giver .. "'s beds can wait. I want her sailing." }
+end
+
+-- Says the skipper's introduction as the choice and the work have it, if not yet heard.
+local function retell(ctx, job, haven, done)
+    history.retell(ctx, job.skipper, salvage.met(haven.kind, done, ctx.get(job.barge, "trader").name,
+        first(name(ctx, job.giver)), first(name(ctx, job.skipper)), port_name(ctx, haven.station)))
+end
+
+-- A keeper's next line, said once until something newer replaces it: the fitter's line
+-- otherwise follows the last fit (cradle.luau), so the barge is news to him only then.
+local function remark(ctx, keeper, text)
+    if keeper and ctx.get(keeper .. "_now", "engine.talk_line") then
+        ctx.patch(keeper .. "_now", "engine.talk_line", { text = text })
+    end
+end
+
+-- Whether the giver's ask has been said to the player: once it has, nobody sends them to
+-- hear it.
+local function ask_heard(ctx, id)
+    for _, o in ctx.query("offer") do
+        local offer = ctx.get(o, "offer")
+        if offer.project == id and offer.step == salvage.ASKED and offer.heard then return true end
+    end
+    return false
 end
 
 -- The night the greenhouse grows the barge goes dark where it was working: off its route,
@@ -370,10 +410,21 @@ local function take(ctx, id, job, hid, haven)
     ctx.patch(barge, "engine.position", { x = moor.x, y = moor.y, angle = moor.angle or 0 })
     ctx.patch(barge, "engine.body", { fixed = true })
     aboard(ctx, job, haven)
+    retell(ctx, job, haven, false)
+    -- The room shows the choice: the keeper gets up and goes to look at her (`watch`).
+    if (haven.watch or "") ~= "" then places.go(ctx, haven.keeper, haven.watch) end
     local trader = ctx.get(barge, "trader").name
     local keeper = first(name(ctx, haven.keeper))
     local need = haven.need .. " " .. haven.ware
     if haven.kind == "keep" then
+        -- The fitter who would have mended her hears of it.
+        for _, h in ctx.query("haven") do
+            local other = ctx.get(h, "haven")
+            if other.job == id and other.kind == "mend" then
+                remark(ctx, owner(ctx, other.act), first(name(ctx, haven.keeper)) .. " kept " .. trader
+                    .. "? I'd have had her purring.")
+            end
+        end
         ctx.patch(barge, "trader", { about = "moored off " .. port_name(ctx, haven.station) .. " for good, waiting on her pipes" })
         return keeper .. " moors " .. trader .. " off " .. port_name(ctx, haven.station) .. " for good. To pipe her tanks to "
             .. first(name(ctx, job.giver)) .. "'s beds, his crew needs " .. need .. "."
@@ -392,6 +443,8 @@ local function deliver(ctx, id, job, haven)
     ctx.patch("ship", "hold", { [haven.ware] = hold[haven.ware] - haven.need })
     ctx.patch(id, "salvage", { step = salvage.WORKING, since = ctx.get(haven.station, "port").visits })
     restate(ctx, haven.act, haven.work)
+    -- Whoever starts on her here goes to it now, where you can see it.
+    if owner(ctx, haven.act) == haven.keeper then places.go(ctx, haven.keeper, haven.act) end
     local trader = ctx.get(job.barge, "trader").name
     local gave = "Gave " .. first(name(ctx, haven.keeper)) .. " " .. haven.need .. " " .. haven.ware
     -- Sparks off her while the work goes on: her pipes welded, or her engine mended.
@@ -420,7 +473,7 @@ function salvage.chosen(ctx, talk, choice, open)
     end
     if choice ~= offer.take then
         if offer.step == salvage.DONE then
-            ctx.patch(id, "salvage", { step = salvage.THANKED })
+            ctx.patch(id, "salvage", { step = salvage.THANKED, fee = "kept" })
             ctx.patch(talk, "offer", { heard = true })
         else
             ctx.patch(talk, "offer", { later = true, heard = true })
@@ -445,7 +498,7 @@ function salvage.chosen(ctx, talk, choice, open)
     elseif offer.step == salvage.DONE then
         local pilot = ctx.get("ship", "pilot")
         ctx.patch("ship", "pilot", { credits = pilot.credits + salvage.FEE })
-        ctx.patch(id, "salvage", { step = salvage.THANKED })
+        ctx.patch(id, "salvage", { step = salvage.THANKED, fee = "taken" })
         receipt = name(ctx, job.skipper) .. " paid you " .. salvage.FEE .. " cr for the tow."
     else
         return nil
@@ -473,6 +526,7 @@ local function finish(ctx, id, job)
         end
     end
     restate(ctx, haven.life, haven.settled)
+    retell(ctx, job, haven, true)
     ctx.patch(job.barge, "engine.model", { model = "core.barge" })
     ctx.put(job.barge, "engine.emitter", salvage.WAKE)
     local note
@@ -521,6 +575,7 @@ function salvage.undocked(ctx, station)
     ctx.patch(barge, "trader", { stopped = false, moored = false, leg = "home", about = haven.about })
     ctx.put(barge, "engine.steer", { mode = "follow", target = haven.route })
     local trader = ctx.get(barge, "trader").name
+    remark(ctx, owner(ctx, haven.act), trader .. " sails on my pump now. Bring me credits next.")
     return trader .. " casts off from " .. port_name(ctx, station) .. " and heads for the ice camp, " .. first(name(ctx, job.skipper)) .. " at her wheel."
 end
 
@@ -564,6 +619,8 @@ function salvage.line(ctx, keeper, station)
             return skipper .. "'s safe. My beds can wait for ice."
         end
         if kind == "keep" then return "The beds drink from her tanks now. Look at them!" end
+        if step == salvage.DONE then return "Orrin's mended her, I hear. My beds will get their ice." end
+        if job.fee == "kept" then return skipper .. " sends my ice free now. She says it's your doing." end
         return skipper .. "'s hauling again. The beds will get their ice."
     elseif keeper == job.skipper then
         if kind == "keep" then
@@ -573,6 +630,8 @@ function salvage.line(ctx, keeper, station)
         end
         if step == salvage.NEEDS then return "Orrin wants " .. haven.ware .. " for a new pump. Then she'll purr." end
         if step == salvage.WORKING then return "Orrin says a trip or two and she'll purr." end
+        if job.fee == "kept" then return giver .. "'s ice is on me now. I'm off when you are." end
+        if job.fee == "taken" then return "That fee's well earned. I'm off when you are." end
         return barge .. "'s whole again. I'm off when you are."
     end
     -- The dockmasters, the cook and the fitter.
@@ -593,17 +652,80 @@ function salvage.line(ctx, keeper, station)
             end
             if step == salvage.DONE and kind == "mend" then return skipper .. "'s waiting to thank you before she sails." end
             if kind == "keep" then return barge .. "'s our cistern now. " .. skipper .. " checks her every hour." end
+        elseif haven then
+            -- The other dockmaster hears where you took her.
+            local keeps = first(name(ctx, haven.keeper))
+            if kind == "keep" then return keeps .. " kept " .. barge .. " for good. " .. skipper .. "'s grounded." end
+            if step < salvage.THANKED then return "You took " .. barge .. " to the Kiln. Fair: she's " .. skipper .. "'s." end
+            return skipper .. "'s hauling again. " .. giver .. "'s beds will get their ice."
         end
     end
     if haven and haven.act == keeper .. "_act2" then
         if step == salvage.NEEDS then return "Bring Mags the " .. haven.ware .. " and I'll cast her a pump." end
         if step == salvage.WORKING then return "Her engine's older than me. Give me two trips." end
+        -- Mended, and still at his quay until she sails.
+        if step >= salvage.DONE and ctx.has(job.skipper, "engine.being") then return "Hear her? " .. barge .. " purrs again." end
     end
     if keeper == job.cook then
-        if step == salvage.ASKED then return giver .. "'s off her food. Ask her what's wrong." end
+        if step == salvage.ASKED then
+            -- Once the player has heard the giver out, the cook doesn't send them to ask.
+            if ask_heard(ctx, id) then return giver .. " told you, then. She won't eat till " .. barge .. "'s in." end
+            return giver .. "'s off her food. Ask her what's wrong."
+        end
         if step <= salvage.MOORED then return giver .. "'s off her food. Bring " .. skipper .. " home." end
         if kind == "keep" then return skipper .. " eats like a crew of three." end
-        if step >= salvage.DONE then return skipper .. " sends ice for my pots. No charge, she says." end
+        if step == salvage.DONE then return skipper .. "'s barge is mended, I hear. Good." end
+        if step > salvage.DONE then
+            if job.fee == "taken" then return skipper .. "'s hauling again. My pots get her ice." end
+            return skipper .. " sends ice for my pots. No charge, she says."
+        end
+    end
+    return nil
+end
+
+-- What a keeper met only now says first, before their introduction (history.fold): the
+-- barge they have just seen the player bring in, or what was chosen for her. Nil when
+-- the job is no news to them.
+function salvage.news(ctx, keeper)
+    local id, job = salvage.find(ctx)
+    if not job or job.step < salvage.MOORED then return nil end
+    local barge = ctx.get(job.barge, "trader").name
+    if job.step == salvage.MOORED then
+        local _, at = salvage.haven_at(ctx, id, job.at)
+        if at and at.keeper == keeper then return "So you're the pilot who towed " .. barge .. " in." end
+        return nil
+    end
+    local haven = job.haven ~= "" and ctx.get(job.haven, "haven") or nil
+    if not haven then return nil end
+    local skipper = first(name(ctx, job.skipper))
+    local aboard = ctx.has(job.skipper, "engine.being")
+    if keeper == haven.keeper then
+        if haven.kind == "keep" then
+            if job.step >= salvage.DONE then return barge .. "'s our cistern now, and the beds bloom. Your doing." end
+            return barge .. "'s moored off our berth for good now."
+        end
+        if job.step < salvage.DONE then return barge .. "'s at Orrin's quay now, on your say." end
+        if aboard then return "Orrin's mended " .. barge .. ". " .. skipper .. "'s waiting on you." end
+        return barge .. " sails again, thanks to your tow."
+    end
+    if haven.kind == "mend" and owner(ctx, haven.act) == keeper then
+        if job.step < salvage.DONE then return first(name(ctx, haven.keeper)) .. " says you towed " .. barge .. " in for me to mend." end
+        return barge .. "'s engine purrs again. My pump, your tow."
+    end
+    return nil
+end
+
+-- What the exchange keeper whose station buys more ice for the bloom says in place of
+-- their idle line, once the barge is kept and the beds bloom; nil otherwise.
+function salvage.remembers(ctx, keeper)
+    local _, job = salvage.find(ctx)
+    if not job or job.step < salvage.DONE or job.haven == "" then return nil end
+    local haven = ctx.get(job.haven, "haven")
+    if haven.kind ~= "keep" or (haven.market or "") == "" then return nil end
+    local market = ctx.get(haven.market, "market")
+    local facility = market and ctx.get(market.room, "facility")
+    if facility and facility.keeper == keeper then
+        return first(name(ctx, job.giver)) .. "'s beds drink more since they bloomed. Bring me ice."
     end
     return nil
 end
