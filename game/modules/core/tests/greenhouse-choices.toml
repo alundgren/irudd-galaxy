@@ -1,10 +1,10 @@
 # Ines's greenhouse (scripts/project.luau), its choices: "Not now" leaves her ask for the
-# next docking, even a quick tap; Sefa's glassite offer is on only with the 4 glassite
+# next docking, even a quick tap; Sefa's glassite offer is on only with the 8 glassite
 # aboard; the panes wait at the Kiln while the hold has no room for them; and once
 # loaded they are Ines's, so the Lantern exchange won't buy them before she has them.
 # The route is gift.toml's, up to her gift taken.
 seed = 7
-ticks = 4060
+ticks = 12550
 
 [[input]]
 tick = 1
@@ -18,634 +18,634 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 960
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 600
+tick = 1737
 name = "core.open"
 [[input]]
-tick = 605
+tick = 1742
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 610
+tick = 1747
 name = "core.sell"
 [[input]]
-tick = 620
+tick = 1757
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 640
+tick = 1777
 name = "core.launch"
 [[input]]
-tick = 650
+tick = 1787
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 960
+tick = 2638
 name = "core.open"
 [[input]]
-tick = 970
+tick = 2648
 name = "core.sell"
 [[input]]
-tick = 980
+tick = 2658
 name = "core.launch"
 [[input]]
-tick = 985
+tick = 2663
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 1030
+tick = 2708
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 1035
+tick = 2713
 name = "core.buy"
 payload = { ware = "rations", units = 0 }
 [[input]]
-tick = 1040
+tick = 2718
 name = "core.close"
 [[input]]
-tick = 1100
+tick = 2778
 name = "core.launch"
 [[input]]
-tick = 1110
+tick = 2788
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 1410
+tick = 3626
 name = "core.open"
 [[input]]
-tick = 1420
+tick = 3636
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 1440
+tick = 3656
 name = "core.launch"
 [[input]]
-tick = 1450
+tick = 3666
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 1760
+tick = 4517
 name = "core.open"
 [[input]]
-tick = 1770
+tick = 4527
 name = "core.sell"
 [[input]]
-tick = 1790
+tick = 4547
 name = "core.launch"
 [[input]]
-tick = 1800
+tick = 4557
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 2100
+tick = 5395
 name = "core.open"
 [[input]]
-tick = 2110
+tick = 5405
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 2130
+tick = 5425
 name = "core.launch"
 [[input]]
-tick = 2140
+tick = 5435
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2290
+tick = 6126
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6059 }
 [[input]]
-tick = 2450
+tick = 6286
 name = "core.open"
 [[input]]
-tick = 2460
+tick = 6296
 name = "core.sell"
 [[input]]
-tick = 2480
+tick = 6316
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 2483
+tick = 6319
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2480 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6316 }
 
 # Not offered before her introduction is heard; the story comes first.
 [[input]]
-tick = 2485
+tick = 6321
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_cook_intro" }
 [[input]]
-tick = 2486
+tick = 6322
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
 [[input]]
-tick = 2487
+tick = 6323
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
 [[input]]
-tick = 2488
+tick = 6324
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
 [[input]]
-tick = 2490
+tick = 6326
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_cook_gift" }
 [[input]]
-tick = 2491
+tick = 6327
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift1" }
 # Take it.
 [[input]]
-tick = 2492
+tick = 6328
 name = "engine.talk_chosen"
 source = "ui"
 payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift2", choice = "core.lantern_cook_gift_take" }
 [[input]]
-tick = 2493
+tick = 6329
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift3" }
 [[input]]
-tick = 2494
+tick = 6330
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.greenhouse_ask" }
 [[input]]
-tick = 2495
+tick = 6331
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask1" }
 [[input]]
-tick = 2496
+tick = 6332
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask2" }
 [[input]]
-tick = 2497
+tick = 6333
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask3" }
 [[input]]
-tick = 2498
+tick = 6334
 name = "engine.talk_chosen"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask4", choice = "core.greenhouse_ask_no" }
 # Not now: the job waits, and so does her ask.
 [[expect]]
-tick = 2501
+tick = 6337
 entity = "greenhouse_job"
 component = "project"
 field = "step"
 equals = 1
 [[expect]]
-tick = 2501
+tick = 6337
 entity = "greenhouse_ask"
 component = "offer"
 field = "later"
 equals = true
 [[expect]]
-tick = 2501
+tick = 6337
 entity = "greenhouse_ask"
 component = "engine.talk"
 field = "enabled"
 equals = false
 [[expect]]
-tick = 2501
+tick = 6337
 entity = "lantern_cook_talk"
 component = "engine.talk"
 field = "enabled"
 equals = true
 [[expect]]
-tick = 2501
+tick = 6337
 entity = "lantern_greenhouse"
 component = "facility"
 field = "hidden"
 equals = true
 [[input]]
-tick = 2502
+tick = 6338
 name = "core.close"
 [[input]]
-tick = 2505
+tick = 6341
 name = "core.launch"
 [[input]]
-tick = 2510
+tick = 6346
 name = "core.dock"
 source = "script"
 payload = { station = "core.lantern" }
 # Docked again, she asks again.
 [[expect]]
-tick = 2541
+tick = 6377
 entity = "greenhouse_ask"
 component = "offer"
 field = "later"
 equals = false
 [[expect]]
-tick = 2541
+tick = 6377
 entity = "greenhouse_ask"
 component = "engine.talk"
 field = "enabled"
 equals = true
 [[expect]]
-tick = 2541
+tick = 6377
 entity = "lantern_cook_talk"
 component = "engine.talk"
 field = "enabled"
 equals = false
 [[input]]
-tick = 2570
+tick = 6406
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2540 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6376 }
 [[input]]
-tick = 2575
+tick = 6411
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 2576
+tick = 6412
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2575 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6411 }
 [[input]]
-tick = 2578
+tick = 6414
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.greenhouse_ask" }
 [[input]]
-tick = 2579
+tick = 6415
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask1" }
 [[input]]
-tick = 2580
+tick = 6416
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask2" }
 [[input]]
-tick = 2581
+tick = 6417
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask3" }
 [[input]]
-tick = 2582
+tick = 6418
 name = "engine.talk_chosen"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask4", choice = "core.greenhouse_ask_yes" }
 [[input]]
-tick = 2583
+tick = 6419
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask5" }
 [[expect]]
-tick = 2585
+tick = 6421
 entity = "greenhouse_job"
 component = "project"
 field = "step"
 equals = 2
 [[input]]
-tick = 2586
+tick = 6422
 name = "core.close"
 [[input]]
-tick = 2587
+tick = 6423
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2586 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6422 }
 [[input]]
-tick = 2590
+tick = 6426
 name = "core.launch"
 [[input]]
-tick = 2595
+tick = 6431
 name = "core.mine"
 source = "script"
 payload = { rock = "core.glassite1" }
 [[input]]
-tick = 2835
+tick = 7585
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 # Three glassite are not enough: Sefa does not ask for them.
 [[expect]]
-tick = 2957
+tick = 8397
 entity = "ship"
 component = "hold"
 field = "glassite"
 equals = 3
 [[expect]]
-tick = 2957
+tick = 8397
 entity = "greenhouse_glassite"
 component = "engine.talk"
 field = "enabled"
 equals = false
 [[input]]
-tick = 2990
+tick = 8430
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 2956 }
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 8396 }
 [[input]]
-tick = 2995
+tick = 8435
 name = "core.open"
 [[input]]
-tick = 2996
+tick = 8436
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 2995 }
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 8435 }
 [[input]]
-tick = 2997
+tick = 8437
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.kiln_trader_intro" }
 [[input]]
-tick = 2998
+tick = 8438
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro1" }
 [[input]]
-tick = 2999
+tick = 8439
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro2" }
 [[input]]
-tick = 3000
+tick = 8440
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro3" }
 [[expect]]
-tick = 3001
+tick = 8441
 entity = "greenhouse_glassite"
 component = "engine.talk"
 field = "enabled"
 equals = false
 [[expect]]
-tick = 3001
+tick = 8441
 entity = "kiln_trader_talk"
 component = "engine.talk"
 field = "enabled"
 equals = true
 [[input]]
-tick = 3005
+tick = 8445
 name = "core.launch"
 [[input]]
-tick = 3010
+tick = 8450
 name = "core.mine"
 source = "script"
 payload = { rock = "core.glassite1" }
 [[input]]
-tick = 3300
+tick = 9509
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
-# With five aboard she does.
+# With all eight aboard she does.
 [[expect]]
-tick = 3424
+tick = 10323
 entity = "ship"
 component = "hold"
 field = "glassite"
-equals = 5
+equals = 8
 [[expect]]
-tick = 3424
+tick = 10323
 entity = "greenhouse_glassite"
 component = "engine.talk"
 field = "enabled"
 equals = true
 [[input]]
-tick = 3450
+tick = 10349
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 3423 }
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 10322 }
 [[input]]
-tick = 3455
+tick = 10354
 name = "core.open"
 [[input]]
-tick = 3456
+tick = 10355
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 3455 }
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 10354 }
 [[input]]
-tick = 3458
+tick = 10357
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.greenhouse_glassite" }
 [[input]]
-tick = 3459
+tick = 10358
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite1" }
 [[input]]
-tick = 3460
+tick = 10359
 name = "engine.talk_chosen"
 source = "ui"
 payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite2", choice = "core.greenhouse_glassite_yes" }
 [[input]]
-tick = 3461
+tick = 10360
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite3" }
 [[input]]
-tick = 3462
+tick = 10361
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite4" }
 [[expect]]
-tick = 3463
+tick = 10362
 entity = "greenhouse_job"
 component = "project"
 field = "step"
 equals = 3
 [[input]]
-tick = 3465
+tick = 10364
 name = "core.launch"
 [[input]]
-tick = 3470
+tick = 10369
 name = "core.mine"
 source = "script"
 [[input]]
-tick = 3800
+tick = 11390
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
 # Ready on the next counted visit, but the hold is full: the panes wait.
 [[expect]]
-tick = 3846
+tick = 11795
 entity = "greenhouse_job"
 component = "project"
 field = "step"
 equals = 4
 [[expect]]
-tick = 3846
+tick = 11795
 entity = "greenhouse_panes"
 component = "engine.talk"
 field = "enabled"
 equals = false
 [[input]]
-tick = 3875
+tick = 11824
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 3845 }
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 11794 }
 [[input]]
-tick = 3880
+tick = 11829
 name = "core.open"
 [[input]]
-tick = 3881
+tick = 11830
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 3880 }
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 11829 }
 [[input]]
-tick = 3885
+tick = 11834
 name = "core.sell"
 # Sold out, there is room.
 [[expect]]
-tick = 3886
+tick = 11835
 entity = "greenhouse_panes"
 component = "engine.talk"
 field = "enabled"
 equals = true
 [[input]]
-tick = 3890
+tick = 11839
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.greenhouse_panes" }
 [[input]]
-tick = 3891
+tick = 11840
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_panes", line = "core.greenhouse_panes1" }
 [[input]]
-tick = 3892
+tick = 11841
 name = "engine.talk_chosen"
 source = "ui"
 payload = { talk = "core.greenhouse_panes", line = "core.greenhouse_panes2", choice = "core.greenhouse_panes_yes" }
 [[input]]
-tick = 3893
+tick = 11842
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_panes", line = "core.greenhouse_panes3" }
 [[expect]]
-tick = 3895
+tick = 11844
 entity = "greenhouse_job"
 component = "project"
 field = "step"
 equals = 5
 [[expect]]
-tick = 3895
+tick = 11844
 entity = "ship"
 component = "hold"
 field = "panes"
-equals = 4
+equals = 8
 [[expect]]
-tick = 3895
+tick = 11844
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Loaded Ines's 4 panes for Lantern Dock: they stay hers until she has them."
+equals = "Loaded Ines's 8 panes for Lantern Dock: they stay hers until she has them."
 [[input]]
-tick = 3900
+tick = 11849
 name = "core.launch"
 [[input]]
-tick = 3905
+tick = 11854
 name = "core.dock"
 source = "script"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4020
+tick = 12510
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 3988 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 12478 }
 [[input]]
-tick = 4025
+tick = 12515
 name = "core.open"
 [[input]]
-tick = 4026
+tick = 12516
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 4025 }
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 12515 }
 [[input]]
-tick = 4030
+tick = 12520
 name = "core.sell"
 # The exchange won't buy them: no sale since the Kiln's (the fifth).
 [[expect]]
-tick = 4031
+tick = 12521
 entity = "ship"
 component = "hold"
 field = "panes"
-equals = 4
+equals = 8
 [[expect]]
-tick = 4031
+tick = 12521
 facts = "core.sold"
 equals = 5
 [[expect]]
-tick = 4031
+tick = 12521
 entity = "greenhouse_deliver"
 component = "engine.talk"
 field = "enabled"
 equals = true
 [[input]]
-tick = 4035
+tick = 12525
 name = "core.close"
 [[input]]
-tick = 4036
+tick = 12526
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 4035 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 12525 }
 [[input]]
-tick = 4040
+tick = 12530
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 4041
+tick = 12531
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 4040 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 12530 }
 [[input]]
-tick = 4043
+tick = 12533
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.greenhouse_deliver" }
 [[input]]
-tick = 4044
+tick = 12534
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver1" }
 [[input]]
-tick = 4045
+tick = 12535
 name = "engine.talk_chosen"
 source = "ui"
 payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver2", choice = "core.greenhouse_deliver_yes" }
 [[input]]
-tick = 4046
+tick = 12536
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver3" }
 [[input]]
-tick = 4047
+tick = 12537
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.greenhouse_deliver", line = "core.greenhouse_deliver4" }
 [[expect]]
-tick = 4050
+tick = 12540
 entity = "greenhouse_job"
 component = "project"
 field = "step"
 equals = 6
 [[expect]]
-tick = 4050
+tick = 12540
 entity = "ship"
 component = "hold"
 field = "panes"
 equals = 0
 [[expect]]
-tick = 4050
+tick = 12540
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Delivered Ines's 4 panes to her. The glaziers start on the greenhouse."
+equals = "Delivered Ines's 8 panes to her. The glaziers start on the greenhouse."

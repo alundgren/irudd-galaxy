@@ -28,6 +28,14 @@ function voices.trader(wanted, sold, idle)
     return idle
 end
 
+-- The keeper of a building still going up: how much is still to come, in their words;
+-- their idle line once nothing is.
+function voices.waiting(need, total, ware, idle)
+    if need <= 0 then return idle end
+    if need >= total then return total .. " " .. ware .. ", and I can light the stove." end
+    return need .. " " .. ware .. " to go, and the crews eat hot."
+end
+
 -- The office keeper: about what the station is building, then about the field.
 function voices.master(left, need, ware, building)
     if need > 0 then return "The " .. building .. " still needs " .. need .. " " .. ware .. "." end
@@ -77,8 +85,13 @@ function voices.refresh(ctx, station, hold, sold, need)
             local keeper = ctx.get(facility.keeper, "keeper")
             local text
             local says = project.line(ctx, facility.keeper, hold, station)
+            local site = ctx.get(id, "build")
             if says then
                 text = says
+            elseif site and not site.done and site.keeper == facility.keeper then
+                -- Their building still going up (`need` is after this sale; at 0 it is built).
+                local left = (build and build.keeper == site.keeper) and need or site.need - site.given
+                text = voices.waiting(left, site.need, site.ware, keeper.idle)
             elseif id == exchange then
                 local wanted = {}
                 for _, line in trade.lines(ctx, id) do
@@ -139,15 +152,26 @@ function voices.retire(ctx)
     end
 end
 
+-- Whether `keeper` still waits on their own building: a gift for it waits too. The sale
+-- that finishes it still reads it unfinished, and leaves the offer as build_up set it.
+local function waiting_on(ctx, keeper)
+    for _, id in ctx.query("build") do
+        local build = ctx.get(id, "build")
+        if build.keeper == keeper and not build.done then return true end
+    end
+    return false
+end
+
 -- A keeper's unanswered gift is on offer, in place of their everyday talk, while they
--- stand at `station` and the hold has room for it. `hold` is after the caller's writes.
+-- stand at `station`, their building stands and the hold has room for it. `hold` is
+-- after the caller's writes.
 function voices.gifts(ctx, station, hold)
     for _, id in ctx.query("gift") do
         local gift = ctx.get(id, "gift")
         local talk = ctx.get(id, "engine.talk")
         if gift.answered then
             if talk.enabled then put_away(ctx, id, gift) end
-        elseif places.of(ctx, talk.speaker) == station then
+        elseif places.of(ctx, talk.speaker) == station and not waiting_on(ctx, talk.speaker) then
             local room = fit.hold(ctx) - rules.load(hold) >= gift.units
             if talk.enabled ~= room then
                 ctx.patch(id, "engine.talk", { enabled = room })

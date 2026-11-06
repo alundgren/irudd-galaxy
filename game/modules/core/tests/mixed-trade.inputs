@@ -1,27 +1,27 @@
 # Mixed cargo at Lantern Dock's exchange in a small window: Kiln ore sold and a plate
-# bought, then ore and ice mined, so 2 ore, 3 ice and 1 plate come aboard. Selling
-# everything, the per-ware sells and the receipt after selling just the plate must all
-# stay on screen (direction doc 8). 2 notes.
+# bought, then a little ore cut and a whole ice floe, so 3 ore, 16 ice and 1 plate come
+# aboard. Selling everything, the per-ware sells and the receipt after selling just the
+# plate must all stay on screen (direction doc 8). 2 notes.
 input = [
   { tick = 1, name = "core.ahead", payload = { down = true } },
   { tick = 11, name = "core.ahead", payload = { down = false } },
   { tick = 60, name = "core.mine" },
-  { tick = 330, name = "core.dock", payload = { station = "core.kiln" } },
-  { tick = 600, name = "core.open" },
-  { tick = 610, name = "core.sell" },
-  { tick = 620, name = "core.buy", payload = { ware = "plate", units = 1 } },
-  { tick = 640, name = "core.launch" },
-  { tick = 650, name = "core.mine", payload = { rock = "core.rock1" } },
-  { tick = 780, name = "core.mine", payload = { rock = "core.ice1" } },
-  { tick = 1250, name = "core.dock", payload = { station = "core.lantern" } },
-  { tick = 1600, name = "core.open" },
-  { tick = 1660, name = "core.sell", payload = { ware = "plate" } },
+  { tick = 886, name = "core.dock", payload = { station = "core.kiln" } },
+  { tick = 1494, name = "core.open" },
+  { tick = 1504, name = "core.sell" },
+  { tick = 1514, name = "core.buy", payload = { ware = "plate", units = 1 } },
+  { tick = 1534, name = "core.launch" },
+  { tick = 1544, name = "core.mine", payload = { rock = "core.rock1" } },
+  { tick = 2145, name = "core.mine", payload = { rock = "core.ice1" } },
+  { tick = 3315, name = "core.dock", payload = { station = "core.lantern" } },
+  { tick = 3834, name = "core.open" },
+  { tick = 3894, name = "core.sell", payload = { ware = "plate" } },
 ]
 
 [[note]]
-tick = 1650
-text = "Lantern exchange with 2 ore, 3 ice and 1 plate aboard: Sell everything on screen."
+tick = 3884
+text = "Lantern exchange with 3 ore, 16 ice and 1 plate aboard: Sell everything on screen."
 
 [[note]]
-tick = 1700
-text = "After selling the plate: the receipt (Sold 1 plate. Paid +37 cr) on screen."
+tick = 3944
+text = "After selling the plate: the receipt (Sold 1 plate. Paid +35 cr) on screen."

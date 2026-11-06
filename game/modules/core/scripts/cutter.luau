@@ -22,10 +22,18 @@ function cutter.has(ctx, id)
     return p ~= nil and p.fitted
 end
 
--- Ore a second the beam cuts with the parts fitted now.
-function cutter.rate(ctx)
+-- Ore a second the beam cuts with the parts fitted now, on `rock` if given: a rich seam
+-- cuts faster (its `rich`).
+function cutter.rate(ctx, rock)
     local f = ctx.get("ship", "fit")
-    return f and f.mine or 1
+    local ore = rock and ctx.get(rock, "ore")
+    return (f and f.mine or 1) * (ore and ore.rich or 1)
+end
+
+-- The cutting work `ticks` of beam on `rock` does, in whole work units (beam ticks times
+-- ore a second, rounded), so a rich seam's fractional rate keeps the work an integer.
+function cutter.work(ctx, rock, ticks)
+    return math.floor(ticks * cutter.rate(ctx, rock) + 0.5)
 end
 
 -- The beam's reach with the parts fitted now.
@@ -154,7 +162,7 @@ function cutter.off(ctx, text)
     local pilot = ctx.get("ship", "pilot")
     ctx.put("ship", "engine.beam", {})
     local fields = { mining = false, latched = false, auto = false, cut_from = 0, approach = false }
-    if pilot.cut_from > 0 then fields.cut_work = pilot.cut_work + (ctx.tick - pilot.cut_from) * cutter.rate(ctx) end
+    if pilot.cut_from > 0 then fields.cut_work = pilot.cut_work + cutter.work(ctx, pilot.target, ctx.tick - pilot.cut_from) end
     if text then fields.message = text end
     ctx.patch("ship", "pilot", fields)
     if pilot.mining then ctx.record("cut_stop", { rock = pilot.target }) end

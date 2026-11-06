@@ -75,16 +75,13 @@ local function cut_ahead(ctx, latched)
 end
 
 -- The rig (or a script's order) flies out to `rock` and holds off it while it cuts. The
--- rig cuts at once from where it is if it can; a script's order parks the ship on the
--- rock's surface (`standoff` 0) and cuts there.
+-- rig cuts at once from where it is if it can, and holds off the rock meanwhile, so a
+-- ship still coasting from the last rock can't drift out of its reach; a script's order
+-- parks the ship on the rock's surface (`standoff` 0) and cuts there.
 local function approach(ctx, rock, standoff)
     ctx.put("ship", "engine.helm", {})
     if cutter.can_cut(ctx, rock, true) then
-        if standoff > 0 then
-            ctx.put("ship", "engine.steer", {})
-        else
-            ctx.put("ship", "engine.steer", { mode = "hold", target = rock, range = 0 })
-        end
+        ctx.put("ship", "engine.steer", { mode = "hold", target = rock, range = standoff })
         cutter.on(ctx, rock, true, true)
         return
     end
@@ -269,7 +266,7 @@ local function cut(ctx, pilot)
     if ctx.get("ship", "engine.beam").look ~= look then ctx.patch("ship", "engine.beam", { look = look }) end
     local hold = ctx.get("ship", "hold")
     local capacity = fit.hold(ctx)
-    local due, rest = rules.cut(pilot.cut_work + (ctx.tick - pilot.cut_from) * cutter.rate(ctx))
+    local due, rest = rules.cut(pilot.cut_work + cutter.work(ctx, rock, ctx.tick - pilot.cut_from))
     local amount = rules.transfer(rules.load(hold), ore.left, capacity, due)
     if amount <= 0 then return end
     local load = rules.load(hold) + amount
@@ -282,8 +279,10 @@ local function cut(ctx, pilot)
     -- so its crystals break off, and one left empty wears its `empty` model (rules.stage).
     ctx.patch(rock, "engine.model", rules.worn(ore, left))
     ctx.record("mined", { rock = rock, units = amount })
+    local full = load >= capacity
+    -- A full hold is the work itself: the fitter counts them (fit.verdict, part `holds`).
     ctx.patch("ship", "pilot", { cut_work = rest, cut_from = ctx.tick, gained = pilot.gained + amount, away = true,
-        message = "+" .. amount .. " " .. ware .. " · hold " .. load .. " of " .. capacity })
+        holds = pilot.holds + (full and 1 or 0), message = "+" .. amount .. " " .. ware .. " · hold " .. load .. " of " .. capacity .. ((ore.rich or 1) > 1 and " · rich seam" or "") })
     if left > 0 then
         -- The unit itself: a fistful of stone breaks off the cut and flies to the ship.
         local lx, ly, back = cutter.landing(ctx, rock)
@@ -296,7 +295,6 @@ local function cut(ctx, pilot)
         ctx.put(rock, "engine.burst", { recipe = "core.rubble", tick = ctx.tick })
         ctx.record("rock_done", { rock = rock })
     end
-    local full = load >= capacity
     -- The unit lands in the hold with an amber puff; the last one fills it with a bigger one.
     ctx.put("ship", "engine.burst", { recipe = full and "core.full" or "core.ore_in", tick = ctx.tick, x = HOLD_X, height = 0.5 })
     if full or left <= 0 then
@@ -376,17 +374,18 @@ return {
             ctx.patch(pilot.station, "engine.room", { glide = 1.0 })
             ctx.move("ship", pilot.station)
             signs.show(ctx, pilot.station, "", pilot.log_open, nil, true) -- up once the glide in lands
-            -- A visit only counts once the ship has really been away: then the
-            -- station's market eases back towards its usual stock, and fresh stone
-            -- drifts into the rocks cut down to pebbles.
+            -- A visit only counts once the ship has really been away: then every
+            -- station's market eases back towards its usual stock (the trip took time
+            -- everywhere, so a station left alone recovers while you sell at the other),
+            -- and fresh stone drifts into the rocks cut down to pebbles.
             local counted = rules.counts(pilot.last_dock, pilot.away, pilot.station)
             if counted then
                 ctx.patch(pilot.station, "port", { visits = port.visits + 1 })
-                for _, id in trade.station_lines(ctx, pilot.station) do
+                for _, id in ctx.query("market") do
                     local line = ctx.get(id, "market")
                     local stock = rules.settle(line)
                     ctx.patch(id, "market", { stock = stock })
-                    if line.ware == "ore" then trade.piles(ctx, pilot.station, stock) end
+                    if line.ware == "ore" then trade.piles(ctx, trade.station(ctx, line), stock, line.target) end
                 end
                 for _, id in ctx.query("ore") do
                     local ore = ctx.get(id, "ore")
@@ -435,6 +434,14 @@ return {
             if barge and gap <= salvage.REACH then near = "barge" end
         end
         if near ~= pilot.near then ctx.patch("ship", "pilot", { near = near }) end
+        -- The way to each station off screen, once a second.
+        local stations = {}
+        for _, id in ctx.query("port") do
+            local p = ctx.get(id .. "_exterior", "engine.position")
+            if p then table.insert(stations, { name = ctx.get(id, "port").name, x = p.x, y = p.y }) end
+        end
+        local bearings = rules.bearings(at, stations)
+        if bearings ~= pilot.bearings then ctx.patch("ship", "pilot", { bearings = bearings }) end
         if pilot.mining and pilot.target ~= "" then
             cut(ctx, pilot)
         elseif pilot.approach and pilot.target ~= "" and cutter.can_cut(ctx, pilot.target, true) then

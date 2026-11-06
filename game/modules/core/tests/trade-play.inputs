@@ -1,7 +1,9 @@
 # The trade loop by real clicks at the design size: Kiln ore and plate, the galley site,
-# a quick redock tap, two more plate runs until the galley is built, Ines's introduction,
-# her gift of a ration taken, rations bought at the galley and sold at the Kiln.
+# Ines's introduction at the bare site, a quick redock tap, two more plate runs until the
+# galley is built, her gift of a ration taken, rations bought at the galley and sold at
+# the Kiln.
 # Rooms glide open, so a click after opening or leaving one waits for the glide. 12 notes.
+# (back-talk.inputs and the routes after it meet her only once the galley stands.)
 
 # The flights between are scripted Mine and Dock orders, which fly themselves;
 # hand-mining.inputs flies them by hand.
@@ -20,257 +22,257 @@ tick = 60
 name = "core.mine"
 
 [[input]]
-tick = 330
+tick = 960
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 715
+tick = 1852
 widget = "sign_exchange"
 
 [[note]]
-tick = 723
+tick = 1860
 text = "Kiln exchange: a full hold of ore; buying plate rests until I sell."
 
 [[click]]
-tick = 748
+tick = 1885
 widget = "sell_ore"
 
 [[click]]
-tick = 763
+tick = 1900
 widget = "buymax_plate"
 
 [[note]]
-tick = 771
+tick = 1908
 text = "Sold the ore, bought plate; each unit of plate asked a little more."
 
 [[click]]
-tick = 786
+tick = 1923
 widget = "close"
 
 [[click]]
-tick = 819
+tick = 1956
 widget = "launch"
 
 [[input]]
-tick = 859
+tick = 1996
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[click]]
-tick = 1204
+tick = 2882
 widget = "sign_galley"
 
 [[note]]
-tick = 1212
-text = "Lantern Dock: the galley site, 0 of 10 plate in."
+tick = 2890
+text = "Lantern Dock: the galley site, 0 of 40 plate in, and Ines waiting in it."
 
 [[click]]
-tick = 1237
+tick = 2915
+widget = "speaker.core.lantern_cook"
+
+[[note]]
+tick = 2923
+text = "Ines introduces herself at the bare site: why she wants the galley."
+
+[[click]]
+tick = 2938
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 2953
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 2968
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 2985
 widget = "close"
 
 [[click]]
-tick = 1270
+tick = 3018
 widget = "sign_exchange"
 
 [[click]]
-tick = 1303
+tick = 3051
 widget = "sell_plate"
 
 [[note]]
-tick = 1311
-text = "Plate sold into the galley: 3 of 10."
+tick = 3059
+text = "Plate sold into the galley: 13 of 40."
 
 [[click]]
-tick = 1326
+tick = 3074
 widget = "close"
 
 [[click]]
-tick = 1359
+tick = 3107
 widget = "launch"
 
 [[input]]
-tick = 1399
+tick = 3147
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[note]]
-tick = 1549
+tick = 3297
 text = "A quick undock and redock: still one visit, nothing restocked."
 
 [[click]]
-tick = 1564
+tick = 3312
 widget = "launch"
 
 [[input]]
-tick = 1604
+tick = 3352
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 1949
+tick = 4235
 widget = "sign_exchange"
 
 [[click]]
-tick = 1982
+tick = 4268
 widget = "buymax_plate"
 
 [[click]]
-tick = 1997
+tick = 4283
 widget = "close"
 
 [[click]]
-tick = 2030
+tick = 4316
 widget = "launch"
 
 [[input]]
-tick = 2070
+tick = 4356
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[click]]
-tick = 2415
+tick = 5242
 widget = "sign_exchange"
 
 [[click]]
-tick = 2448
+tick = 5275
 widget = "sell_plate"
 
 [[click]]
-tick = 2463
+tick = 5290
 widget = "close"
 
 [[click]]
-tick = 2496
+tick = 5323
 widget = "launch"
 
 [[input]]
-tick = 2536
+tick = 5363
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 2881
+tick = 6246
 widget = "sign_exchange"
 
 [[click]]
-tick = 2914
+tick = 6279
 widget = "buymax_plate"
 
 [[click]]
-tick = 2929
+tick = 6294
 widget = "close"
 
 [[click]]
-tick = 2962
+tick = 6327
 widget = "launch"
 
 [[input]]
-tick = 3002
+tick = 6367
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[click]]
-tick = 3347
+tick = 7253
 widget = "sign_exchange"
 
 [[click]]
-tick = 3380
+tick = 7286
 widget = "sell_plate"
 
 [[note]]
-tick = 3388
-text = "The tenth plate: the galley is built."
+tick = 7294
+text = "The fortieth plate: the galley is built."
 
 [[click]]
-tick = 3403
+tick = 7309
 widget = "close"
 
 [[note]]
-tick = 3411
+tick = 7317
 text = "The station has grown: the galley stands where the scaffold was, with Ines by it."
 
 [[click]]
-tick = 3436
+tick = 7342
 widget = "sign_galley"
 
+# Met before, Ines offers a ration for the plate at the first click, once; take it.
 [[click]]
-tick = 3469
-widget = "speaker.core.lantern_cook"
-
-[[note]]
-tick = 3477
-text = "Ines introduces herself."
-
-[[click]]
-tick = 3492
-widget = "talk.core.lantern_cook_intro"
-
-[[click]]
-tick = 3507
-widget = "talk.core.lantern_cook_intro"
-
-[[click]]
-tick = 3522
-widget = "talk.core.lantern_cook_intro"
-
-# Once she's introduced, Ines offers a ration for the plate, once; take it.
-[[click]]
-tick = 3537
+tick = 7443
 widget = "speaker.core.lantern_cook"
 [[click]]
-tick = 3552
+tick = 7458
 widget = "talk.core.lantern_cook_gift"
 [[note]]
-tick = 3560
+tick = 7466
 text = "Ines offers a ration on the house, with Take it and No, thanks."
 [[click]]
-tick = 3567
+tick = 7473
 widget = "choice.core.lantern_cook_gift_take"
 [[click]]
-tick = 3582
+tick = 7488
 widget = "talk.core.lantern_cook_gift"
 [[click]]
-tick = 3597
+tick = 7503
 widget = "buymax_rations"
 
 [[note]]
-tick = 3605
+tick = 7511
 text = "Bought rations at the galley."
 
 [[click]]
-tick = 3620
+tick = 7526
 widget = "close"
 
 [[click]]
-tick = 3653
+tick = 7559
 widget = "log_open"
 
 [[note]]
-tick = 3661
+tick = 7567
 text = "The log: sales, the galley built, the conversation."
 
 [[click]]
-tick = 3676
+tick = 7582
 widget = "log_close"
 
 [[click]]
-tick = 3691
+tick = 7597
 widget = "launch"
 
 [[input]]
-tick = 3731
+tick = 7637
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 4076
+tick = 8520
 widget = "sign_exchange"
 
 [[click]]
-tick = 4109
+tick = 8553
 widget = "sell_rations"
 
 [[note]]
-tick = 4117
+tick = 8561
 text = "Rations sold to the Kiln crews."

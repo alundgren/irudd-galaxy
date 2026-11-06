@@ -2,6 +2,6 @@
 # its play report must have no problems, so nothing runs outside the viewport.
 # size is physical pixels: at 125% display scaling this is the 960x540 logical window.
 inputs = "tests/mixed-trade.inputs"
-ticks = 1710
+ticks = 3954
 size = [1200, 675]
 seed = 1

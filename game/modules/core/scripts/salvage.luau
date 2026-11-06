@@ -36,7 +36,7 @@ local salvage = {
     BOOST = 1.0, -- the tow won't take a boost
     LINE = 3, -- the barge holds this far off the ship's outline
     STRUCK = 2.5, -- a knock this hard on something fixed slips the line
-    FEE = 60, -- what the skipper pays for the tow, once mended
+    FEE = 400, -- what the skipper pays for the tow, once mended
     -- Her wake, as start.toml gives her: off while she lies dark, back once she is whole.
     WAKE = { recipe = "core.wake", x = -2.7, by = "speed" },
     WORK = 2, -- counted visits to the station the work takes, after its delivery
@@ -190,7 +190,7 @@ function salvage.flight(ctx)
         p.id = id
         table.insert(parts, p)
     end
-    local t = fit.totals(parts, nil, nil, fit.hull_speed(ctx))
+    local t = fit.totals(parts, nil, nil, fit.hull_speed(ctx), fit.hull_hold(ctx))
     ctx.patch("ship", "engine.flight", { speed = t.top, turn = t.turn, boost = 2.0 })
 end
 

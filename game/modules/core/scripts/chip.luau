@@ -11,15 +11,15 @@ local project = require("./project")
 -- its own width, so nothing is squeezed: credits (CREDITS, room for five digits) and
 -- the hold (HOLD) share the top row, GAP apart, and each ware aboard (WARE) the row
 -- below, CARGO_GAP apart; both rows fit in INNER even with all five wares aboard, so the
--- chip stays two rows tall. A WARE holds an icon and one digit: the biggest hold is 9
--- (the pods). A part that lets a hold carry 10 or more needs a wider WARE or a third
--- row, or two-digit counts wrap into fragments.
+-- chip stays two rows tall. A WARE holds an icon and two digits: the biggest hold is 36
+-- (the pods). A part that lets a hold carry 100 or more needs a wider WARE or a third
+-- row, or three-digit counts wrap into fragments.
 -- While the beam cuts, the hold's cell holds a short count (SHORT) and what this cut has
 -- brought in (GAINED, `+N`) beside it, GAINED_GAP apart, in the same HOLD width.
 -- Goods carried for someone are marked with whose they are ("4 Ines's", OWNED wide)
 -- while the row has room for it, and on hover always (direction doc 4).
-local chip = { INNER = layout.CHIP - 24, CREDITS = 124, HOLD = 110, WARE = 44, OWNED = 104, GAP = 12, CARGO_GAP = 6,
-    SHORT = 62, GAINED = 42, GAINED_GAP = 6 }
+local chip = { INNER = layout.CHIP - 24, CREDITS = 124, HOLD = 140, WARE = 52, OWNED = 104, GAP = 12, CARGO_GAP = 4,
+    SHORT = 88, GAINED = 46, GAINED_GAP = 6 }
 
 function chip.build(ctx, ui)
     local pilot = ctx.get("ship", "pilot")

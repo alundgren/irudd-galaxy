@@ -26,6 +26,9 @@ log_open = "bool"
 # flown well clear, or mined. Quick in-and-out taps are not visits.
 last_dock = "id"
 away = "bool"
+# Full holds cut by the beam, ever: the work the fitter wants to see before he fits an
+# earned control (part `holds`).
+holds = "int"
 # The view is moving: gliding in to the station, cutting into or out of a room, or
 # gliding back out to the reach after a launch. Anchored signs and the traders' labels
 # rest until it settles, so they never crowd the moving view.
@@ -52,6 +55,9 @@ cut_work = "int"
 gained = "int"
 # What the ship is near, for the hint strip: "ring:<station>", "aim", "reach" or "".
 near = "text"
+# The stations off screen and the way each lies, for the bottom strip: the reach is
+# several screens across, so the way home is always named (rules.bearings).
+bearings = "text"
 # Out of the last berth's ring since launching: flying into a ring docks only then.
 cleared = "bool"
 
@@ -88,6 +94,9 @@ total = { type = "int", default = 12 }
 ware = { type = "text", default = "ore" }
 stages = { type = "text", default = "" }
 empty = { type = "text", default = "" }
+# How fast the beam cuts this rock, times the ship's own rate: the big seams are rich,
+# soft stone (1.5), so choosing one pays; the rest cut at the ship's rate (1).
+rich = { type = "number", default = 1.0 }
 
 [components.port]
 name = "text"
@@ -132,6 +141,13 @@ how = "text"
 site_model = "text"
 # What its room says once built, when nothing is traded there ("" for a room that trades).
 built = "text"
+# What the keeper waiting on it says when the first of its ware goes in ("" for nothing).
+first_word = "text"
+# The keeper's introduction for a first meeting only once it is built: the first of a
+# chain of talk lines as long as the introduction, whose texts replace those of its
+# lines not yet heard, line for line from the end ("" keeps it as it is). Lines already
+# heard stay heard.
+met = "id"
 
 [components.facility]
 station = "id"
@@ -165,18 +181,23 @@ model = "text"
 owned = "bool"
 fitted = "bool"
 order = "int"
+# Full holds the pilot must have cut before the fitter will fit it: the earned controls
+# wait on demonstrated work as well as credits.
+holds = "int"
 
 # What the ship's fitted parts add up to: its hold, the ore a second its beam cuts,
 # and the power and mass in use. Set whenever a part goes on or comes off.
 # `hull_speed` is the bare hull's top speed the ship flies by: a new game sets the
 # locked flight's 20 (start.toml); a save from before it loads with the old hull's 12
-# and keeps its old flight.
+# and keeps its old flight. `hull_hold` is the bare hull's hold the same way: a new game
+# sets 24; a save from before the opening hour's retune loads with the old 6.
 [components.fit]
 hold = { type = "int", default = 6 }
 mine = { type = "int", default = 1 }
 power = "int"
 mass = "int"
 hull_speed = { type = "number", default = 12.0 }
+hull_hold = { type = "int", default = 6 }
 
 # A trader flying its own route (scripts/traffic.luau): two legs, each a chain of
 # waypoints from `out` or `home` ending in a docking onto `out_moor` or `home_moor`.
@@ -195,6 +216,10 @@ since = "int"
 # Taken off its route by a job (scripts/salvage.luau): adrift, in tow or moored for good.
 # The traffic script leaves it alone, though it still wears its label.
 stopped = "bool"
+# What its skipper says, once, the first time the ship flies within radio reach
+# (scripts/traffic.luau); "" for none. `hailed` once said.
+hail = "text"
+hailed = "bool"
 
 # A radio channel (scripts/radio.luau): a station broadcasting from `source` out to
 # `range` world units. Its signal is full within the inner 30% of the range and fades
@@ -233,6 +258,9 @@ playing = "id"
 name = "text"
 # What they say after their introduction when there's nothing else to talk about.
 idle = "text"
+# Where they trade: what they buy and sell and what it means, in their own words. Their
+# room shows it first, quoted, until their introduction is heard ("" for nothing).
+trades = "text"
 # The figure (a model) of a keeper who arrives later, when what they keep is built.
 figure = "text"
 

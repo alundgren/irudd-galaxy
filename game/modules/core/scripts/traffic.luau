@@ -10,6 +10,8 @@
 local labels = require("./labels")
 local kit = require("./kit")
 local salvage = require("./salvage")
+local log = require("./log")
+local cutter = require("./cutter")
 
 local DWELL = 240 -- ticks a trader waits at a mooring (8 seconds)
 
@@ -42,11 +44,44 @@ local function arrived(event, ctx)
     end
 end
 
+-- A skipper with something to say (`hail`) hails the ship once over the radio: a person
+-- and a question to carry, early. Once the pilot has cut a first hold, the hail comes
+-- when the ship flies within HAIL of them or they come in to the station they serve
+-- (moored at the end of their out leg), whichever is first. It comes while she flies
+-- (faster than FLYING): never while the beam cuts or she lies still at a rock, so it
+-- doesn't cover the hold-full message, and never while a dock order flies her in, so the
+-- docking's message doesn't cover it.
+local HAIL = 150
+local FLYING = 8
+
+local function hail(ctx)
+    if ctx.get("ship", "engine.location").place ~= "core.reach" then return end
+    local pilot = ctx.get("ship", "pilot")
+    if pilot.holds < 1 or pilot.mining or cutter.speed(ctx) <= FLYING then return end
+    local steer = ctx.get("ship", "engine.steer")
+    if steer and steer.mode == "dock" then return end
+    local ship = ctx.get("ship", "engine.position")
+    for _, id in ctx.query("trader") do
+        local trader = ctx.get(id, "trader")
+        if (trader.hail or "") ~= "" and not trader.hailed and not trader.stopped then
+            local at = ctx.get(id, "engine.position")
+            local dx, dy = at.x - ship.x, at.y - ship.y
+            local served = trader.moored and trader.leg == "out"
+            if served or dx * dx + dy * dy <= HAIL * HAIL then
+                ctx.patch(id, "trader", { hailed = true })
+                log.add(ctx, trader.hail)
+                return
+            end
+        end
+    end
+end
+
 local function cadence(ctx)
     for _, id in ctx.query("trader") do
         local trader = ctx.get(id, "trader")
         if trader.moored and not trader.stopped and ctx.tick - trader.since >= DWELL then depart(ctx, id, trader) end
     end
+    hail(ctx)
 end
 
 local function screen(ctx, ui)

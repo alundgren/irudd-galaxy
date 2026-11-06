@@ -4,7 +4,7 @@
 # heard, so the log's pin no longer needs the entry (tests/log.luau checks the pin
 # itself). Each launch ends a visit, so the returns are visits of their own.
 seed = 7
-ticks = 5400
+ticks = 9236
 
 [[input]]
 tick = 1
@@ -18,406 +18,406 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 960
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 600
+tick = 1737
 name = "core.open"
 [[input]]
-tick = 605
+tick = 1742
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 610
+tick = 1747
 name = "core.sell"
 [[input]]
-tick = 620
+tick = 1757
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 640
+tick = 1777
 name = "core.launch"
 [[input]]
-tick = 650
+tick = 1787
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 960
+tick = 2638
 name = "core.open"
 [[input]]
-tick = 970
+tick = 2648
 name = "core.sell"
 [[input]]
-tick = 980
+tick = 2658
 name = "core.launch"
 [[input]]
-tick = 985
+tick = 2663
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 1030
+tick = 2708
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 1035
+tick = 2713
 name = "core.buy"
 payload = { ware = "rations", units = 0 }
 [[input]]
-tick = 1040
+tick = 2718
 name = "core.close"
 [[input]]
-tick = 1100
+tick = 2778
 name = "core.launch"
 [[input]]
-tick = 1110
+tick = 2788
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 1410
+tick = 3626
 name = "core.open"
 [[input]]
-tick = 1420
+tick = 3636
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 1440
+tick = 3656
 name = "core.launch"
 [[input]]
-tick = 1450
+tick = 3666
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 1760
+tick = 4517
 name = "core.open"
 [[input]]
-tick = 1770
+tick = 4527
 name = "core.sell"
 [[input]]
-tick = 1790
+tick = 4547
 name = "core.launch"
 [[input]]
-tick = 1800
+tick = 4557
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 2100
+tick = 5395
 name = "core.open"
 [[input]]
-tick = 2110
+tick = 5405
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 2130
+tick = 5425
 name = "core.launch"
 [[input]]
-tick = 2140
+tick = 5435
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2450
+tick = 6286
 name = "core.open"
 [[input]]
-tick = 2460
+tick = 6296
 name = "core.sell"
 [[input]]
-tick = 2480
+tick = 6316
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 2290
+tick = 6126
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6059 }
 [[input]]
-tick = 2483
+tick = 6319
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2480 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6316 }
 
 # Not offered before her introduction is heard; the story comes first.
 [[input]]
-tick = 2485
+tick = 6321
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_cook_intro" }
 [[input]]
-tick = 2486
+tick = 6322
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
 [[input]]
-tick = 2487
+tick = 6323
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
 [[input]]
-tick = 2488
+tick = 6324
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
 [[input]]
-tick = 2490
+tick = 6326
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_cook_gift" }
 [[input]]
-tick = 2491
+tick = 6327
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift1" }
 
 # Back with the offer unanswered.
 [[input]]
-tick = 2492
+tick = 6328
 name = "core.close"
 payload = { down = true }
 [[input]]
-tick = 2493
+tick = 6329
 name = "engine.talk_chosen"
 source = "ui"
 payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift2", choice = "core.lantern_cook_gift_take" }
 [[input]]
-tick = 2496
+tick = 6332
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2492 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6328 }
 
 # In again: the offer begins at its first line. Back on that line.
 [[input]]
-tick = 2520
+tick = 6356
 name = "core.launch"
 [[input]]
-tick = 2525
+tick = 6361
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2610
+tick = 6446
 name = "core.launch"
 [[input]]
-tick = 2615
+tick = 6451
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2700
+tick = 6536
 name = "core.launch"
 [[input]]
-tick = 2705
+tick = 6541
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2790
+tick = 6626
 name = "core.launch"
 [[input]]
-tick = 2795
+tick = 6631
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2880
+tick = 6716
 name = "core.launch"
 [[input]]
-tick = 2885
+tick = 6721
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2970
+tick = 6806
 name = "core.launch"
 [[input]]
-tick = 2975
+tick = 6811
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3060
+tick = 6896
 name = "core.launch"
 [[input]]
-tick = 3065
+tick = 6901
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3150
+tick = 6986
 name = "core.launch"
 [[input]]
-tick = 3155
+tick = 6991
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3240
+tick = 7076
 name = "core.launch"
 [[input]]
-tick = 3245
+tick = 7081
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3330
+tick = 7166
 name = "core.launch"
 [[input]]
-tick = 3335
+tick = 7171
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3420
+tick = 7256
 name = "core.launch"
 [[input]]
-tick = 3425
+tick = 7261
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3510
+tick = 7346
 name = "core.launch"
 [[input]]
-tick = 3515
+tick = 7351
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3600
+tick = 7436
 name = "core.launch"
 [[input]]
-tick = 3605
+tick = 7441
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3690
+tick = 7526
 name = "core.launch"
 [[input]]
-tick = 3695
+tick = 7531
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3780
+tick = 7616
 name = "core.launch"
 [[input]]
-tick = 3785
+tick = 7621
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3870
+tick = 7706
 name = "core.launch"
 [[input]]
-tick = 3875
+tick = 7711
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 3960
+tick = 7796
 name = "core.launch"
 [[input]]
-tick = 3965
+tick = 7801
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4050
+tick = 7886
 name = "core.launch"
 [[input]]
-tick = 4055
+tick = 7891
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4140
+tick = 7976
 name = "core.launch"
 [[input]]
-tick = 4145
+tick = 7981
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4230
+tick = 8066
 name = "core.launch"
 [[input]]
-tick = 4235
+tick = 8071
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4320
+tick = 8156
 name = "core.launch"
 [[input]]
-tick = 4325
+tick = 8161
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4410
+tick = 8246
 name = "core.launch"
 [[input]]
-tick = 4415
+tick = 8251
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4500
+tick = 8336
 name = "core.launch"
 [[input]]
-tick = 4505
+tick = 8341
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4590
+tick = 8426
 name = "core.launch"
 [[input]]
-tick = 4595
+tick = 8431
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4680
+tick = 8516
 name = "core.launch"
 [[input]]
-tick = 4685
+tick = 8521
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4770
+tick = 8606
 name = "core.launch"
 [[input]]
-tick = 4775
+tick = 8611
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4860
+tick = 8696
 name = "core.launch"
 [[input]]
-tick = 4865
+tick = 8701
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 4950
+tick = 8786
 name = "core.launch"
 [[input]]
-tick = 4955
+tick = 8791
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 5040
+tick = 8876
 name = "core.launch"
 [[input]]
-tick = 5045
+tick = 8881
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 5130
+tick = 8966
 name = "core.launch"
 [[input]]
-tick = 5135
+tick = 8971
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 5220
+tick = 9056
 name = "core.launch"
 [[input]]
-tick = 5225
+tick = 9061
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 5310
+tick = 9146
 name = "core.launch"
 [[input]]
-tick = 5315
+tick = 9151
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[expect]]
-tick = 2492
+tick = 6328
 entity = "lantern_cook_gift"
 component = "gift"
 field = "heard"
 equals = true
 [[expect]]
-tick = 2520
-entity = "log24"
+tick = 6356
+entity = "log27"
 component = "entry"
 field = "leaves"
 equals = true
@@ -425,7 +425,7 @@ equals = true
 entity = "ship"
 component = "pilot"
 field = "logged"
-equals = 87
+equals = 90
 [[expect]]
 entity = "lantern_cook_gift"
 component = "gift"

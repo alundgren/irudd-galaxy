@@ -5,7 +5,7 @@
 "engine.clock" = {}
 
 [entities.reach]
-"engine.place" = { width = 160, depth = 100 }
+"engine.place" = { width = 2000, depth = 1500 }
 
 [entities.ship]
 "engine.being" = { player = true }
@@ -26,11 +26,11 @@
 # The view widens a little at speed and looks a quarter second ahead; mining beats kick
 # it (scripts/main.luau keeps the same values).
 "engine.camera_feel" = { speed_zoom = 0.12, lead = 0.25 }
-pilot = { message = "A quiet shift. Mine six ore, then choose a buyer." }
+pilot = { message = "Bram on the radio: \"Welcome, pilot. Our galley wants 40 plate: sheet the Kiln fires from ore. What a station wants, your log lists as WANTED.\"" }
 hold = {}
 held = {}
 taught = {}
-fit = { hull_speed = 20.0 }
+fit = { hull_speed = 20.0, hull_hold = 24, hold = 24 }
 # The radio finds the strongest station on its first second out (scripts/radio.luau).
 radio = {}
 
@@ -45,63 +45,79 @@ radio = {}
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 12, y = 0 }
 "engine.body" = { fixed = true }
-"engine.model" = { model = "core.rock", look = "core.rock" }
-ore = {}
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.8 }
+ore = { left = 7, total = 7 }
 
 [entities.rock2]
 "engine.spin" = { rate = -4 }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 13, y = 14 }
 "engine.body" = { fixed = true }
-"engine.model" = { model = "core.rock", look = "core.rock" }
-ore = {}
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.75 }
+ore = { left = 6, total = 6 }
 
 [entities.rock3]
 "engine.spin" = { rate = 2.5 }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = -4, y = 18 }
 "engine.body" = { fixed = true }
-"engine.model" = { model = "core.rock", look = "core.rock" }
-ore = {}
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.85 }
+ore = { left = 8, total = 8 }
 
 [entities.rock4]
 "engine.spin" = { rate = -6 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 27, y = 9 }
+"engine.position" = { x = 44, y = -14 }
 "engine.body" = { fixed = true }
-"engine.model" = { model = "core.rock_chunk", look = "core.rock", scale = 0.85 }
-ore = { left = 10, total = 10 }
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 1.0 }
+ore = { left = 12, total = 12 }
 
 [entities.rock5]
 "engine.spin" = { rate = 1.5 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 24, y = 24 }
+"engine.position" = { x = 68, y = -42 }
 "engine.body" = { fixed = true }
-"engine.model" = { model = "core.rock_lump", look = "core.rock", scale = 1.4 }
-ore = { left = 18, total = 18 }
+"engine.model" = { model = "core.rock_lump", look = "core.rock", scale = 1.8 }
+ore = { left = 24, total = 24, rich = 1.5 }
 
 [entities.rock6]
 "engine.spin" = { rate = -2 }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = -9, y = 34 }
 "engine.body" = { fixed = true }
-"engine.model" = { model = "core.rock_chunk", look = "core.rock", scale = 1.0 }
-ore = {}
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.75 }
+ore = { left = 6, total = 6 }
 
 [entities.rock7]
 "engine.spin" = { rate = 5 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 35, y = 13 }
+"engine.position" = { x = -52, y = -22 }
 "engine.body" = { fixed = true }
-"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.7 }
-ore = { left = 8, total = 8 }
+"engine.model" = { model = "core.rock_lump", look = "core.rock", scale = 1.1 }
+ore = { left = 14, total = 14 }
 
-# The ice drift, out west past Lantern Dock: pale floes, wide and tall. Lantern Dock
+# The ice drift, far out west of Lantern Dock: pale floes, wide and tall. Lantern Dock
 # buys ice.
+[entities.rock9]
+"engine.spin" = { rate = 1.2 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 82, y = 8 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock_lump", look = "core.rock", scale = 1.6 }
+ore = { left = 20, total = 20, rich = 1.5 }
+
+[entities.rock8]
+"engine.spin" = { rate = -1.0 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -84, y = 10 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock_lump", look = "core.rock", scale = 2.0 }
+ore = { left = 30, total = 30, rich = 1.5 }
+
 [entities.ice1]
 "engine.spin" = { rate = 2 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -42, y = 6 }
+"engine.position" = { x = -425, y = -38 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.ice", look = "core.ice", scale = 1.7 }
 ore = { left = 16, total = 16, ware = "ice" }
@@ -109,7 +125,7 @@ ore = { left = 16, total = 16, ware = "ice" }
 [entities.ice2]
 "engine.spin" = { rate = -3 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -52, y = 18 }
+"engine.position" = { x = -435, y = -26 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.ice_shard", look = "core.ice", scale = 1.4 }
 ore = { left = 14, total = 14, ware = "ice" }
@@ -117,7 +133,7 @@ ore = { left = 14, total = 14, ware = "ice" }
 [entities.ice3]
 "engine.spin" = { rate = 4 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -38, y = 23 }
+"engine.position" = { x = -421, y = -21 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.ice", look = "core.ice", scale = 1.0 }
 ore = { left = 8, total = 8, ware = "ice" }
@@ -125,7 +141,7 @@ ore = { left = 8, total = 8, ware = "ice" }
 [entities.ice4]
 "engine.spin" = { rate = 2.5 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -60, y = 2 }
+"engine.position" = { x = -443, y = -42 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.ice_shard", look = "core.ice", scale = 1.2 }
 ore = { left = 12, total = 12, ware = "ice" }
@@ -133,7 +149,7 @@ ore = { left = 12, total = 12, ware = "ice" }
 [entities.ice5]
 "engine.spin" = { rate = -1.5 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -59, y = 33 }
+"engine.position" = { x = -442, y = -11 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.ice", look = "core.ice", scale = 1.9 }
 ore = { left = 20, total = 20, ware = "ice" }
@@ -141,7 +157,7 @@ ore = { left = 20, total = 20, ware = "ice" }
 [entities.ice6]
 "engine.spin" = { rate = 3.5 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -47, y = 31 }
+"engine.position" = { x = -430, y = -13 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.ice_shard", look = "core.ice", scale = 1.1 }
 ore = { left = 10, total = 10, ware = "ice" }
@@ -149,7 +165,7 @@ ore = { left = 10, total = 10, ware = "ice" }
 [entities.ice7]
 "engine.spin" = { rate = -2.5 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -68, y = 22 }
+"engine.position" = { x = -451, y = -22 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.ice", look = "core.ice", scale = 1.3 }
 ore = { left = 12, total = 12, ware = "ice" }
@@ -157,27 +173,43 @@ ore = { left = 12, total = 12, ware = "ice" }
 [entities.ice8]
 "engine.spin" = { rate = 2 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -49, y = -6 }
+"engine.position" = { x = -432, y = -50 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.ice_shard", look = "core.ice", scale = 1.0 }
 ore = { left = 8, total = 8, ware = "ice" }
 
-# Two glassite rocks, far out north-east: rare, and Cinder Kiln pays well for them.
+# Four glassite rocks, far out north-east: rare, and Cinder Kiln pays well for them.
 [entities.glassite1]
 "engine.spin" = { rate = 3 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 56, y = 32 }
+"engine.position" = { x = 344, y = 246 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.glassite", look = "core.glassite", scale = 1.0 }
-ore = { left = 5, total = 5, ware = "glassite", stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs", empty = "core.glassite_pebbles" }
+ore = { left = 8, total = 8, ware = "glassite", stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs", empty = "core.glassite_pebbles" }
 
 [entities.glassite2]
 "engine.spin" = { rate = -4 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 64, y = 39 }
+"engine.position" = { x = 352, y = 253 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.glassite", look = "core.glassite", scale = 0.75 }
-ore = { left = 4, total = 4, ware = "glassite", stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs", empty = "core.glassite_pebbles" }
+ore = { left = 6, total = 6, ware = "glassite", stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs", empty = "core.glassite_pebbles" }
+
+[entities.glassite3]
+"engine.spin" = { rate = 2.5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 334, y = 258 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.glassite", look = "core.glassite", scale = 0.9 }
+ore = { left = 7, total = 7, ware = "glassite", stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs", empty = "core.glassite_pebbles" }
+
+[entities.glassite4]
+"engine.spin" = { rate = -3.5 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 362, y = 262 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.glassite", look = "core.glassite", scale = 1.1 }
+ore = { left = 9, total = 9, ware = "glassite", stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs", empty = "core.glassite_pebbles" }
 
 # Loose pebbles and splinters round the drifts: drawn only, never solid, never mined.
 [entities.debris1]
@@ -213,31 +245,31 @@ ore = { left = 4, total = 4, ware = "glassite", stages = "core.glassite core.gla
 [entities.debris6]
 "engine.spin" = { rate = -6 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -46, y = 12 }
+"engine.position" = { x = -429, y = -32 }
 "engine.model" = { model = "core.debris_ice", look = "core.debris", scale = 1.2 }
 
 [entities.debris7]
 "engine.spin" = { rate = 5 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -53, y = 25 }
+"engine.position" = { x = -436, y = -19 }
 "engine.model" = { model = "core.debris_ice", look = "core.debris", scale = 1.0 }
 
 [entities.debris8]
 "engine.spin" = { rate = -4 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -34, y = 13 }
+"engine.position" = { x = -417, y = -31 }
 "engine.model" = { model = "core.debris_ice", look = "core.debris", scale = 0.9 }
 
 [entities.debris9]
 "engine.spin" = { rate = 3 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -63, y = 14 }
+"engine.position" = { x = -446, y = -30 }
 "engine.model" = { model = "core.debris_ice", look = "core.debris", scale = 1.3 }
 
 [entities.debris10]
 "engine.spin" = { rate = -7 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 60, y = 35 }
+"engine.position" = { x = 348, y = 249 }
 "engine.model" = { model = "core.debris", look = "core.debris", scale = 0.9 }
 
 # Faint warm dust drifting over each drift.
@@ -248,12 +280,12 @@ ore = { left = 4, total = 4, ware = "glassite", stages = "core.glassite core.gla
 
 [entities.dust_ice]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -49, y = 16 }
+"engine.position" = { x = -432, y = -28 }
 "engine.emitter" = { recipe = "core.dust", rate = 1.0 }
 
 [entities.dust_glassite]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 60, y = 35 }
+"engine.position" = { x = 348, y = 249 }
 "engine.emitter" = { recipe = "core.dust", rate = 0.5 }
 
 # Lane buoys: blinking brass posts marking the courier's lane and its moorings. Drawn
@@ -270,12 +302,12 @@ ore = { left = 4, total = 4, ware = "glassite", stages = "core.glassite core.gla
 
 [entities.buoy_south_a]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 1, y = -47 }
+"engine.position" = { x = -1, y = -184 }
 "engine.model" = { model = "core.buoy", look = "core.buoy" }
 
 [entities.buoy_south_b]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 9, y = -47 }
+"engine.position" = { x = 7, y = -184 }
 "engine.model" = { model = "core.buoy", look = "core.buoy" }
 
 [entities.buoy_lane_a]
@@ -290,12 +322,12 @@ ore = { left = 4, total = 4, ware = "glassite", stages = "core.glassite core.gla
 
 [entities.buoy_ice]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -30, y = -2 }
+"engine.position" = { x = -413, y = -46 }
 "engine.model" = { model = "core.buoy", look = "core.buoy" }
 
 [entities.buoy_glassite]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 46, y = 24 }
+"engine.position" = { x = 334, y = 238 }
 "engine.model" = { model = "core.buoy", look = "core.buoy" }
 
 # Far off: a ringed planet sunk well below the field (its model sits low, so it draws
@@ -304,17 +336,17 @@ ore = { left = 4, total = 4, ware = "glassite", stages = "core.glassite core.gla
 [entities.planet]
 "engine.spin" = { rate = 0.4 }
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -118, y = 92 }
+"engine.position" = { x = -600, y = 480 }
 "engine.model" = { model = "core.planet", look = "core.far" }
 
 [entities.lighthouse]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 92, y = -34 }
+"engine.position" = { x = 540, y = -120 }
 "engine.model" = { model = "core.lighthouse", look = "core.far", scale = 1.3 }
 
 [entities.lantern_exterior]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -24, y = -18 }
+"engine.position" = { x = -194, y = -209 }
 "engine.body" = { fixed = true }
 # Its greenhouse is a bare plot until Ines's greenhouse is built (scripts/project.luau),
 # then the station wears its glowing dome (core.station).
@@ -332,11 +364,11 @@ port = { name = "Lantern Dock", berth = "core.lantern_berth", departure = "core.
 
 [entities.lantern_berth]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -14, y = -12, angle = -2.601173153319209 }
+"engine.position" = { x = -184, y = -203, angle = -2.601173153319209 }
 "engine.model" = { model = "core.pad", look = "core.prop" }
 
 [entities.lantern_departure]
-"engine.spot" = { place = "core.reach", name = "lantern_departure", x = -14, y = -12 }
+"engine.spot" = { place = "core.reach", name = "lantern_departure", x = -184, y = -203 }
 
 [entities.lantern_berth_spot]
 "engine.spot" = { place = "core.lantern", name = "berth" }
@@ -363,19 +395,22 @@ facility = { station = "core.lantern", name = "Exchange", keeper = "core.lantern
 "engine.anchor" = { name = "sign", height = 3.0 }
 facility = { station = "core.lantern", name = "Office", keeper = "core.lantern_master", offer = "posted prices and how the field stands", order = 2, place = "core.lantern_office_room" }
 
-# Lantern Dock's market. Plate goes into the galley until it is built.
+# Lantern Dock's market. Plate goes into the galley until it is built. Both stations pay
+# the same for ore and a counted docking eases both, so spreading holds between them
+# beats selling every hold at one (README "Where to sell").
 [entities.lantern_ore]
-market = { room = "core.lantern_exchange", ware = "ore", role = "buys", base = 12, target = 30, stock = 24, rate = 3 }
+market = { room = "core.lantern_exchange", ware = "ore", role = "buys", base = 16, target = 60, stock = 38, rate = 12 }
 
-# Ice from the west drift: water for the galley and the crews.
+# Ice from the far west drift: water for the galley and the crews. It pays well, a
+# load of it clearly more than ore, for the long haul (README "The opening hour").
 [entities.lantern_ice]
-market = { room = "core.lantern_exchange", ware = "ice", role = "buys", base = 10, target = 30, stock = 22, rate = 3 }
+market = { room = "core.lantern_exchange", ware = "ice", role = "buys", base = 22, target = 90, stock = 66, rate = 9 }
 
 [entities.lantern_plate]
-market = { room = "core.lantern_exchange", ware = "plate", role = "buys", base = 34, target = 24, stock = 18, rate = 2 }
+market = { room = "core.lantern_exchange", ware = "plate", role = "buys", base = 34, target = 72, stock = 54, rate = 6 }
 
 [entities.lantern_rations]
-market = { room = "core.lantern_galley", ware = "rations", role = "sells", base = 14, target = 30, stock = 30, rate = 3 }
+market = { room = "core.lantern_galley", ware = "rations", role = "sells", base = 14, target = 90, stock = 90, rate = 9 }
 
 [entities.lantern_stock]
 "engine.location" = { place = "core.lantern" }
@@ -387,7 +422,7 @@ market = { room = "core.lantern_galley", ware = "rations", role = "sells", base 
 "engine.location" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_counter" }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.person_tova", look = "core.prop" }
-keeper = { name = "Tova Reyes", idle = "Empty hold? The rocks are just outside." }
+keeper = { name = "Tova Reyes", idle = "Empty hold? The ore floats north-east of us.", trades = "I buy ore and ice, and plate for the galley." }
 "engine.life" = { clock = "core.day", first = "core.lantern_trader_act", speed = 1.6, presentation = "instant", name = "Tova Reyes" }
 
 [entities.lantern_trader_act]
@@ -406,7 +441,7 @@ keeper = { name = "Tova Reyes", idle = "Empty hold? The rocks are just outside."
 "engine.talk_line" = { text = "I'm Tova, and I run the exchange.", next = "core.lantern_trader_intro2" }
 
 [entities.lantern_trader_intro2]
-"engine.talk_line" = { text = "I buy ore, and plate for our galley.", next = "core.lantern_trader_intro3" }
+"engine.talk_line" = { text = "I buy ore, and plate for our galley: sheet the Kiln fires from ore.", next = "core.lantern_trader_intro3" }
 
 [entities.lantern_trader_intro3]
 "engine.talk_line" = { text = "My prices drop as my stock fills." }
@@ -416,7 +451,7 @@ keeper = { name = "Tova Reyes", idle = "Empty hold? The rocks are just outside."
 "engine.talk" = { speaker = "core.lantern_trader", first = "core.lantern_trader_now", width = 420, x = -150, title = "Tova Reyes", subtitle = "Exchange keeper" }
 
 [entities.lantern_trader_now]
-"engine.talk_line" = { text = "Empty hold? The rocks are just outside." }
+"engine.talk_line" = { text = "Empty hold? The ore floats north-east of us." }
 
 [entities.lantern_master]
 "engine.being" = {}
@@ -445,13 +480,13 @@ keeper = { name = "Bram Okafor" }
 "engine.talk_line" = { text = "I'm Bram. I keep the berth and lamps.", next = "core.lantern_master_intro3" }
 
 [entities.lantern_master_intro3]
-"engine.talk_line" = { text = "Cinder Kiln is the other station.", next = "core.lantern_master_intro4" }
+"engine.talk_line" = { text = "Cinder Kiln is out east. We both buy ore.", next = "core.lantern_master_intro4" }
 
 [entities.lantern_master_intro4]
-"engine.talk_line" = { text = "It's out east, and pays more for ore.", next = "core.lantern_master_intro5" }
+"engine.talk_line" = { text = "Each of us pays less as our stock fills, so spread your loads.", next = "core.lantern_master_intro5" }
 
 [entities.lantern_master_intro5]
-"engine.talk_line" = { text = "We're raising a galley. It needs plate." }
+"engine.talk_line" = { text = "Our galley wants plate: sheet the Kiln fires from ore." }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.lantern_master_talk]
@@ -461,7 +496,8 @@ keeper = { name = "Bram Okafor" }
 "engine.talk_line" = { text = "The field still holds 36 ore." }
 
 # The galley site: plate sold at the exchange builds it. Once built it is the galley,
-# where Ines cooks and sells rations (scripts/trade.luau).
+# where Ines cooks and sells rations (scripts/trade.luau). She keeps the site from the
+# start, waiting on the plate, so the galley is hers before it stands.
 [entities.lantern_galley]
 "engine.being" = {}
 "engine.location" = { place = "core.lantern" }
@@ -469,12 +505,22 @@ keeper = { name = "Bram Okafor" }
 "engine.model" = { model = "core.galley_site", look = "core.station" }
 # Signed low at its front: above it, the sign would meet the dockmaster's name sign.
 "engine.anchor" = { name = "sign", height = 0.2, x = 2.6 }
-facility = { station = "core.lantern", name = "Galley site", keeper = "", offer = "plate sold here builds the galley", order = 3, place = "core.lantern_galley_room" }
-build = { station = "core.lantern", ware = "plate", need = 10, name = "Galley", offer = "sells rations", keeper = "core.lantern_cook", model = "core.galley", room_model = "core.lantern_galley_room" }
+facility = { station = "core.lantern", name = "Galley site", keeper = "core.lantern_cook", offer = "plate sold here builds the galley", order = 3, place = "core.lantern_galley_room" }
+build = { station = "core.lantern", ware = "plate", need = 40, name = "Galley", offer = "sells rations", keeper = "core.lantern_cook", model = "core.galley", room_model = "core.lantern_galley_room", first_word = "That's the first of it! I can almost hear the stove.", met = "core.lantern_cook_met1", how = "Plate sold at Tova's exchange builds it. When it opens, Ines will cook rations here and sell them." }
 
-# The cook arrives when the galley is built; until then only their name is known.
+# The cook waits at the bare site from the first docking, where its tables will stand
+# (clear of the scaffold); once it is built her day is the stove and the hatch
+# (scripts/station.luau).
 [entities.lantern_cook]
-keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them.", figure = "core.person_ines" }
+keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them.", figure = "core.person_ines", trades = "I sell rations from my stove. Cinder Kiln's crews buy them." }
+"engine.being" = {}
+"engine.location" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_table" }
+"engine.position" = { angle = -1.5707963267948966 }
+"engine.model" = { model = "core.person_ines", look = "core.prop" }
+"engine.life" = { clock = "core.day", first = "core.lantern_cook_site_act", speed = 1.6, presentation = "instant", name = "" }
+
+[entities.lantern_cook_site_act]
+"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_table", angle = -1.5707963267948966, state = "waiting on plate" }
 
 [entities.lantern_cook_act]
 "engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_stove", angle = -1.0, state = "cooking", next = "core.lantern_cook_act2" }
@@ -484,18 +530,30 @@ keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them.",
 
 
 
-# Said once: the first click introduces the keeper.
+# Said once: the first click introduces her, at the bare site, with why she wants the
+# galley. Met only once it stands, she says instead that it is built (scripts/station.luau,
+# build_up), so she is never introduced twice.
 [entities.lantern_cook_intro]
 "engine.talk" = { speaker = "core.lantern_cook", first = "core.lantern_cook_intro1", width = 420, x = -150, story = true, title = "Ines Varga", subtitle = "Cook" }
 
 [entities.lantern_cook_intro1]
-"engine.talk_line" = { text = "I'm Ines. Your plate built this galley.", next = "core.lantern_cook_intro2" }
+"engine.talk_line" = { text = "I'm Ines. This scaffold is going to be my galley.", next = "core.lantern_cook_intro2" }
 
 [entities.lantern_cook_intro2]
-"engine.talk_line" = { text = "I cook rations for the crews.", next = "core.lantern_cook_intro3" }
+"engine.talk_line" = { text = "The crews here eat cold tins between shifts. I want them at a table, eating hot.", next = "core.lantern_cook_intro3" }
 
 [entities.lantern_cook_intro3]
-"engine.talk_line" = { text = "Cinder Kiln pays well for them." }
+"engine.talk_line" = { text = "Every plate you sell to Tova goes into it. I'll be counting." }
+
+# The same introduction for a first meeting once the galley stands (build.met).
+[entities.lantern_cook_met1]
+"engine.talk_line" = { text = "I'm Ines. Your plate built my galley.", next = "core.lantern_cook_met2" }
+
+[entities.lantern_cook_met2]
+"engine.talk_line" = { text = "The crews ate cold tins between shifts. Now they sit down to a hot meal.", next = "core.lantern_cook_met3" }
+
+[entities.lantern_cook_met3]
+"engine.talk_line" = { text = "I cook rations for them, and Cinder Kiln pays well for them too." }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.lantern_cook_talk]
@@ -532,7 +590,7 @@ gift = { ware = "rations", units = 1, take = "core.lantern_cook_gift_take", inst
 # to Ines as her cargo; glaziers raise it on the deck while ice for its beds is sold at
 # the exchange; then Noor Hale grows greens in it, and Lantern Dock holds a lamp night.
 [entities.greenhouse_job]
-project = { giver = "core.lantern_cook", after = "core.lantern_cook_gift", maker = "core.kiln_trader", maker_act = "core.kiln_trader_act2", maker_state = "stoking the kiln", planner = "core.lantern_master", ware = "glassite", need = 4, cargo = "panes", units = 4, site = "core.lantern_greenhouse", plot = "core.greenhouse_plot", step = 1, exterior = "core.lantern_exterior", exterior_model = "core.station", thanks = "core.lantern_cook_thanks", giver_idle = "Noor's greens go in every pot now." }
+project = { giver = "core.lantern_cook", after = "core.lantern_cook_gift", maker = "core.kiln_trader", maker_act = "core.kiln_trader_act2", maker_state = "stoking the kiln", planner = "core.lantern_master", ware = "glassite", need = 8, cargo = "panes", units = 8, site = "core.lantern_greenhouse", plot = "core.greenhouse_plot", step = 1, exterior = "core.lantern_exterior", exterior_model = "core.station", thanks = "core.lantern_cook_thanks", giver_idle = "Noor's greens go in every pot now." }
 
 # Ines asks, once her gift is answered. "Not now" leaves it for the next docking.
 [entities.greenhouse_ask]
@@ -569,7 +627,7 @@ offer = { project = "core.greenhouse_job", step = 2, take = "core.greenhouse_gla
 "engine.talk_line" = { text = "Ines wants panes for a greenhouse.", next = "core.greenhouse_glassite2" }
 
 [entities.greenhouse_glassite2]
-"engine.talk_line" = { text = "Will you give me 4 glassite for them?" }
+"engine.talk_line" = { text = "Will you give me 8 glassite for them?" }
 
 [entities.greenhouse_glassite_yes]
 "engine.talk_choice" = { line = "core.greenhouse_glassite2", text = "Hand it over", next = "core.greenhouse_glassite3", order = 1 }
@@ -649,7 +707,7 @@ offer = { project = "core.greenhouse_job", step = 5, take = "core.greenhouse_del
 # Signed in front of its dome, clear of the Exchange above it.
 "engine.anchor" = { name = "sign", height = 0.0, x = 4.6 }
 facility = { station = "core.lantern", name = "Greenhouse", keeper = "", offer = "staked out for Ines's panes", order = 4, place = "core.lantern_greenhouse_room", hidden = true }
-build = { station = "core.lantern", ware = "ice", need = 12, name = "Greenhouse", offer = "grows greens", keeper = "core.lantern_grower", model = "core.greenhouse", room_model = "core.lantern_greenhouse_room", site_model = "core.greenhouse_site", waiting = true, wait = "Ines's panes come first: Sefa at Cinder Kiln fires them from glassite.", how = "Ice sold at the exchange waters its beds. When it opens, a grower will keep it.", built = "Noor's beds grow greens for Ines's galley, watered with the ice the station buys." }
+build = { station = "core.lantern", ware = "ice", need = 30, name = "Greenhouse", offer = "grows greens", keeper = "core.lantern_grower", model = "core.greenhouse", room_model = "core.lantern_greenhouse_room", site_model = "core.greenhouse_site", waiting = true, wait = "Ines's panes come first: Sefa at Cinder Kiln fires them from glassite.", how = "Ice sold at the exchange waters its beds. When it opens, a grower will keep it.", built = "Noor's beds grow greens for Ines's galley, watered with the ice the station buys." }
 
 # Where the glaziers work while it goes up: one carries panes from the crates to the frame.
 [entities.lantern_glaziers_a]
@@ -719,10 +777,10 @@ happening = { station = "core.lantern", site = "core.lantern_greenhouse", speake
 # find her. A line is passed by hand beside her, and she is towed in by hand: she swings
 # wide, and a hard knock on the ice or a hull slips the line. Where she is towed is the
 # choice: Lantern Dock keeps her for good, her tanks piped to Noor's beds, once Bram's
-# crew has 4 plate for the pipes; Cinder Kiln mends her engine, once Orrin has 4 ore for
+# crew has 12 plate for the pipes; Cinder Kiln mends her engine, once Orrin has 12 ore for
 # a new pump, and Hessa sails her again.
 [entities.kettle_job]
-salvage = { giver = "core.lantern_grower", after = "core.lantern_cook_thanks", skipper = "core.kettle_skipper", barge = "core.kettle", cook = "core.lantern_cook", step = 0, x = -61, y = 12 }
+salvage = { giver = "core.lantern_grower", after = "core.lantern_cook_thanks", skipper = "core.kettle_skipper", barge = "core.kettle", cook = "core.lantern_cook", step = 0, x = -444, y = -32 }
 
 # Noor asks, once Ines's thanks are heard. "Not now" leaves it for the next docking.
 [entities.kettle_ask]
@@ -804,18 +862,18 @@ offer = { project = "core.kettle_job", step = 3, take = "core.kettle_moor_kiln_y
 # Where a barge brought in lies off each berth, clear of the ring and the way out.
 [entities.lantern_tow]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -5, y = -18, angle = 3.1 }
+"engine.position" = { x = -175, y = -209, angle = 3.1 }
 
 [entities.kiln_tow]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 12, y = -23, angle = 0.0 }
+"engine.position" = { x = 198, y = -266, angle = 0.0 }
 
 # What becomes of her at each: kept at Lantern Dock, mended at Cinder Kiln.
 [entities.kettle_haven_lantern]
-haven = { job = "core.kettle_job", station = "core.lantern", kind = "keep", tow = "core.lantern_tow", moor = "core.lantern_southwest", keeper = "core.lantern_master", offer = "core.kettle_moor_lantern", act = "core.lantern_master_act2", work = "planning Cold Kettle's pipes", rest = "posting prices", life = "core.kettle_skipper_act", settled = "minding the tanks", site = "core.lantern_greenhouse", site_model = "core.greenhouse_bloom", room = "core.lantern_greenhouse_room", room_model = "core.lantern_greenhouse_room_bloom", told = "Noor's beds are in bloom, watered from Cold Kettle's tanks. Hessa minds them with her.", exterior = "core.lantern_exterior", exterior_model = "core.station_bloom", market = "core.lantern_ice", target = 45, thanks = "core.lantern_grower_thanks", happening = "core.lantern_supper", ware = "plate", need = 4, deliver = "core.kettle_plate" }
+haven = { job = "core.kettle_job", station = "core.lantern", kind = "keep", tow = "core.lantern_tow", moor = "core.lantern_southwest", keeper = "core.lantern_master", offer = "core.kettle_moor_lantern", act = "core.lantern_master_act2", work = "planning Cold Kettle's pipes", rest = "posting prices", life = "core.kettle_skipper_act", settled = "minding the tanks", site = "core.lantern_greenhouse", site_model = "core.greenhouse_bloom", room = "core.lantern_greenhouse_room", room_model = "core.lantern_greenhouse_room_bloom", told = "Noor's beds are in bloom, watered from Cold Kettle's tanks. Hessa minds them with her.", exterior = "core.lantern_exterior", exterior_model = "core.station_bloom", market = "core.lantern_ice", target = 135, thanks = "core.lantern_grower_thanks", happening = "core.lantern_supper", ware = "plate", need = 12, deliver = "core.kettle_plate" }
 
 [entities.kettle_haven_kiln]
-haven = { job = "core.kettle_job", station = "core.kiln", kind = "mend", tow = "core.kiln_tow", moor = "core.kiln_tow", keeper = "core.kiln_master", offer = "core.kettle_moor_kiln", act = "core.kiln_fitter_act2", work = "mending Cold Kettle's engine", rest = "looking her over", life = "core.kettle_skipper_kiln", settled = "ready to sail", happening = "core.kiln_quay_lamps", route = "core.kettle_back1", about = "an ice barge hauling from the ice camp to Lantern Dock", ware = "ore", need = 4, deliver = "core.kettle_ore" }
+haven = { job = "core.kettle_job", station = "core.kiln", kind = "mend", tow = "core.kiln_tow", moor = "core.kiln_tow", keeper = "core.kiln_master", offer = "core.kettle_moor_kiln", act = "core.kiln_fitter_act2", work = "mending Cold Kettle's engine", rest = "looking her over", life = "core.kettle_skipper_kiln", settled = "ready to sail", happening = "core.kiln_quay_lamps", route = "core.kettle_back1", about = "an ice barge hauling from the ice camp to Lantern Dock", ware = "ore", need = 12, deliver = "core.kettle_ore" }
 
 # Taken in, her work waits on a delivery to the dockmaster: plate for her pipes, bought at
 # the Kiln (Lantern Dock would pay well for it instead); ore for her engine, which the
@@ -825,7 +883,7 @@ haven = { job = "core.kettle_job", station = "core.kiln", kind = "mend", tow = "
 offer = { project = "core.kettle_job", step = 4, take = "core.kettle_plate_yes", instead = "core.lantern_master_talk" }
 
 [entities.kettle_plate1]
-"engine.talk_line" = { text = "My crew needs 4 plate for her pipes.", next = "core.kettle_plate2" }
+"engine.talk_line" = { text = "My crew needs 12 plate for her pipes.", next = "core.kettle_plate2" }
 
 [entities.kettle_plate2]
 "engine.talk_line" = { text = "Will you hand yours over?" }
@@ -844,7 +902,7 @@ offer = { project = "core.kettle_job", step = 4, take = "core.kettle_plate_yes",
 offer = { project = "core.kettle_job", step = 4, take = "core.kettle_ore_yes", instead = "core.kiln_master_talk" }
 
 [entities.kettle_ore1]
-"engine.talk_line" = { text = "Orrin wants 4 ore for a new pump.", next = "core.kettle_ore2" }
+"engine.talk_line" = { text = "Orrin wants 12 ore for a new pump.", next = "core.kettle_ore2" }
 
 [entities.kettle_ore2]
 "engine.talk_line" = { text = "Leave it with me for him?" }
@@ -861,12 +919,12 @@ offer = { project = "core.kettle_job", step = 4, take = "core.kettle_ore_yes", i
 # Mended, she sails south of Lantern Dock, clear of the moorings, back to the ice camp.
 [entities.kettle_back1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 2, y = -38 }
+"engine.position" = { x = 188, y = -281 }
 "engine.waypoint" = { next = "core.kettle_back2" }
 
 [entities.kettle_back2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -36, y = -42 }
+"engine.position" = { x = -206, y = -233 }
 "engine.waypoint" = { next = "core.kettle_home1" }
 
 # Hessa Kell, Cold Kettle's skipper: aboard a station only once her barge is handed over.
@@ -911,10 +969,10 @@ offer = { project = "core.kettle_job", step = 6, take = "core.kettle_fee_take", 
 "engine.talk_line" = { text = "Orrin's mended her. She purrs!", next = "core.kettle_fee2" }
 
 [entities.kettle_fee2]
-"engine.talk_line" = { text = "Will you take 60 cr for the tow?" }
+"engine.talk_line" = { text = "Will you take 400 cr for the tow?" }
 
 [entities.kettle_fee_take]
-"engine.talk_choice" = { line = "core.kettle_fee2", text = "Take 60 cr", next = "core.kettle_fee3", order = 1 }
+"engine.talk_choice" = { line = "core.kettle_fee2", text = "Take 400 cr", next = "core.kettle_fee3", order = 1 }
 
 [entities.kettle_fee_keep]
 "engine.talk_choice" = { line = "core.kettle_fee2", text = "Keep it, Hessa", next = "core.kettle_fee4", order = 2 }
@@ -1021,7 +1079,7 @@ skiff = { a = "core.lantern_skiff_a_spot", b = "core.lantern_skiff_b_spot" }
 
 [entities.kiln_exterior]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 30, y = -22 }
+"engine.position" = { x = 216, y = -265 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.kiln_station", look = "core.station", scale = 1.35 }
 # Steam off the chimney, drifting north-east.
@@ -1037,11 +1095,11 @@ port = { name = "Cinder Kiln", berth = "core.kiln_berth", departure = "core.kiln
 
 [entities.kiln_berth]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 20, y = -12, angle = -0.7853981633974483 }
+"engine.position" = { x = 206, y = -255, angle = -0.7853981633974483 }
 "engine.model" = { model = "core.pad", look = "core.prop" }
 
 [entities.kiln_departure]
-"engine.spot" = { place = "core.reach", name = "kiln_departure", x = 20, y = -12 }
+"engine.spot" = { place = "core.reach", name = "kiln_departure", x = 206, y = -255 }
 
 [entities.kiln_berth_spot]
 "engine.spot" = { place = "core.kiln", name = "berth" }
@@ -1070,17 +1128,17 @@ facility = { station = "core.kiln", name = "Office", keeper = "core.kiln_master"
 
 # Cinder Kiln's market: the kiln turns ore into plate.
 [entities.kiln_ore]
-market = { room = "core.kiln_exchange", ware = "ore", role = "buys", base = 16, target = 30, stock = 24, rate = 3 }
+market = { room = "core.kiln_exchange", ware = "ore", role = "buys", base = 16, target = 60, stock = 38, rate = 12 }
 
 # Glassite: rare, so the kiln wants little of it and pays well.
 [entities.kiln_glassite]
-market = { room = "core.kiln_exchange", ware = "glassite", role = "buys", base = 30, target = 12, stock = 8, rate = 1 }
+market = { room = "core.kiln_exchange", ware = "glassite", role = "buys", base = 40, target = 36, stock = 24, rate = 3 }
 
 [entities.kiln_plate]
-market = { room = "core.kiln_exchange", ware = "plate", role = "sells", base = 28, target = 24, stock = 24, rate = 2 }
+market = { room = "core.kiln_exchange", ware = "plate", role = "sells", base = 28, target = 72, stock = 72, rate = 6 }
 
 [entities.kiln_rations]
-market = { room = "core.kiln_exchange", ware = "rations", role = "buys", base = 18, target = 30, stock = 18, rate = 2 }
+market = { room = "core.kiln_exchange", ware = "rations", role = "buys", base = 18, target = 90, stock = 54, rate = 6 }
 
 [entities.kiln_stock]
 "engine.location" = { place = "core.kiln" }
@@ -1092,7 +1150,7 @@ market = { room = "core.kiln_exchange", ware = "rations", role = "buys", base = 
 "engine.location" = { place = "core.kiln_exchange_room", spot = "core.kiln_exchange_room_counter" }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.person_sefa", look = "core.prop" }
-keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations." }
+keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations.", trades = "Ore in, plate out." }
 "engine.life" = { clock = "core.day", first = "core.kiln_trader_act", speed = 1.6, presentation = "instant", name = "Sefa Lind" }
 
 [entities.kiln_trader_act]
@@ -1121,7 +1179,7 @@ keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations." }
 "engine.talk" = { speaker = "core.kiln_trader", first = "core.kiln_trader_now", width = 420, x = -150, title = "Sefa Lind", subtitle = "Exchange keeper" }
 
 [entities.kiln_trader_now]
-"engine.talk_line" = { text = "Empty hold? The rocks are just outside." }
+"engine.talk_line" = { text = "Empty hold? The ore floats north-west of us." }
 
 [entities.kiln_master]
 "engine.being" = {}
@@ -1150,10 +1208,10 @@ keeper = { name = "Mags Ferrow" }
 "engine.talk_line" = { text = "I'm Mags. I watch the field from here.", next = "core.kiln_master_intro3" }
 
 [entities.kiln_master_intro3]
-"engine.talk_line" = { text = "Lantern Dock is the other station.", next = "core.kiln_master_intro4" }
+"engine.talk_line" = { text = "Lantern Dock is out west. We both buy ore.", next = "core.kiln_master_intro4" }
 
 [entities.kiln_master_intro4]
-"engine.talk_line" = { text = "It's out west, and pays a bit less." }
+"engine.talk_line" = { text = "Each of us pays less as our stock fills, so spread your loads." }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.kiln_master_talk]
@@ -1282,23 +1340,23 @@ keeper = { name = "Orrin Vale" }
 # The parts on Orrin's rack. The hull has 3 power and carries 3 mass freely, so the
 # lens and the thrusters can't run together, and the pods with anything else slow you.
 [entities.lens]
-part = { name = "Cutting lens", socket = "drill", price = 90, power = 2, mass = 1, mine = 1, order = 1, effect = "your beam cuts 2 ore a second instead of 1", said = "That lens cuts twice as quick." }
+part = { name = "Cutting lens", socket = "drill", price = 3000, power = 2, mass = 1, mine = 1, order = 1, effect = "your beam cuts 2 ore a second instead of 1", said = "That lens cuts twice as quick." }
 
 [entities.pods]
-part = { name = "Hold pods", socket = "hold", price = 70, mass = 3, hold = 3, order = 2, model = "core.ship_pods", effect = "your hold carries 9 instead of 6", said = "Room for three more. She's heavier, mind." }
+part = { name = "Hold pods", socket = "hold", price = 3500, mass = 3, hold = 12, order = 2, model = "core.ship_pods", effect = "your hold carries 36 instead of 24", said = "Room for twelve more. She's heavier, mind." }
 
 [entities.thrusters]
-part = { name = "Tuned thrusters", socket = "engine", price = 110, power = 2, mass = 1, speed = 5, order = 3, effect = "your top speed goes from 20 to 25", said = "Open her up out there. She'll run." }
+part = { name = "Tuned thrusters", socket = "engine", price = 9000, power = 2, mass = 1, speed = 5, order = 3, effect = "your top speed goes from 20 to 25", said = "Open her up out there. She'll run." }
 
 # Two controls take over work the pilot does by hand (scripts/cutter.luau). They sit in
 # the control rack: no power or mass, and once bought they never come off. The reach rig
 # aims the beam itself, cuts from far off and flies the ship out to a rock; the docking
 # jets fly it into a berth from anywhere.
 [entities.rig]
-part = { name = "Reach rig", socket = "rack", price = 140, order = 4, effect = "click a rock, or press Space, and she flies out and cuts it from 16 units off, aiming herself", said = "She'll stand off now and pull the stone in herself." }
+part = { name = "Reach rig", socket = "rack", price = 15000, holds = 100, order = 4, effect = "click a rock, or press Space, and she flies out and cuts it from 16 units off, aiming herself", said = "She'll stand off now and pull the stone in herself." }
 
 [entities.jets]
-part = { name = "Docking jets", socket = "rack", price = 80, order = 5, effect = "press E or click a station, and they fly her into its berth from anywhere", said = "Point her home and let the jets do the berthing." }
+part = { name = "Docking jets", socket = "rack", price = 30000, holds = 200, order = 5, effect = "press E or click a station, and they fly her into its berth from anywhere", said = "Point her home and let the jets do the berthing." }
 
 # Traffic: traders fly their own routes, moor for a while, then fly back
 # (scripts/traffic.luau). Their routes keep clear of the
@@ -1306,7 +1364,7 @@ part = { name = "Docking jets", socket = "rack", price = 80, order = 5, effect =
 # A leg is a chain of waypoints flown without stopping, then a docking onto a mooring.
 [entities.mercy]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -24, y = -30, angle = 1.5707963267948966 }
+"engine.position" = { x = -194, y = -221, angle = 1.5707963267948966 }
 "engine.motion" = {}
 "engine.flight" = { speed = 9, accel = 12, brake = 10, stop_time = 1.0, turn = 120 }
 "engine.helm" = {}
@@ -1319,35 +1377,35 @@ trader = { name = "Little Mercy", about = "a hauler working between Lantern Dock
 
 [entities.lantern_south]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -24, y = -30, angle = 1.5707963267948966 }
+"engine.position" = { x = -194, y = -221, angle = 1.5707963267948966 }
 
 [entities.kiln_south]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 30, y = -34, angle = 1.5707963267948966 }
+"engine.position" = { x = 216, y = -277, angle = 1.5707963267948966 }
 
 [entities.mercy_out1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -14, y = -37 }
+"engine.position" = { x = -184, y = -228 }
 "engine.waypoint" = { next = "core.mercy_out2" }
 
 [entities.mercy_out2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 20, y = -40 }
+"engine.position" = { x = 206, y = -283 }
 "engine.waypoint" = {}
 
 [entities.mercy_home1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 20, y = -40 }
+"engine.position" = { x = 206, y = -283 }
 "engine.waypoint" = { next = "core.mercy_home2" }
 
 [entities.mercy_home2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -14, y = -37 }
+"engine.position" = { x = -184, y = -228 }
 "engine.waypoint" = {}
 
 [entities.lamp]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 10, y = 42 }
+"engine.position" = { x = 10, y = 60 }
 "engine.motion" = { vx = 8 }
 "engine.flight" = { speed = 8, accel = 10, brake = 9, stop_time = 1.0, turn = 120 }
 "engine.helm" = {}
@@ -1360,60 +1418,60 @@ trader = { name = "Quiet Lamp", about = "a lamp launch running the long way roun
 
 [entities.lantern_west]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -39, y = -16, angle = 0.0 }
+"engine.position" = { x = -209, y = -207, angle = 0.0 }
 
 [entities.kiln_east]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 41, y = -20, angle = 3.141592653589793 }
+"engine.position" = { x = 227, y = -263, angle = 3.141592653589793 }
 
 [entities.lamp_out1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -34, y = -2 }
+"engine.position" = { x = -204, y = -193 }
 "engine.waypoint" = { next = "core.lamp_out2" }
 
 [entities.lamp_out2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -28, y = 38 }
+"engine.position" = { x = -60, y = 40 }
 "engine.waypoint" = { next = "core.lamp_out3" }
 
 [entities.lamp_out3]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 10, y = 42 }
+"engine.position" = { x = 10, y = 60 }
 "engine.waypoint" = { next = "core.lamp_out4" }
 
 [entities.lamp_out4]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 40, y = 32 }
+"engine.position" = { x = 60, y = 45 }
 "engine.waypoint" = { next = "core.lamp_out5" }
 
 [entities.lamp_out5]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 46, y = 4 }
+"engine.position" = { x = 232, y = -239 }
 "engine.waypoint" = {}
 
 [entities.lamp_home1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 46, y = 4 }
+"engine.position" = { x = 232, y = -239 }
 "engine.waypoint" = { next = "core.lamp_home2" }
 
 [entities.lamp_home2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 40, y = 32 }
+"engine.position" = { x = 60, y = 45 }
 "engine.waypoint" = { next = "core.lamp_home3" }
 
 [entities.lamp_home3]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 10, y = 42 }
+"engine.position" = { x = 10, y = 60 }
 "engine.waypoint" = { next = "core.lamp_home4" }
 
 [entities.lamp_home4]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -28, y = 38 }
+"engine.position" = { x = -60, y = 40 }
 "engine.waypoint" = { next = "core.lamp_home5" }
 
 [entities.lamp_home5]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -34, y = -2 }
+"engine.position" = { x = -204, y = -193 }
 "engine.waypoint" = {}
 
 # Tern, a courier, runs the lane straight across the reach from the north buoys to the
@@ -1438,7 +1496,7 @@ trader = { name = "Tern", about = "a courier running the lane across the reach",
 
 [entities.lane_south]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 5, y = -45, angle = 1.5707963267948966 }
+"engine.position" = { x = 3, y = -182, angle = 1.5707963267948966 }
 
 [entities.tern_out1]
 "engine.location" = { place = "core.reach" }
@@ -1447,12 +1505,12 @@ trader = { name = "Tern", about = "a courier running the lane across the reach",
 
 [entities.tern_out2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 5, y = -32 }
+"engine.position" = { x = 3, y = -169 }
 "engine.waypoint" = {}
 
 [entities.tern_home1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 5, y = -32 }
+"engine.position" = { x = 3, y = -169 }
 "engine.waypoint" = { next = "core.tern_home2" }
 
 [entities.tern_home2]
@@ -1464,7 +1522,7 @@ trader = { name = "Tern", about = "a courier running the lane across the reach",
 # off Lantern Dock's south-west side, slowly.
 [entities.kettle]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -72, y = 10, angle = -1.5707963267948966 }
+"engine.position" = { x = -455, y = -34, angle = -1.5707963267948966 }
 "engine.motion" = {}
 "engine.flight" = { speed = 6, accel = 7, brake = 7, stop_time = 1.2, turn = 70 }
 "engine.helm" = {}
@@ -1473,41 +1531,41 @@ trader = { name = "Tern", about = "a courier running the lane across the reach",
 "engine.model" = { model = "core.barge", look = "core.ship" }
 "engine.emitter" = { recipe = "core.wake", x = -2.7, by = "speed" }
 "engine.anchor" = { name = "label" }
-trader = { name = "Cold Kettle", about = "an ice barge hauling from the ice camp to Lantern Dock", out = "core.kettle_out1", out_moor = "core.lantern_southwest", home = "core.kettle_home1", home_moor = "core.ice_camp", leg = "home", moored = true, since = -100 }
+trader = { name = "Cold Kettle", about = "an ice barge hauling from the ice camp to Lantern Dock", hail = "Hessa on Cold Kettle's radio: “New tug? I haul Lantern's water in from the ice. If my lamps go dark out west, come looking.”", out = "core.kettle_out1", out_moor = "core.lantern_southwest", home = "core.kettle_home1", home_moor = "core.ice_camp", leg = "home", moored = true, since = -100 }
 
 [entities.ice_camp]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -72, y = 10, angle = -1.5707963267948966 }
+"engine.position" = { x = -455, y = -34, angle = -1.5707963267948966 }
 
 [entities.lantern_southwest]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -40, y = -31, angle = 0.0 }
+"engine.position" = { x = -210, y = -222, angle = 0.0 }
 
 [entities.kettle_out1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -68, y = -10 }
+"engine.position" = { x = -451, y = -54 }
 "engine.waypoint" = { next = "core.kettle_out2" }
 
 [entities.kettle_out2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -54, y = -29 }
+"engine.position" = { x = -224, y = -220 }
 "engine.waypoint" = {}
 
 [entities.kettle_home1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -54, y = -29 }
+"engine.position" = { x = -224, y = -220 }
 "engine.waypoint" = { next = "core.kettle_home2" }
 
 [entities.kettle_home2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = -68, y = -10 }
+"engine.position" = { x = -451, y = -54 }
 "engine.waypoint" = {}
 
 # Pell's Luck, a prospector's tug, works the glassite out north-east and runs it down
 # to a mooring off Cinder Kiln's far east side.
 [entities.pell]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 70, y = 28, angle = -1.5707963267948966 }
+"engine.position" = { x = 358, y = 242, angle = -1.5707963267948966 }
 "engine.motion" = {}
 "engine.flight" = { speed = 8, accel = 10, brake = 9, stop_time = 1.0, turn = 110 }
 "engine.helm" = {}
@@ -1520,30 +1578,30 @@ trader = { name = "Pell's Luck", about = "a prospector's tug working the glassit
 
 [entities.glassite_camp]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 70, y = 28, angle = -1.5707963267948966 }
+"engine.position" = { x = 358, y = 242, angle = -1.5707963267948966 }
 
 [entities.kiln_far_east]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 52, y = -28, angle = 3.141592653589793 }
+"engine.position" = { x = 238, y = -271, angle = 3.141592653589793 }
 
 [entities.pell_out1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 66, y = 10 }
+"engine.position" = { x = 354, y = 224 }
 "engine.waypoint" = { next = "core.pell_out2" }
 
 [entities.pell_out2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 60, y = -16 }
+"engine.position" = { x = 246, y = -259 }
 "engine.waypoint" = {}
 
 [entities.pell_home1]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 60, y = -16 }
+"engine.position" = { x = 246, y = -259 }
 "engine.waypoint" = { next = "core.pell_home2" }
 
 [entities.pell_home2]
 "engine.location" = { place = "core.reach" }
-"engine.position" = { x = 66, y = 10 }
+"engine.position" = { x = 354, y = 224 }
 "engine.waypoint" = {}
 
 # The stations' radio channels (scripts/radio.luau). Each reaches past the far side of
@@ -1551,7 +1609,7 @@ trader = { name = "Pell's Luck", about = "a prospector's tug working the glassit
 # both come in about evenly and the radio keeps the one it has; near a station its own
 # channel is clearly stronger and takes over.
 [entities.lantern_radio]
-channel = { name = "Lantern Dock radio", source = "core.lantern_exterior", range = 80, cue = "radio_lantern", order = 1 }
+channel = { name = "Lantern Dock radio", source = "core.lantern_exterior", range = 540, cue = "radio_lantern", order = 1 }
 
 [entities.lantern_radio_bit1]
 bit = { channel = "core.lantern_radio", n = 1, text = "Lantern Dock here. Our lamps stay lit all shift." }
@@ -1563,7 +1621,7 @@ bit = { channel = "core.lantern_radio", n = 2, text = "We buy ore and plate. Tov
 bit = { channel = "core.lantern_radio", n = 3, text = "A quiet night on the dock. Come in slow." }
 
 [entities.kiln_radio]
-channel = { name = "Cinder Kiln radio", source = "core.kiln_exterior", range = 80, cue = "radio_kiln", order = 2 }
+channel = { name = "Cinder Kiln radio", source = "core.kiln_exterior", range = 540, cue = "radio_kiln", order = 2 }
 
 [entities.kiln_radio_bit1]
 bit = { channel = "core.kiln_radio", n = 1, text = "Cinder Kiln calling. Our kiln burns slow and steady." }

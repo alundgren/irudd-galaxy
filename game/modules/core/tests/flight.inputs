@@ -1,6 +1,8 @@
-# Out in the reach with the traffic: turn south and fly across Little Mercy's route as
-# she leaves Lantern Dock, bump her, point at her, dock at Lantern Dock, fly straight
-# off it with W, and mine a rock from its surface while she flies on. Nine notes.
+# Out in the reach with the traffic: turn south and fly out to Little Mercy's lane, south
+# of the field, as she comes along it from Lantern Dock; cross her path and bump her,
+# point at her, dock at Lantern Dock, fly straight off it with W, and send a Mine order
+# out to the field, where the ship parks on a rock's surface and cuts a hold while she
+# flies on. Nine notes.
 [[input]]
 tick = 1
 name = "core.right"
@@ -10,60 +12,60 @@ tick = 16
 name = "core.right"
 payload = { down = false }
 [[input]]
-tick = 140
+tick = 370
 name = "core.ahead"
 payload = { down = true }
-[[input]]
-tick = 212
-name = "core.ahead"
-payload = { down = false }
-[[input]]
-tick = 270
-name = "core.dock"
-payload = { station = "core.lantern" }
-[[input]]
-tick = 450
-name = "core.ahead"
-payload = { down = true }
-[[input]]
-tick = 470
-name = "core.ahead"
-payload = { down = false }
-[[input]]
-tick = 500
-name = "core.mine"
 [[note]]
-tick = 196
-text = "Little Mercy crosses my path: her label sits above her, clear of the HUD."
+tick = 753
+text = "Little Mercy crosses my path: her label sits below her, away from my ship and clear of the HUD."
 [[note]]
-tick = 206
+tick = 763
 text = "Bumped her: she is pushed aside, nothing overlaps, no damage."
+[[input]]
+tick = 775
+name = "core.ahead"
+payload = { down = false }
 [[pointer]]
-tick = 230
+tick = 787
 action = "move"
 widget = "hover_mercy"
 [[note]]
-tick = 230
+tick = 787
 text = "Pointing at Little Mercy names her and her run."
 [[pointer]]
-tick = 240
+tick = 797
 action = "move"
 widget = "point:640,560"
+[[input]]
+tick = 825
+name = "core.dock"
+payload = { station = "core.lantern" }
 [[note]]
-tick = 300
-text = "Docking at Lantern Dock; the traders fly on."
+tick = 855
+text = "Docking at Lantern Dock, back up her lane to the north-west; the traders fly on."
 [[note]]
-tick = 440
+tick = 1234
 text = "Docked: the station up close."
+[[input]]
+tick = 1244
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 1264
+name = "core.ahead"
+payload = { down = false }
 [[note]]
-tick = 482
+tick = 1276
 text = "W flew the ship straight off the dock, facing away from the station."
 [[note]]
-tick = 494
+tick = 1288
 text = "Let go of W: the ship coasts to a stop."
+[[input]]
+tick = 1294
+name = "core.mine"
 [[note]]
-tick = 545
+tick = 1629
 text = "Parked on the rock's drawn surface, no gap, mining."
 [[note]]
-tick = 700
+tick = 2346
 text = "Hold full. Little Mercy is on her way back from Cinder Kiln."
