@@ -931,7 +931,8 @@ and one strip at the bottom in flight: the latest message and the one key that f
 where the ship is. Rocks and stations are click targets: under the pointer a rock lifts
 and outlines and says what a click does and how much of its ware is left, and a station
 shows its posted prices. In flight each station wears its name under it while it is in
-view, a `yield` label like the traders'. Farther than 70 units, a station is named in a
+view, a `yield` label like the traders'. Unless it is well on screen (within 40 units
+across and 24 up or down, inside the starting 64-unit view), a station is named in a
 second line of the bottom strip with the way to it in compass words (`Cinder Kiln
 south-east · Lantern Dock south-west`, `rules.bearings`), so the way home is never lost
 when the stations are off screen. A trading room has two tables, each headed by a row
