@@ -65,9 +65,16 @@ pub fn session_dir(root: &Path, modules: &[&str]) -> std::io::Result<PathBuf> {
             format!("{base}-{n}")
         };
         let dir = root.join(name);
-        if !dir.exists() {
-            std::fs::create_dir_all(dir.join("notes"))?;
-            return Ok(dir);
+        // Made, not checked then made: sessions starting together (bots run side by
+        // side) each get a folder of their own.
+        std::fs::create_dir_all(root)?;
+        match std::fs::create_dir(&dir) {
+            Ok(()) => {
+                std::fs::create_dir(dir.join("notes"))?;
+                return Ok(dir);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
         }
     }
     Err(std::io::Error::other(

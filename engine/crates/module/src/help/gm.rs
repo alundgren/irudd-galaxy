@@ -641,7 +641,7 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "test",
         synopsis: "<module> [--only <text>]",
-        answers: "Run Luau tests, scenarios and declared rendered bots; report each result.",
+        answers: "Run Luau tests, scenarios and declared bots; report each result.",
         about: "A Luau test file returns a table of named functions; one passes if it returns \
                 without an error (assert(cond, \"why\") fails it). Tests run in the scripts' \
                 sandbox and budgets, require(\"../scripts/name\") sees the module's files, and \
@@ -649,15 +649,20 @@ pub static COMMANDS: &[Command] = &[
                 [[input]] entries as in an inputs file (a plain name is the module's own event) \
                 and [[expect]] entries on component fields or fact counts after a tick; script \
                 failures during it fail it too. The modules beside it are loaded, as for check. \
-                tests/*.bot.toml explicitly opens a window: inputs (module-relative file), ticks, \
-                size = [1280, 720] (physical pixels), optional seed (default 1). No resize or hot_load. \
-                It runs the matching galaxy play and replays its recording. Missing GPU/window is \
-                status unavailable, never a pass. Any failure exits 5 with kind tests_failed.",
+                tests/*.bot.toml declares a bot: inputs (module-relative file), ticks, \
+                size = [1280, 720] (physical pixels), optional seed (default 1) and scale (the UI \
+                scale, default 1; 1.25 lays 1280x720 out as 1024x576). No resize or hot_load. \
+                It runs the matching galaxy play --headless, as fast as the machine goes and \
+                several side by side, and replays its recording; bots never open a window. A \
+                missing GPU (notes need one) is status unavailable, never a pass. Performance \
+                scenes (tests/*.perf.toml) are not run: galaxy-gm perf runs them. Any failure \
+                exits 5 with kind tests_failed.",
         args: &[
             ("<module>", "a module folder (with a manifest.toml)"),
             (
                 "--only <text>",
-                "run only the tests whose file or name contains this text",
+                "a whole file name or path (trade.bot.toml) runs that file alone; other text \
+                 runs the tests whose file or name contains it",
             ),
         ],
         output: &[
@@ -685,17 +690,68 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "bots",
-                "file, passed, status, requested_size, size, frames, frame_time (fps and interval_ms median/p95/p99/max), replay.identical, session; failure explains any unavailable or failed run",
+                "file, passed, status, requested_size, size, scale, frames, wall_ms, speed (game \
+                 seconds a wall second), problems, note_problems, resting_clicks, \
+                 replay.identical, hash, session; failure explains any unavailable or failed run",
             ),
             (
                 "notes",
-                "modules beside it that could not be read; no tests found",
+                "modules beside it that could not be read; no tests found; how much game time \
+                 the bots played and how long it took",
             ),
         ],
         writes: "declared bots keep a play session with recording, save and note pictures",
         example: "galaxy-gm test game/modules/core",
         next: "Fix the module or the test; galaxy-gm fields inputs lists the inputs a \
                scenario can send, galaxy-gm guide tests shows all formats.",
+        topic: "tests",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "perf",
+        synopsis: "<module> [--only <text>]",
+        answers: "How fast does each performance scene draw in a window, and what changed?",
+        about: "Run it once per finished PR, on a quiet machine with no builds running: the \
+                numbers are this machine's, and anything else running moves them. A performance \
+                scene is tests/<name>.perf.toml: an optional route (inputs, module-relative), at \
+                (the tick the window starts on; the route plays headless to it and is saved \
+                there), seconds (how long the window plays at real speed, 1 to 600; the route's \
+                later inputs go on playing), hold = true (the route stops at at, so the window \
+                holds that moment: an open talk, a menu), size = [1280, 720] (physical pixels), scale (UI \
+                scale, default 1) and seed (default 1). Scenes run one at a time in a window. Each \
+                reports the window's frame times and the change from the last result of that \
+                scene, kept in the per-user data folder (GALAXY_PERF moves it), never in the \
+                module. Nothing fails on a number: there are no budgets. galaxy-gm test never \
+                runs these. A scene that can't play (no window or GPU, a wrong declaration) \
+                exits 5 with kind perf_failed.",
+        args: &[
+            ("<module>", "a module folder (with a manifest.toml)"),
+            (
+                "--only <text>",
+                "a whole file name (busy.perf.toml) runs that scene alone; other text runs the \
+                 scenes whose file contains it",
+            ),
+        ],
+        output: &[
+            ("ok", "every scene played"),
+            ("module, build", "the module and this engine build"),
+            ("kept", "the folder this machine's last results are kept in"),
+            (
+                "scenes",
+                "file, status (measured, failed or unavailable), at, seconds, hold, size, scale, \
+                 adapter, frames, frame_time (fps; interval_ms, sim_ms, scene_ms and draw_ms, \
+                 each median, p95, p99 and max after the first 10 frames), previous (build, when \
+                 in Unix seconds, frame_time; null the first time), change (this run minus the \
+                 last, in ms; positive is slower), change_note when the last run is not like for \
+                 like; failure explains a scene that did not play",
+            ),
+            ("failures", "a line for each scene that did not play"),
+            ("notes", "when to run it; no scenes found"),
+        ],
+        writes: "each scene's result in the per-user perf folder, replacing the last one",
+        example: "galaxy-gm perf game/modules/core",
+        next: "Compare change with what the PR touched; galaxy-gm film films a moment to see \
+               what moves.",
         topic: "tests",
     },
     Command {
@@ -1702,17 +1758,30 @@ pub static TOPICS: &[Topic] = &[
                 (the module's own name, or a full ID), component and field with equals, \
                 at_least or at_most (absent = true without a field), or facts = \"<event>\" \
                 with a count. tests/<name>.bot.toml declares a rendered run: inputs = \
-                \"tests/run.inputs\", ticks = 300, size = [1280, 720], optional seed = 1 (one key per line). \
+                \"tests/run.inputs\", ticks = 300, size = [1280, 720], optional seed = 1 and \
+                scale = 1.25 (the UI scale; one key per line). \
                 Inputs are module-relative, use full event IDs, and cannot resize or hot-load. \
-                galaxy-gm test opens a window only for declared bots; --only filters their file names. \
-                bots reports physical size, frames, fps, interval_ms median/p95/p99/max and replay.identical. \
-                Missing GPU/window reports status unavailable and exits 5, never a pass. \
+                galaxy-gm test plays bots headless, as fast as the machine goes, with the \
+                same recording and world a window gives; --only filters their file names (a \
+                whole name runs that file alone). bots reports \
+                physical size, resting_clicks, problems, note_problems, wall_ms, speed and \
+                replay.identical; bots never measure frame times. A missing GPU (notes need \
+                one) reports status unavailable and exits 5, never a pass. \
+                tests/<name>.perf.toml is a \
+                performance scene: optional inputs, at (the tick the window starts on), seconds, \
+                hold (the route stops at at), size and scale; galaxy-gm perf plays each in a window at real speed and reports \
+                frame times and the change since the last run on this machine. Run it once per \
+                finished PR, on a quiet machine with no builds running. \
                 galaxy-gm what-if \
                 runs a recorded session (galaxy play, or galaxy sim run --record) again on \
                 changed modules and names the first tick where the world differs and the \
                 entities, fields and facts that differ.",
         tasks: &[
             ("Run a module's tests and scenario runs", "gm test"),
+            (
+                "Measure frame times in a window, once per finished PR on a quiet machine",
+                "gm perf",
+            ),
             (
                 "What a module change does to a recorded session: the first tick that differs",
                 "gm what-if",
@@ -1876,7 +1945,8 @@ pub static TOPICS: &[Topic] = &[
                 F8 pauses and opens a note box over the frame on screen; Enter keeps the note \
                 with its tick, the world's hash and the camera. A bot plays an inputs file \
                 through the same window loop (--inputs), and its [[note]] entries are taken \
-                like F8 notes. Resume with galaxy play --modules <modules> --load save.db; \
+                like F8 notes; --headless plays the same bot with no window, as fast as the \
+                machine goes, to the same recording and world. Resume with galaxy play --modules <modules> --load save.db; \
                 use the saving build and unchanged module files. --ticks and inputs use absolute \
                 world ticks, including on resume. The first tick after a resume (play --load, \
                 --continue, sim load) starts with the recorded input engine.resumed (source \

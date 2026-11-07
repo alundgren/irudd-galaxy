@@ -1,0 +1,26 @@
+# Played by crates/galaxy/tests/headless.rs with galaxy play --headless.
+# Spend rests at first: the click is reported, not recorded.
+[[click]]
+tick = 5
+widget = "spend"
+# Catch, on the marker, 40 ticks apart: by then it is more than its own width along.
+[[click]]
+tick = 10
+widget = "catch"
+[[click]]
+tick = 50
+widget = "catch"
+# Now Spend is ready.
+[[click]]
+tick = 55
+widget = "spend"
+# Space hides the screen for a tick and shows it again.
+[[key]]
+tick = 60
+key = "space"
+[[key]]
+tick = 64
+key = "space"
+[[click]]
+tick = 70
+widget = "spend"

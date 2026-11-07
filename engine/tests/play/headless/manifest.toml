@@ -1,0 +1,14 @@
+# A screen to play headless: a button riding on a moving marker, a button that rests until
+# it is needed, and a key. `crates/galaxy/tests/headless.rs` plays headless-inputs.toml.
+id = "headless"
+version = "0.1.0"
+min_engine_version = "0.8.0"
+scripts = ["scripts/screen.luau"]
+writes = ["engine.position", "engine.camera", "engine.motion", "engine.anchor"]
+events = ["catch", "spend", "toggle"]
+[components.tally]
+caught = "int"
+spent = "int"
+open = { type = "bool", default = true }
+[keys]
+space = "toggle"

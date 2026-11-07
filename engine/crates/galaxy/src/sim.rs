@@ -41,6 +41,12 @@ pub(crate) struct Options {
     pub watch: bool,
     /// `--no-live`: play without serving the live socket.
     pub no_live: bool,
+    /// `--headless`: play with no window, audio device or live socket, a tick a frame as
+    /// fast as the machine goes.
+    pub headless: bool,
+    /// `--scale <factor>`: the UI scale (logical = physical / scale) instead of the
+    /// display's.
+    pub scale: Option<f32>,
     pub state: bool,
     /// `--out`: where a picture goes.
     pub out: Option<PathBuf>,
@@ -91,6 +97,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 | "--probes-only"
                 | "--all"
                 | "--no-live"
+                | "--headless"
                 | "--physical-size"
                 | "--reduced-motion"
                 | "--continue"
@@ -105,6 +112,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 "--probes-only" => options.probes_only = true,
                 "--all" => options.all = true,
                 "--no-live" => options.no_live = true,
+                "--headless" => options.headless = true,
                 "--physical-size" => options.physical_size = true,
                 "--reduced-motion" => options.reduced_motion = true,
                 "--continue" => options.continue_save = true,
@@ -138,6 +146,17 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
             "--component" => options.component = Some(value),
             "--crop" => options.crop = Some(value),
             "--builds" => options.builds = Some(value),
+            "--scale" => {
+                let scale = value
+                    .parse::<f32>()
+                    .ok()
+                    .filter(|s| (0.5..=4.0).contains(s));
+                options.scale = Some(scale.ok_or_else(|| {
+                    usage(format!(
+                        "--scale takes a UI scale from 0.5 to 4, such as 1.25, not `{value}`"
+                    ))
+                })?);
+            }
             "--size" => {
                 let size = value
                     .split_once('x')
@@ -418,7 +437,7 @@ fn drive(
     let mut loads: BTreeMap<u64, Vec<Module>> = BTreeMap::new();
     if script.needs_window() {
         return Err(Failure::bad_input(
-            "clicks, drags and key presses ([[click]], [[pointer]], [[key]]) need a window: run them with galaxy play, then galaxy sim replay <session>/recording.json",
+            "clicks, drags and key presses ([[click]], [[pointer]], [[key]]) are resolved against a played screen: run them with galaxy play --headless --ticks <n> (no window, fast), then galaxy sim replay <session>/recording.json",
         ));
     }
     for (tick, dir) in &script.hot_loads {
