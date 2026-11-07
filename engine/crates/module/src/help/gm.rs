@@ -756,8 +756,12 @@ pub static COMMANDS: &[Command] = &[
                 tests/*.bot.toml declares a bot: inputs (module-relative file), ticks, \
                 size = [1280, 720] (physical pixels), optional seed (default 1) and scale (the UI \
                 scale, default 1; 1.25 lays 1280x720 out as 1024x576). No resize or hot_load. \
-                It runs the matching galaxy play --headless, as fast as the machine goes and \
-                several side by side, and replays its recording; bots never open a window. A \
+                It runs the matching galaxy play --headless, as fast as the machine goes, and \
+                replays its recording; bots never open a window. Scenarios and bots run side \
+                by side on at most half the machine's cores (a thread per scenario, a galaxy \
+                process per bot), the longest first. The modules are read once a run, and each \
+                scenario starts a world and Luau states of its own from them. Reports keep file \
+                order and don't depend on it. The longest single file sets the time. A \
                 missing GPU (notes need one) is status unavailable, never a pass. Performance \
                 scenes (tests/*.perf.toml) are not run: galaxy-gm perf runs them. Any failure \
                 exits 5 with kind tests_failed.",
@@ -1876,7 +1880,8 @@ pub static TOPICS: &[Topic] = &[
                 scale = 1.25 (the UI scale; one key per line). \
                 Inputs are module-relative, use full event IDs, and cannot resize or hot-load. \
                 galaxy-gm test plays bots headless, as fast as the machine goes, with the \
-                same recording and world a window gives; --only filters their file names (a \
+                same recording and world a window gives, side by side with the scenarios on \
+                half the cores (the longest run sets the time); --only filters their file names (a \
                 whole name runs that file alone). bots reports \
                 physical size, resting_clicks, problems, note_problems, wall_ms, speed and \
                 replay.identical; bots never measure frame times. A missing GPU (notes need \

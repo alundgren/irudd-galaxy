@@ -70,7 +70,8 @@ whole handler. Walks advance in Rust, not on a script cadence. See
 - **A fresh Luau state for every call.** Locals and upvalues carry nothing from one call to
   the next, so the world is a script's only memory: a save or a replay runs exactly the
   same. The module's bytecode is compiled once and shared, so a fresh state costs little
-  more than its libraries.
+  more than its libraries. The cache is keyed by source text and holds only bytecode, so
+  `galaxy-gm test` shares one across all its scenarios' sessions and threads.
 - **No addresses.** `tostring`, `string.format` and `print` show tables and functions as
   their type name. Iteration never follows heap addresses (next section).
 - **Portable maths.** `math.sin`, `math.pow`, `vector.dot` and the like are `libm` and plain

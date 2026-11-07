@@ -76,9 +76,7 @@ impl Assets {
                 else {
                     continue;
                 };
-                match galaxy_mesh::gltf::read_parts(text).and_then(|(mesh, parts)| {
-                    galaxy_mesh::gltf::read_nodes(text).map(|nodes| (mesh, parts, nodes))
-                }) {
+                match galaxy_mesh::gltf::read_model(text) {
                     Ok((mesh, parts, nodes)) => {
                         let lamps = crate::effects::lamps(&mesh, &parts);
                         if !lamps.is_empty() {

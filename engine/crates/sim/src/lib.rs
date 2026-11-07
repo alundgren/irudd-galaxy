@@ -34,5 +34,5 @@ pub mod watch;
 pub mod world;
 
 pub use recording::{BuildStamp, Recording, Replay, replay};
-pub use session::{Input, Session};
+pub use session::{Input, Prepared, Session};
 pub use world::World;

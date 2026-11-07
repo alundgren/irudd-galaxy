@@ -95,6 +95,37 @@ counts. Any failure exits 5 with kind `tests_failed` and the same fields. A scen
 itself wrong (an unknown event, an expectation after the last tick) fails with that message
 and the others still run. `--only <text>` keeps the tests whose file or name contains it.
 
+**Side by side.** The Luau tests take well under a second and run first, one after another.
+Scenarios and bots then share one queue, the longest first, so the longest run, not the
+sum, sets how long `test` takes. The order comes from each file's `ticks`: a bot's count
+about ten times a scenario's (its frames and its replay), and each file adds its start
+(about 50 scenario ticks for a scenario, 2000 for a bot's process, GPU and replay), so
+with many short files the bots still start first.
+
+**Half the cores.** At most half of `available_parallelism` (at least one) run at once,
+never more than there are files: each scenario is one thread, and each bot one `galaxy`
+process waited on by one thread. The other half is left to builds and other agents'
+tests on the same machine.
+
+**Once a run, not once a file.** The modules are read and checked once. The scenarios
+then start from one prepared set (`galaxy_sim::Prepared`): the modules, their models'
+solid outlines and a bytecode cache. Outlines come from parsing every model's glTF, which
+was most of a scenario's start on a module with many models, and compiling is per source
+text. Both are pure functions of the module files, so a session started from the set is
+the one `Session::new` starts (a test checks the hashes match on several threads).
+
+**Isolated.** Each scenario builds its own world and Luau states in its own thread and
+each bot is its own `galaxy` process with its own session folder; the prepared set holds
+nothing a session writes. The results, and the report, are the same whatever order they
+finish in and however many run at once. Reports keep file order.
+
+**What is left.** A bot's start is its own process: modules, world, its view (models
+parsed once each), the GPU device its notes are drawn with, then writing the session and
+the GM's replay of it. These are about a second together. Most of a bot's time is its
+ticks: every tick builds a headless frame (scene, screens, problem checks), several times
+a bare tick's cost, and the replay check runs the ticks again. With short files the floor
+is the longest single file.
+
 ## What-if
 
 **`galaxy-gm what-if <recording> --modules <dir>`** runs two replays side by side, one tick
@@ -153,6 +184,22 @@ the entities and only the facts and causes added since.
   shift, scripts see other values), so later differences mostly echo the first. The first
   tick and what differs there is what points at the cause; a longer look is `galaxy sim run
   --state` on the changed modules.
+- **Scenarios one after another.** They ran serially while the bots ran side by side, so
+  `test` took the scenarios' sum plus the bots' (about 20 minutes for the core module).
+  One queue for both lets a long scenario run beside the bots. Splitting the queue in two
+  (scenarios on threads, bots on processes) would leave one pool idle while the other
+  works.
+- **A process for every scenario, or bots in the GM's process.** A process per scenario
+  would add its start, the modules' reading and a world, to files that take a fraction of
+  a second. Playing bots inside the GM would save their start, but a bot is the same
+  `galaxy play --headless` a person runs, which is what it tests.
+- **A cache on disk.** Outlines or bytecode kept between runs would save the once-a-run
+  work too, but a stale cache could make a test pass that should fail, and the work is a
+  fraction of a second once a run.
+- **Half the cores, not the build permit.** Other agents build and test on the same
+  machine. Taking `cargo xtask`'s build permit would make every `test` wait behind every
+  build, and builds behind tests, though a test compiles nothing; half the cores leaves the
+  other half to a build, which `CARGO_BUILD_JOBS` and the permit already bound.
 - **On the recording's build.** Replay and audit run the build that recorded the session.
   What-if is new, so older builds lack it, and the question is what the change does, which
   this build answers with both runs; `baseline` reports when the build matters.
@@ -185,10 +232,10 @@ keys fail the test.
 **Always headless.** `galaxy-gm test` launches the matching `galaxy` beside its own
 executable with `play --headless`, `--physical-size` and `--scale`, captures its JSON, then
 replays the recording. A bot never opens a window and never measures frame times: those
-are the performance scenes' (below). Bots run side by side, longest first, on half the
-machine's cores; each report is still in declaration order. Sibling modules are loaded as
-for scenarios. `bots` lists each result: status, passed, requested and actual size, scale,
-frames, wall_ms and speed (game seconds a wall second), resting_clicks, problems (every
+are the performance scenes' (below). Bots run side by side with the scenarios, longest
+first, on half the machine's cores; each report is still in declaration order. Sibling
+modules are loaded as for scenarios. `bots` lists each result: status, passed, requested
+and actual size, scale, frames, wall_ms and speed (game seconds a wall second), resting_clicks, problems (every
 model, look, readability or covered-speaker problem shown, in the order first seen),
 note_problems (each note's tick and the problems its frame showed), replay.identical, hash
 and the session folder, retained for notes, audit and film. `notes` says how much game time
