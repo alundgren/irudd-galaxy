@@ -32,6 +32,37 @@ in Rust. There is no tick, random stream, mutable context or memory between call
 fresh budgeted VM enforces the normal script limits; trees allow 512 widgets and 32 levels.
 Hot loading replaces the functions and caches. Failures show in the view's problem panel.
 
+Each screen owns an immutable snapshot of its module files. Fresh calls share that
+snapshot and compiled bytecode by reference; they never copy the module's models,
+icons, data and sources per refresh. Only host-owned immutable input is shared: the
+VM, required tables, closures, upvalues and budgets are still fresh on every call,
+including failed calls. No script case uses a persistent VM. Hot loading constructs
+new screens with the new snapshot; replay, film and audit use their embedded files.
+Within a refresh, each component read is copied once for dependency tracking. Repeated
+`ctx.get` calls still return independent Luau tables and charge the same step budget;
+mutating a returned table changes neither another read nor the tracked world snapshot.
+If changed reads produce the same widget tree, the view retains its text measurements;
+the tree's layout and paint still run against the current viewport and anchors.
+
+### Measuring screen cost headlessly
+
+The opt-in `screen_cost` test in `crates/view/tests/screen_cost.rs` measures all screen
+refreshes separately from a complete `View::scene` call on each simulated tick, without
+a window or GPU. Set `GALAXY_SCREEN_MODULE` to a module folder,
+`GALAXY_SCREEN_INPUTS` to an inputs file containing only `[[input]]` events
+(without scenario expectations), and `GALAXY_SCREEN_TICKS` to the run length. `GALAXY_SCREEN_SEED`
+defaults to 7; `GALAXY_SCREEN_FROM` defaults to 31, excluding startup and text-cache
+warmup. Set it later to measure a particular part of a journey. From `engine/`, run:
+
+```sh
+cargo xtask cargo test -p galaxy-view --test screen_cost --release -- --ignored --nocapture
+```
+
+The report gives screen and scene milliseconds (median, p95 and max), screen call
+count, final world hash and a fingerprint of every frame's overlay. Compare fingerprints
+with the same engine/toolchain, module, inputs, seed and tick range. These measure CPU
+scene construction; they do not measure GPU drawing or window scheduling stalls.
+
 ## Layout and readability
 
 `crates/script/src/screens.rs` parses the tree. `crates/view/src/screens.rs` measures,
