@@ -359,12 +359,11 @@ fn film_with(plan: &Plan, drawer: &Drawer, out: &Path) -> Result<(Value, bool), 
             .map(|f| (f.tick, f.hash.clone()))
             .collect()
     });
-    let checked =
-        check_notes(plan.rec, &inside, frames.as_deref()).map_err(|f| match f.kind.as_ref() {
-            // As before: a recording this engine can't run names its path.
-            "bad_input" => f.with("path", plan.path.display().to_string()),
-            _ => f,
-        })?;
+    let checked = check_notes(plan.rec, &inside, frames.as_deref()).map_err(|f| match f.kind {
+        // As before: a recording this engine can't run names its path.
+        "bad_input" => f.with("path", plan.path.display().to_string()),
+        _ => f,
+    })?;
     // A film to the recording's last tick ends on the world the recording ended on.
     let end = (last.tick == plan.rec.end.tick)
         .then(|| json!({ "tick": last.tick, "identical": last.hash == plan.rec.end.hash }));
