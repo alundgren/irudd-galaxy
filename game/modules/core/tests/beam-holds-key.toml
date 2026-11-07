@@ -1,0 +1,68 @@
+# A beam aimed by hand at the very edge of a rock holds as the rock shrinks (cutter.holds).
+# Parked as in beam-holds-aim.toml some 4.3 units from a glassite crystal's centre, D
+# turns the nose a third of a turn away, to the edge of the cutter's aim (the crystal's
+# centre some 40 degrees off the nose), and Space is held from there. The crystal shrinks
+# as it is cut, and the beam cuts it down to pebbles (it used to slip off after one unit:
+# the shrinking crystal no longer filled the aim).
+seed = 7
+ticks = 1040
+
+[[input]]
+tick = 1
+name = "core.mine"
+payload = { rock = "core.glassite2" }
+[[input]]
+tick = 669
+name = "core.cancel"
+payload = { down = true }
+[[input]]
+tick = 720
+name = "core.right"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 730
+name = "core.right"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 760
+name = "core.mine"
+source = "keyboard"
+payload = { down = true }
+[[expect]]
+tick = 790
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 790
+entity = "ship"
+component = "pilot"
+field = "target"
+equals = "core.glassite2"
+[[expect]]
+tick = 790
+entity = "ship"
+component = "engine.position"
+field = "angle"
+at_most = -0.8
+[[expect]]
+tick = 900
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 1030
+entity = "glassite2"
+component = "ore"
+field = "left"
+equals = 0
+[[expect]]
+tick = 1030
+entity = "ship"
+component = "hold"
+field = "glassite"
+equals = 6
