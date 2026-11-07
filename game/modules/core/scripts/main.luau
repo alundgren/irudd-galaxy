@@ -326,7 +326,7 @@ local function cut(ctx, pilot)
         return
     end
     local ore = ctx.get(rock, "ore")
-    if not ore or ore.left <= 0 or not cutter.can_cut(ctx, rock, pilot.auto) then
+    if not ore or ore.left <= 0 or not cutter.holds(ctx, rock, pilot.auto) then
         local rig = cutter.has(ctx, cutter.RIG)
         cutter.off(ctx, rig and "The rock is out of the rig's reach." or "The beam slipped off the rock.")
         return

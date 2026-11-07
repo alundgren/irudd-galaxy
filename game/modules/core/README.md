@@ -86,7 +86,9 @@ Everything is also a click, on the thing itself rather than a column of buttons.
 flight, click a rock in the cutter's reach to put the beam on it without holding Space:
 if the nose is off it, she turns onto it where she sits, at the helm's own turn rate and
 without flying, and the beam comes on once it is aimed (click it again, or fly, to stop);
-a rock out of reach says so. Hover a station for its
+a rock out of reach says so. Once on, the beam holds while the ship sits still, until the
+rock is cut down or the hold is full: the rock shrinking under it never lifts it, even
+from the edge of reach (`cutter.holds` measures it at its full size). Hover a station for its
 posted prices and how to dock there; with the jets fitted, a click on it flies you in, and
 with the rig fitted a click on a rock flies out to it and cuts. Docked, the station's
 buildings and their signs, the station key, Sell, Buy, Back, Launch, the log and the
@@ -1259,7 +1261,7 @@ for every second of beam time however it is broken up, the berth ring, regrowth 
 and the worked-out message for an empty and a full hold, and in `tests/cutting.luau` the
 stone's heat, cold to warm to glazed and back, and simulated holds guarding how much an
 attentive hand beats clicking once and waiting, under "Cutting takes judgment") and
-sixty-two scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
+sixty-four scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
 below):
 the opening's pace (`opening.toml`, above under "The opening hour"), cutting with
 judgment (`cutting.toml`: Sefa's word on the first hand beam, the seam warming, glazing
@@ -1267,7 +1269,9 @@ with its look, beam and line, the beam moved to the spall and back, the hold ful
 seconds; `cutting-wait.toml`: one click on the same seam, glazed for the rest, full in
 26, and cold again soon after; `cutting-click.toml`: the same moves by clicks alone, no
 key pressed, each click turning her onto the rock where she sits and the beam latching on,
-the ship never moving off her spot), both beats on
+the ship never moving off her spot; `beam-holds.toml` and `beam-holds-glassite.toml`: one
+click from near the edge of reach, no key held, cuts a whole hold from the seam and a
+glassite crystal down to pebbles while the stone shrinks under the beam), both beats on
 one unit (`beats.toml`: the 24th unit cuts a rock down and fills the hold at once, and the
 log keeps the rock's line first and the full hold's last, so the hold's message shows),
 mining and docking by hand (`hand-mining.toml`: Space out of reach says so, the beam on
