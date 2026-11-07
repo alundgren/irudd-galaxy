@@ -1,4 +1,6 @@
 inputs = "tests/hand-mining.inputs"
 ticks = 1589
 size = [1280, 720]
+# The UI scale the route was written at: 125% display scaling, on any machine.
+scale = 1.25
 seed = 7

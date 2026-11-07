@@ -18,6 +18,16 @@ impl Output {
         Self::open_with(open)
     }
 
+    /// No device: cues are taken and dropped, for a run nobody hears (a headless bot).
+    pub fn silent() -> Self {
+        Self {
+            _stream: None,
+            tx: None,
+            retained: Vec::new(),
+            warned: false,
+        }
+    }
+
     fn open_with(open: impl FnOnce() -> Result<Opened, String>) -> Self {
         match open() {
             Ok((stream, tx)) => {

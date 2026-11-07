@@ -1,0 +1,11 @@
+[entities.state]
+tally = { caught = 0, spent = 0 }
+[entities.camera]
+"engine.position" = {}
+"engine.camera" = { view = 60, min_view = 20, max_view = 120 }
+# Moves 12 units a second, so the button riding on it is far from where it started. Low on
+# the screen, clear of the other play fixtures.
+[entities.marker]
+"engine.position" = { x = -12, y = -14 }
+"engine.motion" = { vx = 12, vy = 0 }
+"engine.anchor" = { name = "tag", height = 2 }

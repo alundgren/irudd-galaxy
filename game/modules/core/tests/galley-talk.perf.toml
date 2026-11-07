@@ -1,0 +1,11 @@
+# A busy station with people: the trade route docks at Lantern Dock, opens the galley and
+# Ines starts talking (tests/trade-play.inputs, talk at tick 2915). The window holds her
+# first line open for 20 seconds. The heaviest frames the core routes reach: a station
+# room with people while someone speaks.
+inputs = "tests/trade-play.inputs"
+at = 2930
+hold = true
+seconds = 20
+size = [1280, 720]
+scale = 1.25
+seed = 1

@@ -172,8 +172,10 @@ It lays out the current world before that tick, resolves the widget's current ce
 (including moving anchors), and uses the same hit test. Missing or ambiguous names,
 non-buttons and covered centres fail the run. Recordings still contain the normal `ui`
 event and payload; replay does not repeat the lookup. Use `galaxy play` for pointer
-instructions, then replay or film its recording. Other
-headless input runners refuse pointer instructions because they do not have a viewport.
+instructions, in a window or `--headless` (no window, as fast as the machine goes, laid out
+at `--size` and `--scale` as a window would be), then replay or film its recording. Other
+headless input runners (`shot`, `film`, `sim run`) refuse pointer instructions because
+they do not play a screen.
 `galaxy-gm guide screens` gives a complete standalone authoring and playtest recipe;
 `galaxy-gm fields inputs` lists both click forms.
 

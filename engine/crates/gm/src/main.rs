@@ -20,6 +20,7 @@ mod memory;
 mod model;
 mod music;
 mod openrouter;
+mod perf;
 mod sessions;
 mod test;
 mod what_if;
@@ -228,6 +229,17 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
                 )));
             };
             test::run(&discover::resolve(&cwd, Path::new(path)), opts.text("only"))
+        }
+        "perf" => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            opts.only("perf", perf::OPTIONS).map_err(usage)?;
+            let [path] = positional.as_slice() else {
+                return Err(usage(format!(
+                    "perf takes one module folder: {}",
+                    command.usage()
+                )));
+            };
+            perf::run(&discover::resolve(&cwd, Path::new(path)), opts.text("only"))
         }
         "what-if" => {
             let (positional, opts) = split_args(args).map_err(usage)?;
@@ -615,6 +627,7 @@ mod tests {
             ("notes unhandle", sessions::UNHANDLE_OPTIONS),
             ("recording", sessions::RECORDING_OPTIONS),
             ("test", test::OPTIONS),
+            ("perf", perf::OPTIONS),
             ("what-if", what_if::OPTIONS),
             ("live status", live::STATUS_OPTIONS),
             ("live state", live::STATE_OPTIONS),

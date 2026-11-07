@@ -454,7 +454,8 @@ impl InputsFile {
         })
     }
 
-    /// Whether this needs a window: clicks, pointer gestures or key presses.
+    /// Whether this needs a played screen (galaxy play, windowed or headless): clicks,
+    /// pointer gestures or key presses.
     pub fn needs_window(&self) -> bool {
         !self.clicks.is_empty() || !self.pointers.is_empty() || !self.keys.is_empty()
     }

@@ -3,4 +3,6 @@
 inputs = "tests/fit-play.inputs"
 ticks = 44694
 size = [1280, 720]
+# The UI scale the route was written at: 125% display scaling, on any machine.
+scale = 1.25
 seed = 1

@@ -4,9 +4,13 @@
 //! rate, the view draws between the last two ticks every frame, keys a module binds
 //! become its events, and the wheel zooms the camera. Every session records itself into
 //! a session folder, and F8 takes a note ([`crate::notes`]); wheel zoom is recorded too,
-//! as presentation only. `shot` runs the same session headless for some ticks and writes
-//! one frame as a PNG; `galaxy film` ([`crate::film`]) writes every frame. Both report
-//! frame times.
+//! as presentation only. `play --headless` runs the same loop with no window, audio device
+//! or live socket, a frame a tick as fast as the machine goes, so a bot's clicks, drags,
+//! keys, zooms and notes play exactly as in a window (`engine/docs/tests-and-what-if.md`).
+//! `--fast-to <tick>` has a window play that way, undrawn, up to the tick, then at real
+//! speed: how a performance scene reaches its moment with the screen the route left.
+//! `shot` runs a session headless for some ticks and writes one frame as a PNG; `galaxy
+//! film` ([`crate::film`]) writes every frame. Both report frame times.
 //!
 //! `play` also serves the GM's live socket (`galaxy_live`) unless `--no-live`: between
 //! frames it answers `galaxy-gm live` reads and hot-loads, with [`App`] as the live host.
@@ -16,6 +20,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use galaxy_api::engine::TICKS_PER_SECOND;
 use galaxy_live::Act;
 use galaxy_live::protocol::MOUSE_LEFT;
 use galaxy_module::Failure;
@@ -62,6 +67,10 @@ pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--ticks",
     "--no-live",
     "--reduced-motion",
+    "--headless",
+    "--scale",
+    "--fast-to",
+    "--hold",
 ];
 pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--modules",
@@ -250,14 +259,46 @@ impl Times {
     }
 }
 
+/// The screen the session plays on: a window, or none (`--headless`).
 struct Running {
     /// Corrects where the window lands when it moves to a monitor with another scale
     /// ([`crate::window_scale`]). Declared first so it unhooks before the window goes.
     #[cfg(windows)]
     _scale_hook: Option<crate::window_scale::Hook>,
-    window: Arc<Window>,
-    renderer: Renderer,
+    /// None when headless.
+    window: Option<Arc<Window>>,
+    /// None when headless and no note needs its frame drawn.
+    renderer: Option<Renderer>,
     view: View,
+    /// Physical pixels and the UI scale. The renderer, when there is one, follows them.
+    size: (u32, u32),
+    scale: f32,
+}
+
+impl Running {
+    /// The screen in logical pixels, which screens lay out in and bots click in.
+    fn logical(&self) -> Vec2 {
+        Vec2::new(self.size.0 as f32, self.size.1 as f32) / self.scale
+    }
+
+    fn resize(&mut self, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+        self.size = (width, height);
+        if let Some(r) = &mut self.renderer {
+            r.resize(width, height);
+        }
+    }
+
+    fn set_scale(&mut self, scale: f32) {
+        if scale.is_finite() && scale > 0.0 {
+            self.scale = scale;
+            if let Some(r) = &mut self.renderer {
+                r.set_scale_factor(scale);
+            }
+        }
+    }
 }
 
 struct App {
@@ -296,6 +337,9 @@ struct App {
     scripted_resizes: BTreeMap<u64, Vec<(u32, u32)>>,
     /// Frames still to count as resize frames since the window last changed size.
     resize_frames: u32,
+    /// Whether the window is playing up to `--fast-to`: ticks and frames as fast as they
+    /// go, undrawn and without one-shot sounds.
+    fast: bool,
     watcher: Option<ModuleWatcher>,
     dirs: BTreeMap<String, PathBuf>,
     hot_load_failures: Vec<Value>,
@@ -310,6 +354,8 @@ struct App {
     last: Instant,
     times: Times,
     frames: u64,
+    /// The frame real time started after (`--fast-to`); frame times count from the one after.
+    measured_from: u64,
     error: Option<Failure>,
     /// The session folder: recording, save and note frames.
     dir: PathBuf,
@@ -317,6 +363,8 @@ struct App {
     note: Option<NoteBox>,
     /// Notes kept so far.
     notes: usize,
+    /// Each kept note's tick and the problems its frame showed (readability among them).
+    note_problems: Vec<Value>,
     /// Note frames being written to PNG off the main thread, so keeping a note doesn't
     /// stall the game. Joined before `play` returns.
     note_writes: Vec<std::thread::JoinHandle<()>>,
@@ -327,6 +375,17 @@ struct App {
     live: Option<galaxy_live::Live>,
     /// The last frame intervals in milliseconds, for the live status's frame rate.
     recent: VecDeque<f64>,
+}
+
+/// Adds the problems the view shows now to `problems`, each once, in the order first seen.
+fn gather(problems: &mut Vec<String>, view: &View, tick: u64) {
+    for problem in view.problems() {
+        // Capped, so a problem whose wording changes every frame can't grow it forever.
+        if problems.len() < 200 && !problems.contains(&problem) {
+            eprintln!("galaxy: {problem} (tick {tick})");
+            problems.push(problem);
+        }
+    }
 }
 
 /// Frame intervals the live status averages: about a second.
@@ -460,7 +519,7 @@ impl App {
         self.audio_output
             .send(self.audio.update(&self.session.world));
         if let Some(r) = &mut self.running {
-            r.view.reload(Some(&mut r.renderer), self.session.modules());
+            r.view.reload(r.renderer.as_mut(), self.session.modules());
         }
     }
 
@@ -476,26 +535,28 @@ impl App {
     /// F8: pauses on this tick and opens the note box over the frame that was shown.
     fn open_note(&mut self) {
         let Some(r) = &mut self.running else { return };
-        let logical = r.renderer.logical_size();
+        let logical = r.logical();
+        let Some(renderer) = &mut r.renderer else {
+            eprintln!("galaxy: can't keep the frame for a note: nothing draws");
+            return;
+        };
         let scene = r.view.scene(
             &self.session.world,
             self.last_alpha,
             logical,
             self.last_time,
         );
-        let frame = match r.renderer.render_to_rgba(&scene) {
+        let frame = match renderer.render_to_rgba(&scene) {
             Ok(frame) => frame,
             Err(e) => {
                 eprintln!("galaxy: can't keep the frame for a note: {e}");
                 return;
             }
         };
-        let Some(moment) = r.view.moment(
-            self.last_alpha,
-            self.last_time,
-            r.renderer.size(),
-            r.renderer.scale_factor(),
-        ) else {
+        let Some(moment) = r
+            .view
+            .moment(self.last_alpha, self.last_time, r.size, r.scale)
+        else {
             return;
         };
         self.release_all();
@@ -533,6 +594,17 @@ impl App {
         }));
         let camera = serde_json::to_value(note.moment).ok();
         self.session.note(note.text.trim(), camera, Some(frame));
+        // The view's problems are the noted frame's: open_note built it last.
+        let problems = self
+            .running
+            .as_ref()
+            .map(|r| r.view.problems())
+            .unwrap_or_default();
+        self.note_problems.push(json!({
+            "note": self.notes,
+            "tick": self.session.world.tick,
+            "problems": problems,
+        }));
         self.write_recording();
         eprintln!(
             "galaxy: note {} kept at tick {}",
@@ -608,7 +680,10 @@ impl App {
         let (Some(r), Some(note)) = (&mut self.running, &mut self.note) else {
             return;
         };
-        let logical = r.renderer.logical_size();
+        let logical = r.logical();
+        let (Some(window), Some(renderer)) = (&r.window, &mut r.renderer) else {
+            return;
+        };
         let mut scene = r.view.scene(
             &self.session.world,
             self.last_alpha,
@@ -616,14 +691,27 @@ impl App {
             self.last_time,
         );
         note.draw(&mut scene, logical);
-        if let Err(e) = r.renderer.render(&scene) {
+        if let Err(e) = renderer.render(&scene) {
             self.error = Some(Failure::runtime(format!("drawing failed: {e}")));
             event_loop.exit();
             return;
         }
-        r.window.request_redraw();
+        window.request_redraw();
     }
 
+    /// Whether the world has reached `--ticks`.
+    fn at_end(&self) -> bool {
+        self.options
+            .ticks
+            .is_some_and(|end| self.session.world.tick >= end)
+    }
+
+    /// Whether the session is over: `--frames` frames drawn, or `--ticks` reached.
+    fn done(&self) -> bool {
+        self.options.frames.is_some_and(|n| self.frames >= n) || self.at_end()
+    }
+
+    /// A window frame: the ticks real time owes, then the world drawn between the last two.
     fn frame(&mut self, event_loop: &ActiveEventLoop) {
         if self.note.is_some() {
             self.note_frame(event_loop);
@@ -637,102 +725,247 @@ impl App {
         if self.running.is_none() {
             return;
         }
+        if self
+            .options
+            .fast_to
+            .is_some_and(|to| self.session.world.tick < to)
+        {
+            self.fast_forward(event_loop);
+            return;
+        }
         let ticks = self.pace.advance(dt);
         let sim_start = Instant::now();
         for _ in 0..ticks {
-            if self
-                .options
-                .ticks
-                .is_some_and(|end| self.session.world.tick >= end)
-            {
+            if self.at_end() {
                 break;
             }
-            let tick = self.session.world.tick + 1;
-            if self.scripted_quit.is_some_and(|quit| quit <= tick) {
-                event_loop.exit();
-                return;
-            }
-            self.live_before_tick();
-            let Some(r) = &mut self.running else { return };
-            r.view.before_step(&self.session.world);
-            let mut inputs = std::mem::take(&mut self.pending);
-            inputs.extend(self.scripted.remove(&tick).unwrap_or_default());
-            for pointer in self.scripted_pointers.remove(&tick).unwrap_or_default() {
-                r.view.scene(
-                    &self.session.world,
-                    1.0,
-                    r.renderer.logical_size(),
-                    self.last_time,
-                );
-                match r.view.bot_pointer(&self.session.world, &pointer) {
-                    Ok(Some(input)) => inputs.push(input),
-                    Ok(None) => {}
-                    Err(e) => {
-                        self.error = Some(Failure::runtime(format!("before tick {tick}: {e}")));
-                        event_loop.exit();
-                        return;
-                    }
+            match self.tick() {
+                Ok(true) => {}
+                Ok(false) => {
+                    event_loop.exit();
+                    return;
                 }
-            }
-            for click in self.scripted_clicks.remove(&tick).unwrap_or_default() {
-                r.view.scene(
-                    &self.session.world,
-                    1.0,
-                    r.renderer.logical_size(),
-                    self.last_time,
-                );
-                if galaxy_sim::travel::arrival(&self.session.world, true).is_none()
-                    && let Some((widget, reason)) = r.view.screens.bot_resting(&click)
-                {
-                    r.view
-                        .screens
-                        .cue_path(galaxy_api::ui::UiAction::Deny, &widget);
-                    eprintln!("galaxy: before tick {tick}: {widget}: resting: {reason}");
-                    self.resting_clicks
-                        .push(json!({"tick": tick, "widget": widget, "resting": reason}));
-                    continue;
+                Err(e) => {
+                    self.error = Some(e);
+                    event_loop.exit();
+                    return;
                 }
-                match galaxy_sim::travel::arrival(&self.session.world, true)
-                    .map(Ok)
-                    .unwrap_or_else(|| r.view.bot_talk_click(&self.session.world, &click))
-                {
-                    Ok(input) => inputs.push(input),
-                    Err(e) => {
-                        self.error = Some(Failure::runtime(format!("before tick {tick}: {e}")));
-                        event_loop.exit();
-                        return;
-                    }
-                }
-            }
-            let mut landing = false;
-            inputs.retain(|i| {
-                if !galaxy_sim::travel::is_landing(&i.name) {
-                    return true;
-                }
-                let first = !landing;
-                landing = true;
-                first
-            });
-            if !inputs
-                .iter()
-                .any(|i| galaxy_sim::travel::is_landing(&i.name))
-                && let Some(input) = galaxy_sim::travel::arrival(&self.session.world, false)
-            {
-                inputs.push(input);
-            }
-            if let Err(e) = self.session.step(&inputs) {
-                self.error = Some(Failure::runtime(e));
-                event_loop.exit();
-                return;
-            }
-            self.audio_output
-                .send(self.audio.update(&self.session.world));
-            if let Some(live) = &mut self.live {
-                live.after_tick(&self.session.world);
             }
         }
         let sim_ms = ms_since(sim_start);
-        let Some(r) = &mut self.running else { return };
+        let time = (now - self.started).as_secs_f32();
+        let (scene_ms, draw_ms) = match self.present(self.pace.alpha(), time) {
+            Ok(ms) => ms,
+            Err(e) => {
+                self.error = Some(e);
+                event_loop.exit();
+                return;
+            }
+        };
+        // The first frame's interval is the time since the window opened (or, after
+        // `--fast-to`, since the last undrawn frame).
+        let measured = self.frames > self.measured_from + 1;
+        if measured {
+            if self.recent.len() == RECENT_FRAMES {
+                self.recent.pop_front();
+            }
+            self.recent.push_back(dt * 1000.0);
+        }
+        if measured && self.times.interval.len() < 1_000_000 {
+            self.times.push(dt * 1000.0, sim_ms, scene_ms, draw_ms);
+            if self.resize_frames > 0 {
+                self.resize_frames -= 1;
+                self.times.resize.push(dt * 1000.0);
+            }
+        }
+        if self.done() {
+            event_loop.exit();
+            return;
+        }
+        if let Some(window) = self.running.as_ref().and_then(|r| r.window.as_ref()) {
+            window.request_redraw();
+        }
+    }
+
+    /// A window frame's worth of `--fast-to`: ticks, each with its frame built as headless
+    /// builds it (bot actions resolved, UI sounds and presentation recorded) but not drawn,
+    /// for up to a frame's time so the window stays responsive. One process plays the
+    /// route to the moment, so everything the route set on the screen (zoom, pointer,
+    /// scroll, a glide in progress) is as it left it. At the tick, real time starts:
+    /// pacing, the presentation clock and frame times all count from there.
+    fn fast_forward(&mut self, event_loop: &ActiveEventLoop) {
+        const CHUNK: std::time::Duration = std::time::Duration::from_millis(30);
+        let to = self.options.fast_to.unwrap_or(0);
+        let chunk = Instant::now();
+        self.fast = true;
+        // The first frame shows the start, as headless builds it before its first tick.
+        if self.frames == 0
+            && let Err(e) = self.present(1.0, 0.0)
+        {
+            self.error = Some(e);
+            self.fast = false;
+            event_loop.exit();
+            return;
+        }
+        while self.session.world.tick < to && !self.at_end() && chunk.elapsed() < CHUNK {
+            match self.step() {
+                Ok(true) => {}
+                Ok(false) => {
+                    self.fast = false;
+                    event_loop.exit();
+                    return;
+                }
+                Err(e) => {
+                    self.error = Some(e);
+                    self.fast = false;
+                    event_loop.exit();
+                    return;
+                }
+            }
+        }
+        self.fast = false;
+        if self.session.world.tick >= to || self.at_end() {
+            let now = Instant::now();
+            self.pace.reset();
+            self.times = Times::default();
+            self.recent.clear();
+            self.last = now;
+            self.started = now
+                .checked_sub(std::time::Duration::from_secs_f64(
+                    self.session.world.tick as f64 / f64::from(TICKS_PER_SECOND),
+                ))
+                .unwrap_or(now);
+            self.measured_from = self.frames;
+        }
+        if self.done() {
+            event_loop.exit();
+            return;
+        }
+        if let Some(window) = self.running.as_ref().and_then(|r| r.window.as_ref()) {
+            window.request_redraw();
+        }
+    }
+
+    /// The session with no window (`--headless`), as fast as the machine goes: each tick
+    /// through [`App::tick`], its bot actions resolved against the screen as it stands, then
+    /// a frame ([`App::present`]) drawn at its end, as a window shows each tick. Presentation
+    /// time is the world's (tick / 30), never the wall clock, so the run is the same however
+    /// fast it goes. A frame costs more than a tick (screens whose reads changed run their
+    /// Luau again), but a frame a tick keeps the UI sounds and presentation on the ticks a
+    /// window records them on.
+    fn headless(&mut self) -> Result<(), Failure> {
+        // The first frame shows the start, as a window's does before its first tick.
+        self.present(1.0, 0.0)?;
+        while !self.done() && self.step()? {}
+        Ok(())
+    }
+
+    /// A tick and its frame as fast as they go, as `--headless` and a window playing up to
+    /// `--fast-to` both run them: the frame built at the tick's end (`alpha` 1), at the
+    /// world's time. False when a scripted Esc quits.
+    fn step(&mut self) -> Result<bool, Failure> {
+        if !self.tick()? {
+            return Ok(false);
+        }
+        let time = self.session.world.tick as f32 / TICKS_PER_SECOND as f32;
+        self.present(1.0, time)?;
+        Ok(true)
+    }
+
+    /// Runs the next tick with the inputs due: what the window or live connections sent,
+    /// the scripted inputs, and the bot's pointer gestures and clicks, each resolved
+    /// against the screen as it stands before the tick (the world drawn at its end). The
+    /// window and `--headless` both run ticks through here. False when a scripted Esc
+    /// quits.
+    fn tick(&mut self) -> Result<bool, Failure> {
+        let tick = self.session.world.tick + 1;
+        if self.scripted_quit.is_some_and(|quit| quit <= tick) {
+            return Ok(false);
+        }
+        self.live_before_tick();
+        let Some(r) = &mut self.running else {
+            return Ok(true);
+        };
+        r.view.before_step(&self.session.world);
+        let logical = r.logical();
+        let mut inputs = std::mem::take(&mut self.pending);
+        inputs.extend(self.scripted.remove(&tick).unwrap_or_default());
+        for pointer in self.scripted_pointers.remove(&tick).unwrap_or_default() {
+            r.view
+                .scene(&self.session.world, 1.0, logical, self.last_time);
+            gather(&mut self.problems, &r.view, self.session.world.tick);
+            match r.view.bot_pointer(&self.session.world, &pointer) {
+                Ok(Some(input)) => inputs.push(input),
+                Ok(None) => {}
+                Err(e) => return Err(Failure::runtime(format!("before tick {tick}: {e}"))),
+            }
+        }
+        for click in self.scripted_clicks.remove(&tick).unwrap_or_default() {
+            r.view
+                .scene(&self.session.world, 1.0, logical, self.last_time);
+            gather(&mut self.problems, &r.view, self.session.world.tick);
+            if galaxy_sim::travel::arrival(&self.session.world, true).is_none()
+                && let Some((widget, reason)) = r.view.screens.bot_resting(&click)
+            {
+                r.view
+                    .screens
+                    .cue_path(galaxy_api::ui::UiAction::Deny, &widget);
+                eprintln!("galaxy: before tick {tick}: {widget}: resting: {reason}");
+                self.resting_clicks
+                    .push(json!({"tick": tick, "widget": widget, "resting": reason}));
+                continue;
+            }
+            let input = galaxy_sim::travel::arrival(&self.session.world, true)
+                .map(Ok)
+                .unwrap_or_else(|| r.view.bot_talk_click(&self.session.world, &click))
+                .map_err(|e| Failure::runtime(format!("before tick {tick}: {e}")))?;
+            inputs.push(input);
+        }
+        let mut landing = false;
+        inputs.retain(|i| {
+            if !galaxy_sim::travel::is_landing(&i.name) {
+                return true;
+            }
+            let first = !landing;
+            landing = true;
+            first
+        });
+        if !inputs
+            .iter()
+            .any(|i| galaxy_sim::travel::is_landing(&i.name))
+            && let Some(input) = galaxy_sim::travel::arrival(&self.session.world, false)
+        {
+            inputs.push(input);
+        }
+        self.session.step(&inputs).map_err(Failure::runtime)?;
+        let mut sounds = self.audio.update(&self.session.world);
+        if self.fast {
+            // Loops, music and ambience follow the world; a burst of one-shots would not.
+            sounds.retain(|a| {
+                !matches!(
+                    a,
+                    galaxy_audio::Action::Play {
+                        bus: galaxy_audio::Bus::Sound,
+                        ..
+                    }
+                )
+            });
+        }
+        self.audio_output.send(sounds);
+        if let Some(live) = &mut self.live {
+            live.after_tick(&self.session.world);
+        }
+        Ok(true)
+    }
+
+    /// Shows the world as it stands, `alpha` of the way from the tick before: the zooms
+    /// and resizes due, the scene (drawn only in a window), its UI sounds and problems,
+    /// then the notes due, kept over this frame. The milliseconds building the scene and
+    /// drawing it.
+    fn present(&mut self, alpha: f32, time: f32) -> Result<(f64, f64), Failure> {
+        let Some(r) = &mut self.running else {
+            return Ok((0.0, 0.0));
+        };
         let due: Vec<u64> = self
             .scripted_zooms
             .range(..=self.session.world.tick)
@@ -753,27 +986,40 @@ impl App {
             .collect();
         for tick in due {
             for (w, h) in self.scripted_resizes.remove(&tick).unwrap_or_default() {
-                if let Some(size) = r.window.request_inner_size(LogicalSize::new(w, h)) {
-                    r.renderer.resize(size.width, size.height);
+                let physical = (
+                    (w as f32 * r.scale).round() as u32,
+                    (h as f32 * r.scale).round() as u32,
+                );
+                let size = match &r.window {
+                    // A set --scale is ours, not the display's: ask for its physical size.
+                    Some(window) if self.options.scale.is_some() => window
+                        .request_inner_size(PhysicalSize::new(physical.0, physical.1))
+                        .map(|s| (s.width, s.height)),
+                    Some(window) => window
+                        .request_inner_size(LogicalSize::new(w, h))
+                        .map(|s| (s.width, s.height)),
+                    None => Some(physical),
+                };
+                if let Some((w, h)) = size {
+                    r.resize(w, h);
                     self.resize_frames = Times::RESIZE_FRAMES;
                 }
             }
         }
-        let logical = r.renderer.logical_size();
-        let time = (now - self.started).as_secs_f32();
-        self.last_alpha = self.pace.alpha();
+        let logical = r.logical();
+        self.last_alpha = alpha;
         self.last_time = time;
         let scene_start = Instant::now();
-        let scene = r
-            .view
-            .scene(&self.session.world, self.last_alpha, logical, time);
+        let scene = r.view.scene(&self.session.world, alpha, logical, time);
         if r.view.hand != self.hand {
             self.hand = r.view.hand;
-            r.window.set_cursor(if self.hand {
-                CursorIcon::Pointer
-            } else {
-                CursorIcon::Default
-            });
+            if let Some(window) = &r.window {
+                window.set_cursor(if self.hand {
+                    CursorIcon::Pointer
+                } else {
+                    CursorIcon::Default
+                });
+            }
         }
         self.session.record_presentation(
             serde_json::to_value(&r.view.screens.presentation).expect("finite screen state"),
@@ -787,22 +1033,17 @@ impl App {
             sounds.extend(played);
             self.session.record_ui_sound(cue);
         }
-        if !sounds.is_empty() {
+        if !sounds.is_empty() && !self.fast {
             self.audio_output.send(sounds);
         }
-        for problem in r.view.problems() {
-            // Capped, so a problem whose wording changes every frame can't grow it forever.
-            if self.problems.len() < 200 && !self.problems.contains(&problem) {
-                eprintln!("galaxy: {problem} (tick {})", self.session.world.tick);
-                self.problems.push(problem);
-            }
-        }
+        gather(&mut self.problems, &r.view, self.session.world.tick);
         let scene_ms = ms_since(scene_start);
         let draw_start = Instant::now();
-        if let Err(e) = r.renderer.render(&scene) {
-            self.error = Some(Failure::runtime(format!("drawing failed: {e}")));
-            event_loop.exit();
-            return;
+        // Headless, or playing up to `--fast-to`, nobody sees the frame: only a note draws it.
+        if let (Some(_), Some(renderer), false) = (&r.window, &mut r.renderer, self.fast) {
+            renderer
+                .render(&scene)
+                .map_err(|e| Failure::runtime(format!("drawing failed: {e}")))?;
         }
         let draw_ms = ms_since(draw_start);
         self.frames += 1;
@@ -823,31 +1064,7 @@ impl App {
             }
             self.last = Instant::now();
         }
-        let Some(r) = &mut self.running else { return };
-        // The first frame's interval is the time since the window opened.
-        if self.frames > 1 {
-            if self.recent.len() == RECENT_FRAMES {
-                self.recent.pop_front();
-            }
-            self.recent.push_back(dt * 1000.0);
-        }
-        if self.frames > 1 && self.times.interval.len() < 1_000_000 {
-            self.times.push(dt * 1000.0, sim_ms, scene_ms, draw_ms);
-            if self.resize_frames > 0 {
-                self.resize_frames -= 1;
-                self.times.resize.push(dt * 1000.0);
-            }
-        }
-        if self.options.frames.is_some_and(|n| self.frames >= n)
-            || self
-                .options
-                .ticks
-                .is_some_and(|end| self.session.world.tick >= end)
-        {
-            event_loop.exit();
-            return;
-        }
-        r.window.request_redraw();
+        Ok((scene_ms, draw_ms))
     }
 }
 
@@ -864,10 +1081,10 @@ impl galaxy_live::Host for App {
             0.0
         };
         let window = self.running.as_ref().map(|r| {
-            let size = r.renderer.logical_size();
+            let size = r.logical();
             json!({
                 "logical": [size.x.round(), size.y.round()],
-                "scale": r.renderer.scale_factor(),
+                "scale": r.scale,
             })
         });
         let paused_why = self
@@ -899,14 +1116,15 @@ impl galaxy_live::Host for App {
             .running
             .as_mut()
             .ok_or("the window has not opened yet; try again in a moment")?;
-        let logical = r.renderer.logical_size();
+        let logical = r.logical();
+        let renderer = r.renderer.as_mut().ok_or("this game draws nothing")?;
         let scene = r.view.scene(
             &self.session.world,
             self.last_alpha,
             logical,
             self.last_time,
         );
-        r.renderer
+        renderer
             .render_to_rgba(&scene)
             .map_err(|e| format!("drawing the frame failed: {e}"))
     }
@@ -1019,15 +1237,11 @@ impl ApplicationHandler for App {
         );
         let attrs = Window::default_attributes()
             .with_title(title)
-            .with_inner_size(if self.options.physical_size {
-                Size::Physical(PhysicalSize::new(self.size.0, self.size.1))
-            } else {
-                Size::Logical(LogicalSize::new(self.size.0 as f64, self.size.1 as f64))
-            })
+            .with_inner_size(window_size(&self.options, self.size))
             .with_min_inner_size(if self.options.physical_size {
                 Size::Physical(PhysicalSize::new(64, 64))
             } else {
-                Size::Logical(LogicalSize::new(640.0, 360.0))
+                window_size(&self.options, (640, 360))
             })
             .with_maximized(starts_maximized(&self.options));
         let window = match event_loop.create_window(attrs) {
@@ -1050,6 +1264,9 @@ impl ApplicationHandler for App {
                 return;
             }
         };
+        if let Some(scale) = self.options.scale {
+            renderer.set_scale_factor(scale);
+        }
         let mut view = View::new(
             &mut renderer,
             self.session.modules(),
@@ -1067,8 +1284,10 @@ impl ApplicationHandler for App {
         self.running = Some(Running {
             #[cfg(windows)]
             _scale_hook: crate::window_scale::Hook::install(&window),
-            window,
-            renderer,
+            window: Some(window),
+            size: renderer.size(),
+            scale: renderer.scale_factor(),
+            renderer: Some(renderer),
             view,
         });
     }
@@ -1078,15 +1297,18 @@ impl ApplicationHandler for App {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
                 if let Some(r) = &mut self.running
-                    && (size.width, size.height) != r.renderer.size()
+                    && (size.width, size.height) != r.size
                 {
-                    r.renderer.resize(size.width, size.height);
+                    r.resize(size.width, size.height);
                     self.resize_frames = Times::RESIZE_FRAMES;
                 }
             }
-            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+            // A set --scale stays: it is the run's, not the display's.
+            WindowEvent::ScaleFactorChanged { scale_factor, .. }
+                if self.options.scale.is_none() =>
+            {
                 if let Some(r) = &mut self.running {
-                    r.renderer.set_scale_factor(scale_factor as f32);
+                    r.set_scale(scale_factor as f32);
                 }
             }
             WindowEvent::Focused(false) => {
@@ -1130,8 +1352,7 @@ impl ApplicationHandler for App {
             }
             WindowEvent::CursorMoved { position, .. } if self.note.is_some() => {
                 if let (Some(r), Some(n)) = (&self.running, &mut self.note) {
-                    self.pointer =
-                        Vec2::new(position.x as f32, position.y as f32) / r.renderer.scale_factor();
+                    self.pointer = Vec2::new(position.x as f32, position.y as f32) / r.scale;
                     n.pointer_move(self.pointer);
                 }
             }
@@ -1156,7 +1377,7 @@ impl ApplicationHandler for App {
             WindowEvent::CursorMoved { position, .. }
                 if self.note.is_none() && !self.bot_pointer =>
             {
-                if let Some(scale) = self.running.as_ref().map(|r| r.renderer.scale_factor()) {
+                if let Some(scale) = self.running.as_ref().map(|r| r.scale) {
                     let at = Vec2::new(position.x as f32, position.y as f32) / scale;
                     if let Some(input) = self.pointer_moved(at) {
                         self.pending.push(input);
@@ -1293,6 +1514,16 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
         notes,
         zooms,
     };
+    // --hold: the route stops at --fast-to.
+    if let (true, Some(to)) = (options.hold, options.fast_to) {
+        result.keys.retain(|(t, _)| *t <= to);
+        result.inputs.retain(|t, _| *t <= to);
+        result.clicks.retain(|t, _| *t <= to);
+        result.pointers.retain(|t, _| *t <= to);
+        result.notes.retain(|t, _| *t <= to);
+        result.zooms.retain(|t, _| *t <= to);
+        result.resizes.retain(|t, _| *t <= to);
+    }
     if options.load.is_some() {
         let tick = session.world.tick;
         result.inputs.retain(|t, _| *t > tick);
@@ -1323,6 +1554,28 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
             "--continue finds the save itself; give --load <save> or --continue, not both",
         ));
     }
+    if options.headless && options.ticks.is_none() {
+        return Err(usage(
+            "--headless runs as fast as it can, so it needs --ticks <n> to know where to stop",
+        ));
+    }
+    if options.hold && options.fast_to.is_none() {
+        return Err(usage(
+            "--hold stops the --inputs script at --fast-to <tick>; give the tick",
+        ));
+    }
+    if let (Some(to), Some(end)) = (options.fast_to, options.ticks)
+        && to >= end
+    {
+        return Err(usage(format!(
+            "--fast-to {to} plays up to that tick before real time starts; --ticks {end} ends before it"
+        )));
+    }
+    if options.headless && options.watch {
+        return Err(usage(
+            "--headless runs from start to --ticks without waiting; --watch needs a window",
+        ));
+    }
     let modules = load_modules(&options)?;
     if options.continue_save {
         options.load = Some(crate::sim::continuing_save(&modules)?);
@@ -1340,6 +1593,15 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     let mut script = scripted_inputs(&session, &options)?;
     let keys = Keys::new(session.modules());
     let scripted_quit = scripted_keys(keys.bindings(), &script.keys, &mut script.inputs);
+    let headless = if options.headless {
+        Some(headless_screen(
+            &options,
+            &session,
+            !script.notes.is_empty(),
+        )?)
+    } else {
+        None
+    };
     session.start_recording(BuildStamp::current());
     let ids: Vec<&str> = session.modules().map(Module::id).collect();
     let root = galaxy_module::install::sessions_dir();
@@ -1368,14 +1630,22 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         0
     };
     let mut audio = audio_scene(&session, first_fact);
-    let mut audio_output = galaxy_audio::Output::open();
-    audio_output.send(audio.update(&session.world));
-    let event_loop = EventLoop::new()
-        .map_err(|e| Failure::render_unavailable(format!("no window system available: {e}")))?;
-    let (live, live_report) = if options.no_live {
-        (None, json!({ "served": false, "why": "--no-live" }))
+    let mut audio_output = if headless.is_some() {
+        galaxy_audio::Output::silent()
     } else {
-        start_live(&event_loop, &session, &dirs, &dir)
+        galaxy_audio::Output::open()
+    };
+    audio_output.send(audio.update(&session.world));
+    let event_loop = match headless {
+        Some(_) => None,
+        None => Some(EventLoop::new().map_err(|e| {
+            Failure::render_unavailable(format!("no window system available: {e}"))
+        })?),
+    };
+    let (live, live_report) = match &event_loop {
+        None => (None, json!({ "served": false, "why": "--headless" })),
+        Some(_) if options.no_live => (None, json!({ "served": false, "why": "--no-live" })),
+        Some(event_loop) => start_live(event_loop, &session, &dirs, &dir),
     };
     let mut app = App {
         audio,
@@ -1400,6 +1670,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         scripted_zooms: script.zooms,
         scripted_resizes: script.resizes,
         resize_frames: 0,
+        fast: false,
         watcher,
         dirs,
         hot_load_failures: Vec::new(),
@@ -1410,19 +1681,36 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         last: Instant::now(),
         times: Times::default(),
         frames: 0,
+        measured_from: 0,
         error: None,
         dir,
         note: None,
         notes: 0,
+        note_problems: Vec::new(),
         note_writes: Vec::new(),
         last_alpha: 0.0,
         last_time: 0.0,
         live,
         recent: VecDeque::new(),
     };
-    event_loop
-        .run_app(&mut app)
-        .map_err(|e| Failure::runtime(format!("the window loop failed: {e}")))?;
+    // A loaded session starts part way: speed is over the ticks this run played.
+    let first_tick = app.session.world.tick;
+    let wall = Instant::now();
+    match event_loop {
+        Some(event_loop) => event_loop
+            .run_app(&mut app)
+            .map_err(|e| Failure::runtime(format!("the window loop failed: {e}")))?,
+        None => {
+            if let Some(screen) = headless {
+                app.problems.extend(screen.view.problems());
+                app.running = Some(screen);
+            }
+            if let Err(e) = app.headless() {
+                app.error = Some(e);
+            }
+        }
+    }
+    let wall_ms = ms_since(wall);
     for write in std::mem::take(&mut app.note_writes) {
         let _ = write.join();
     }
@@ -1447,18 +1735,29 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
             .map_err(|e| Failure::runtime(e).with("path", path.display().to_string()))?;
     }
     let problems = app.problems;
+    let headless = app.options.headless;
+    let game_seconds = (app.session.world.tick - first_tick) as f64 / TICKS_PER_SECOND as f64;
     Ok(Output::Json(json!({
         "ok": true,
         "command": "play",
+        "headless": headless,
         "tick": app.session.world.tick,
         "hash": app.session.world.hash(),
         "frames": app.frames,
-        "size": app.running.as_ref().map(|r| r.renderer.size()),
-        "frame_time": app.times.report(),
-        "adapter": app.running.as_ref().map(|r| r.renderer.adapter_info()),
+        "wall_ms": wall_ms.round(),
+        "speed": (game_seconds / (wall_ms / 1000.0).max(1e-3) * 10.0).round() / 10.0,
+        "size": app.running.as_ref().map(|r| r.size),
+        "scale": app.running.as_ref().map(|r| r.scale),
+        // How far the camera sees at the end, after the route's zooms.
+        "view": app.running.as_ref().and_then(|r| r.view.eye.view),
+        "fast_to": app.options.fast_to,
+        // Headless frames take no real time, so there are no frame times to report.
+        "frame_time": if headless { Value::Null } else { app.times.report() },
+        "adapter": app.running.as_ref().and_then(|r| r.renderer.as_ref()).map(Renderer::adapter_info),
         "problems": problems,
         "hot_load_failures": app.hot_load_failures,
         "resting_clicks": app.resting_clicks,
+        "note_problems": app.note_problems,
         "ui_sounds": app.ui_sounds.iter().map(|(action, [played, silent])| {
             (action.to_string(), json!({ "played": played, "silent": silent }))
         }).collect::<serde_json::Map<_, _>>(),
@@ -1470,6 +1769,63 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "recorded": app.options.record.as_ref().map(|p| p.display().to_string()),
         "resumed": resumed,
     })))
+}
+
+/// The window's inner size for `--size`: physical pixels with `--physical-size`; else
+/// logical pixels, at the display's scale, or at `--scale` when set.
+fn window_size(options: &Options, (w, h): (u32, u32)) -> Size {
+    match options.scale {
+        _ if options.physical_size => Size::Physical(PhysicalSize::new(w, h)),
+        Some(scale) => Size::Physical(PhysicalSize::new(
+            (w as f32 * scale).round() as u32,
+            (h as f32 * scale).round() as u32,
+        )),
+        None => Size::Logical(LogicalSize::new(w as f64, h as f64)),
+    }
+}
+
+/// The screen a `--headless` run lays out on: `--size` (physical with `--physical-size`)
+/// at `--scale` (1 unless set), as a window of that size would be. It draws only when a
+/// note keeps its frame, so only then does it need a GPU.
+fn headless_screen(options: &Options, session: &Session, notes: bool) -> Result<Running, Failure> {
+    let scale = options.scale.unwrap_or(1.0);
+    let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);
+    let size = if options.physical_size {
+        (w, h)
+    } else {
+        (
+            (w as f32 * scale).round() as u32,
+            (h as f32 * scale).round() as u32,
+        )
+    };
+    let mut renderer = if notes {
+        let mut renderer = Renderer::new_headless(size.0, size.1).map_err(|e| {
+            Failure::render_unavailable(format!(
+                "no GPU to draw the frames the [[note]] entries keep: {e}"
+            ))
+        })?;
+        renderer.set_scale_factor(scale);
+        Some(renderer)
+    } else {
+        None
+    };
+    let modules = session.modules();
+    let seed = session.world.seed;
+    let mut view = match renderer.as_mut() {
+        Some(r) => View::new(r, modules, seed),
+        None => View::detached(modules, seed),
+    };
+    view.set_reduced_motion(reduced_motion(options));
+    view.screens.listen(true);
+    Ok(Running {
+        #[cfg(windows)]
+        _scale_hook: None,
+        window: None,
+        renderer,
+        view,
+        size,
+        scale,
+    })
 }
 
 /// Serves the live socket for this session, waking the window loop for each request. A
@@ -1537,7 +1893,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let script = scripted_inputs(&session, &options)?;
     if script.needs_window() {
         return Err(Failure::bad_input(
-            "clicks, drags and key presses ([[click]], [[pointer]], [[key]]) need a window: run them with galaxy play, then galaxy-gm film <session>/recording.json draws them",
+            "clicks, drags and key presses ([[click]], [[pointer]], [[key]]) are resolved against a played screen: run them with galaxy play --headless --ticks <n> (no window, fast), then galaxy-gm film <session>/recording.json draws them",
         ));
     }
     let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);

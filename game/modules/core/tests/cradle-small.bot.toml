@@ -3,4 +3,6 @@
 inputs = "tests/cradle-small.inputs"
 ticks = 1661
 size = [1200, 675]
+# The UI scale the route was written at: 125% display scaling, on any machine.
+scale = 1.25
 seed = 1
