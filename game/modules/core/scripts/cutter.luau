@@ -120,6 +120,17 @@ function cutter.can_cut(ctx, rock, auto)
     return rules.cuttable(at, centre, radius, cutter.reach(ctx), auto or cutter.has(ctx, cutter.RIG))
 end
 
+-- Whether a beam already on `rock` stays on: as `can_cut`, but measured against the rock
+-- at its full size, before any of it was cut. The stone shrinking under the beam (its
+-- `morph`) never lifts it, from the edge of reach or with the nose near its edge; only
+-- the ship moving or turning away does.
+function cutter.holds(ctx, rock, auto)
+    local at = ctx.get("ship", "engine.position")
+    local model = ctx.get(rock, "engine.model")
+    local radius = rules.rock_radius(model and model.scale or 1, 0)
+    return rules.cuttable(at, ctx.get(rock, "engine.position"), radius, cutter.reach(ctx), auto or cutter.has(ctx, cutter.RIG))
+end
+
 -- Which way the nose turns onto `rock`: 1 is left (counter-clockwise), -1 right, the
 -- shorter way round.
 function cutter.turn_toward(ctx, rock)
