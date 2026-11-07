@@ -105,7 +105,7 @@ tick = 95
 entity = "ship"
 component = "pilot"
 field = "press"
-equals = "A or D · point your nose at the rock"
+equals = "A or D · turn onto the rock"
 # Back on the rock with Space still held: cutting again.
 [[expect]]
 tick = 115

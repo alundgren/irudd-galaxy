@@ -1161,10 +1161,12 @@ lesson, the stations off screen, and the one key that fits where the ship is. A
 message never mixes kinds: `scripts/notice.luau` carries its goal, lesson and key
 (`press`) beside it, shown only while it shows, so "Cutting." comes with the pill
 "Let go of Space · stop" rather than the words in its line, and a hint with no key in it
-("Fly slowly into a berth's glowing ring to dock") is a lesson. Short lines' surfaces are
-only as wide as their words, and the bearings sit beside the key when both fit, so the
-opening's five surfaces cover no more of the reach than the one panel before them (at
-1280x720, 62,000 pixels against 62,800). Rocks and stations are click targets: under the pointer a rock lifts
+("Fly slowly into a berth's glowing ring to dock") is a lesson. Each line is centred
+under the ship; short surfaces are only as wide as their words, and two share a line
+when both fit (the goal and the lesson, the bearings and the key), within `layout.BOTTOM`,
+which clears the log's book at 960x540. So the opening's five surfaces cover less of
+the reach than the one panel before them did: at 1280x720, 59,200 pixels against 62,800,
+and 61,500 once the key is `Hold Space · cut the rock`. Rocks and stations are click targets: under the pointer a rock lifts
 and outlines and says what a click does and how much of its ware is left, and a station
 shows its posted prices. In flight each station wears its name under it while it is in
 view, a `yield` label like the traders'. Unless it is well on screen (within 40 units
@@ -1207,10 +1209,10 @@ same buildings in its own paint (`recipes/kiln_exchange.toml`,
 `recipes/kiln_office.toml`). Every collision outline is unchanged: the stripes,
 pennants and marks sit inside the footprints.
 
-Hints teach and then retire (`scripts/teach.luau`). The strip shows one key and what
+Hints teach and then retire (`scripts/teach.luau`). The key pill shows one key and what
 it does where the ship is (`Space · dock at Lantern Dock` in a berth's ring, `Hold Space
-· cut the rock ahead` with the nose on a rock in reach, `A or D · point your nose at the
-rock` beside one, the way to dock once the hold is full, else W, A or D, Shift, and 0
+· cut the rock` with the nose on a rock in reach, `A or D · turn onto the rock` beside
+one, the way to dock once the hold is full, else W, A or D, Shift, and 0
 while the jets or the rig fly), each until it has been used three times.
 Messages report what happened and leave the keys to the strip. A room says "Click Tova to talk" until its keeper's
 introduction has been heard, and for anyone's first three conversations. Messages report what happened, not how fast it happens.

@@ -242,11 +242,11 @@ function cutter.on(ctx, rock, latched, auto)
         -- What stops it, so the line under a fresh beam never still says why it couldn't.
         -- The key that stops it is its own part (notice.luau), not words in the line.
         if cutter.has(ctx, cutter.RIG) then
-            notice.with(fields, "The rig cuts on its own.", { press = "W, A, S or D · fly off to stop it" })
+            notice.with(fields, "The rig cuts on its own.", { press = "W, A, S or D · stop the rig" })
         elseif auto then
-            notice.with(fields, "Cutting.", { press = "W, A, S or D · fly off to stop" })
+            notice.with(fields, "Cutting.", { press = "W, A, S or D · stop" })
         elseif latched then
-            notice.with(fields, "Cutting.", { press = "Click the rock again · stop, or fly off" })
+            notice.with(fields, "Cutting.", { press = "Click the rock · stop" })
         else
             notice.with(fields, "Cutting.", { press = "Let go of Space · stop" })
         end

@@ -37,7 +37,7 @@ end
 
 -- A rock in reach is off the nose: what the pilot hears, and the keys that turn onto it.
 local OFF_NOSE = "The rock is in reach, but off your nose."
-local TURN = { press = "A or D · point your nose at the rock" }
+local TURN = { press = "A or D · turn onto the rock" }
 
 local function stop(ctx)
     -- A beam cut short here lets go like any other, so its hum stops with it.
@@ -431,7 +431,7 @@ local function cut(ctx, pilot)
         end
         if left <= 0 and not full and pilot.chosen then
             table.insert(lines, "The rig stops with the rock you picked.")
-            parts = { press = "Space · the nearest rock, or click another" }
+            parts = { press = "Space · the nearest rock" }
         end
         -- Both beats on one unit log both, the hold's last so it is the message showing.
         log.add_all(ctx, lines, parts)

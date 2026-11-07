@@ -41,8 +41,8 @@ local function hint(ctx)
         end
     end
     if not full and not pilot.mining and teach.new(taught, "mine") then
-        if pilot.near == "aim" then return "Hold Space · cut the rock ahead" end
-        if pilot.near == "reach" then return "A or D · point your nose at the rock" end
+        if pilot.near == "aim" then return "Hold Space · cut the rock" end
+        if pilot.near == "reach" then return "A or D · turn onto the rock" end
     end
     if full and teach.new(taught, "dock") then
         if cutter.has(ctx, cutter.JETS) then return "E · the docking jets fly you in" end
@@ -62,17 +62,46 @@ end
 --     tag before their words) or what just happened (a lighter plum card, the ship's icon)
 --   the goal it gives, with its WANTED tag, and a lesson about the game (a paper card)
 --   where the stations off screen lie (a small dark label, like their names), and the
---     one key that fits now (the gold-framed pill, the key standing out), side by side
---     when both fit
+--     one key that fits now (the gold-framed pill, the key standing out)
 -- The message and its goal and lesson are notice.luau's; a hint with no key in it is a
--- lesson too. A short line's surface is only as wide as its words, so the stack covers
--- no more of the reach than one panel holding them all.
--- Small print runs at most SMALL px a character and body text BODY (counted in bytes,
--- so a curly quote or a dot only overcounts); a surface's own frame and icon add FRAME
--- (a label, a goal, a lesson, a note) or PILL (the key pill's rounder ends).
-local GAP, SMALL, BODY, FRAME, PILL = 6, 7.6, 9.2, 36, 16
-local function fits(text, extra, room, per)
-    return #text * (per or SMALL) + extra <= room
+-- lesson too. Each line is centred under the ship. A short line's surface is only as
+-- wide as its words, and two short ones share a line (the goal and the lesson, the
+-- bearings and the key) when both fit, so the stack covers no more of the reach than one
+-- panel holding them all.
+-- Small print runs at most SMALL px a character and body text BODY; a surface's own
+-- frame adds ICON (with an icon: a note, the bearings), GOAL (its tag), PAD (a lesson)
+-- or PILL (the key pill's rounder ends). Two surfaces side by side are as tall as each
+-- other: the goal and the lesson ASIDE, the bearings and the key WAYS.
+local GAP, SMALL, BODY, ICON, GOAL, PAD, PILL, ASIDE, WAYS = 6, 7.5, 9.2, 36, 24, 26, 16, 30, 28
+
+local function span(text, per, extra)
+    return math.ceil((utf8.len(text) or #text) * per + extra)
+end
+
+-- One line of the stack, centred in layout.BOTTOM: `items` are { widget, width }.
+local function line(ui, id, items)
+    local total = -GAP
+    for _, item in items do total += item[2] + GAP end
+    local children = {}
+    local lead = math.floor((layout.BOTTOM - total) / 2) - GAP
+    if lead > 0 then table.insert(children, ui.column { id = id .. "_lead", width = lead, children = {} }) end
+    for _, item in items do
+        item[1].width = item[2]
+        table.insert(children, item[1])
+    end
+    return ui.row { id = id, gap = GAP, children = children }
+end
+
+-- `a` and `b` ({ widget, width }, either nil) on one line when both fit, else each on
+-- its own, `a` first; side by side, both are `tall`.
+local function pair(ui, id, stack, a, b, tall)
+    if a and b and a[2] + GAP + b[2] <= layout.BOTTOM then
+        a[1].height, b[1].height = tall, tall
+        table.insert(stack, line(ui, id, { a, b }))
+        return
+    end
+    if a then table.insert(stack, line(ui, id .. "_a", { a })) end
+    if b then table.insert(stack, line(ui, id .. "_b", { b })) end
 end
 
 local function bottom(ctx, ui, pilot)
@@ -85,22 +114,19 @@ local function bottom(ctx, ui, pilot)
             -- Who speaks first, on the name tag, then where from, quieter, then the words.
             local spans = kit.speaker(who, from)
             table.insert(spans, "  " .. words)
-            table.insert(stack, kit.radio(ui, { id = "message", width = wide, children = {
-                ui.text { id = "said", width = wide - 16, icon = "radio", spans = spans, size = kit.SIZE.body, cue = "flash" },
-            } }))
-        elseif fits(pilot.message, FRAME, wide, BODY) then
-            table.insert(stack, ui.text { id = "message", look = kit.LOOK.note, icon = "ship", text = pilot.message,
-                size = kit.SIZE.body, cue = "flash" })
+            table.insert(stack, line(ui, "said", { { kit.radio(ui, { id = "message", children = {
+                ui.text { id = "words", width = wide - 16, icon = "radio", spans = spans, size = kit.SIZE.body, cue = "flash" },
+            } }), wide } }))
         else
-            table.insert(stack, kit.note(ui, { id = "message", width = wide, children = {
-                ui.text { id = "said", width = wide - 16, icon = "ship", text = pilot.message, size = kit.SIZE.body, cue = "flash" },
-            } }))
+            local width = math.min(wide, span(pilot.message, BODY, ICON))
+            local note = width < wide and ui.text { id = "message", look = kit.LOOK.note, icon = "ship", text = pilot.message,
+                size = kit.SIZE.body, cue = "flash" }
+                or kit.note(ui, { id = "message", children = {
+                    ui.text { id = "words", width = wide - 16, icon = "ship", text = pilot.message, size = kit.SIZE.body,
+                        cue = "flash" },
+                } })
+            table.insert(stack, line(ui, "said", { { note, width } }))
         end
-    end
-    if goal ~= "" then
-        table.insert(stack, ui.text { id = "goal", look = kit.LOOK.goal, size = kit.SIZE.small,
-            width = not fits("WANTED  " .. goal, FRAME, wide) and wide or nil,
-            spans = { { text = "WANTED", look = kit.LOOK.kind }, "  " .. goal } })
     end
     local key = press ~= "" and press or hint(ctx)
     -- A hint with no key in it ("Fly slowly into a berth's glowing ring to dock") says how
@@ -109,26 +135,19 @@ local function bottom(ctx, ui, pilot)
         if lesson == "" then lesson = key end
         key = nil
     end
-    if lesson ~= "" then
-        table.insert(stack, ui.text { id = "lesson", look = kit.LOOK.lesson, size = kit.SIZE.small, text = lesson,
-            width = not fits(lesson, FRAME, wide) and wide or nil })
-    end
+    local wanted = goal ~= "" and { ui.text { id = "goal", look = kit.LOOK.goal, size = kit.SIZE.small,
+        spans = { { text = "WANTED", look = kit.LOOK.kind }, "  " .. goal } },
+        math.min(wide, span("WANTED  " .. goal, SMALL, GOAL)) } or nil
+    local taught = lesson ~= "" and { ui.text { id = "lesson", look = kit.LOOK.lesson, size = kit.SIZE.small, text = lesson },
+        math.min(wide, span(lesson, SMALL, PAD)) } or nil
+    pair(ui, "aside", stack, wanted, taught, ASIDE)
     -- The stations off screen and the way each lies: no arrows, but the way home is never
     -- lost in a reach several screens across.
-    local ways = pilot.bearings ~= "" and kit.label(ui, { id = "bearings", icon = "station", text = pilot.bearings,
-        size = kit.SIZE.small }) or nil
-    local keys = key and ui.text { id = "hints", look = kit.LOOK.pill, pad = 4, spans = kit.hint(key), size = kit.SIZE.small }
-        or nil
-    if ways and keys and fits(pilot.bearings .. key, FRAME + PILL + GAP, layout.BOTTOM) then
-        -- Side by side, each keeps the width of its words.
-        ways.width = math.ceil(#pilot.bearings * SMALL + FRAME)
-        ways.height = 28 -- as tall as the pill beside it
-        keys.width = math.ceil(#key * SMALL + PILL)
-        table.insert(stack, ui.row { id = "ways", gap = GAP, children = { ways, keys } })
-    else
-        if ways then table.insert(stack, ways) end
-        if keys then table.insert(stack, keys) end
-    end
+    local ways = pilot.bearings ~= "" and { kit.label(ui, { id = "bearings", icon = "station", text = pilot.bearings,
+        size = kit.SIZE.small }), span(pilot.bearings, SMALL, ICON) } or nil
+    local keys = key and { ui.text { id = "hints", look = kit.LOOK.pill, pad = 4, spans = kit.hint(key), size = kit.SIZE.small },
+        math.min(layout.BOTTOM, span(key, SMALL, PILL)) } or nil
+    pair(ui, "ways", stack, ways, keys, WAYS)
     return ui.column { id = "bottom", align = "bottom", y = layout.M, width = layout.BOTTOM, gap = GAP, children = stack }
 end
 

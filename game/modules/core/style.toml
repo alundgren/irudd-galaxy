@@ -1068,7 +1068,7 @@ text = "#ffffff"
 border = "#f2b43c"
 border_px = 1
 radius = 6
-pad = 8
+pad = 6
 
 # A lesson about the game: a paper card with an ink frame and black words, the one
 # light surface in flight.

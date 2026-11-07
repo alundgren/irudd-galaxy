@@ -4,8 +4,8 @@
 -- The corners hold the ship's own things, so the middle stays the work area: the
 -- status chip top right (CHIP wide), the log's book bottom left, the radio top left in
 -- flight (RADIO wide, one slim strip), and the message and flight keys at the bottom
--- centre: the message MESSAGE wide, in a stack BOTTOM wide, whose widest row (the
--- stations' bearings beside the key) still clears the log's book at 960x540. A room or
+-- centre: the message MESSAGE wide, in a stack BOTTOM wide that still clears the log's
+-- book, with its "1 new" tag, at 960x540 (its right edge is 155px in). A room or
 -- the open log is a panel against one side, at most PANEL wide (about 45% of the design
 -- width), on the side away from what it is about.
 -- Every room on a station (trading, office, site and the fitting cradle) is ROOM wide:
@@ -13,7 +13,7 @@
 -- The open log is LOG wide: the ship sits mid-window, 480px in at 960x540 (moored on
 -- its cradle, its tail reaches about 416px), so the log ends at 404px and the smallest
 -- window still shows the whole ship.
-local layout = { M = 24, PANEL = 520, ROOM = 430, LOG = 380, BUTTON = 62, CHIP = 300, RADIO = 420, MESSAGE = 464, BOTTOM = 540 }
+local layout = { M = 24, PANEL = 520, ROOM = 430, LOG = 380, BUTTON = 62, CHIP = 300, RADIO = 420, MESSAGE = 464, BOTTOM = 636 }
 
 -- One screen's widgets: each child places itself against the window's edges.
 function layout.frame(ui, id, children)
