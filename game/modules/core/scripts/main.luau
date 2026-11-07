@@ -245,8 +245,9 @@ local function mine(event, ctx)
 end
 
 -- A click's turn onto a rock in reach, one tick at a time (a recorded fact runs its
--- handler on the next tick): the nose comes round at the helm's turn rate and the beam
--- latches on once it is aimed. Anything that takes the helm (a key, an order, docking,
+-- handler on the next tick): the nose comes round at the helm's turn rate and settles on
+-- the rock's centre (rules.SETTLE, or the tick it swings past it), not at the edge of the
+-- aim, and the beam latches on there. Anything that takes the helm (a key, an order, docking,
 -- another click) clears `facing` and ends it.
 local function facing(event, ctx)
     local rock = event.payload.rock
@@ -263,15 +264,17 @@ local function facing(event, ctx)
         done(nil)
         return
     end
-    if cutter.can_cut(ctx, rock) then
-        done(nil)
-        hand_on(ctx, rock, true)
-        return
-    end
     local at = ctx.get("ship", "engine.position")
     local centre, radius = cutter.rock(ctx, rock)
     if rules.gap(at, centre, radius) > cutter.reach(ctx) then
         done("Too far to cut. The cutter reaches " .. cutter.reach(ctx) .. " units: fly closer.")
+        return
+    end
+    local turn = cutter.turn_toward(ctx, rock)
+    local was = ctx.get("ship", "engine.helm").turn
+    if cutter.can_cut(ctx, rock) and (rules.off_centre(at, centre) <= rules.SETTLE or (was ~= 0 and turn ~= was)) then
+        done(nil)
+        hand_on(ctx, rock, true)
         return
     end
     -- A whole turn takes two seconds on the bare hull; past three, something holds the nose.
@@ -279,7 +282,7 @@ local function facing(event, ctx)
         done("Point your nose at the rock to cut it: A or D turns.")
         return
     end
-    ctx.patch("ship", "engine.helm", { turn = cutter.turn_toward(ctx, rock) })
+    ctx.patch("ship", "engine.helm", { turn = turn })
     ctx.record("facing", { rock = rock, from = event.payload.from })
 end
 
@@ -326,7 +329,7 @@ local function cut(ctx, pilot)
         return
     end
     local ore = ctx.get(rock, "ore")
-    if not ore or ore.left <= 0 or not cutter.can_cut(ctx, rock, pilot.auto) then
+    if not ore or ore.left <= 0 or not cutter.holds(ctx, rock, pilot.auto) then
         local rig = cutter.has(ctx, cutter.RIG)
         cutter.off(ctx, rig and "The rock is out of the rig's reach." or "The beam slipped off the rock.")
         return

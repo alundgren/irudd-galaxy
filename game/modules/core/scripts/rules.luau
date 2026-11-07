@@ -14,6 +14,8 @@ local rules = {
     ROCK_RADIUS = 2.7,
     -- The nose must point within this many degrees of the rock's edge to cut it.
     AIM_SLACK = 12,
+    -- A click's turn onto a rock settles the nose within this many degrees of its centre.
+    SETTLE = 4,
     -- A berth's ring: a ship whose centre comes within this of the berth's, slower than
     -- RING_SPEED, is taken in by the station's clamps.
     RING = 3.5,
@@ -207,10 +209,17 @@ function rules.off_aim(at, rock, radius)
     local dx, dy = rock.x - at.x, rock.y - at.y
     local d = math.sqrt(dx * dx + dy * dy)
     if d <= radius then return 0 end
-    local cos = (dx * math.cos(at.angle or 0) + dy * math.sin(at.angle or 0)) / d
-    local off = math.deg(math.acos(math.clamp(cos, -1, 1)))
     local half = math.deg(math.asin(math.min(1, radius / d)))
-    return math.max(0, off - half)
+    return math.max(0, rules.off_centre(at, rock) - half)
+end
+
+-- How many degrees the nose of a ship at `at` is off the centre of a rock at `rock`.
+function rules.off_centre(at, rock)
+    local dx, dy = rock.x - at.x, rock.y - at.y
+    local d = math.sqrt(dx * dx + dy * dy)
+    if d <= 0 then return 0 end
+    local cos = (dx * math.cos(at.angle or 0) + dy * math.sin(at.angle or 0)) / d
+    return math.deg(math.acos(math.clamp(cos, -1, 1)))
 end
 
 -- Whether a ship at `at` can cut a rock at `rock`: within `reach` of its surface and,
