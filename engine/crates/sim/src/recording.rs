@@ -326,8 +326,9 @@ pub struct Replay<'a> {
     inputs: BTreeMap<u64, Vec<Input>>,
     // Keep file snapshots and edits in acceptance order. A style snapshot can contain
     // code from an earlier world reload whose recorded tick is one greater than its own,
-    // and an edit made after a reload needs the reloaded modules.
-    loads: VecDeque<&'a RecEvent>,
+    // and an edit made after a reload needs the reloaded modules. The flag marks an edit
+    // made after a note on its tick, which waits until readers have seen that note.
+    loads: VecDeque<(&'a RecEvent, bool)>,
     /// The last step replaced module assets, including presentation-only styles.
     pub modules_changed: bool,
 }
@@ -343,14 +344,16 @@ impl<'a> Replay<'a> {
         let session = Session::resume(modules, rec.start.clone())?;
         let mut inputs: BTreeMap<u64, Vec<Input>> = BTreeMap::new();
         let mut loads = VecDeque::new();
+        let mut noted = std::collections::BTreeSet::new();
         for event in &rec.events {
             match event {
                 RecEvent::Input(input) => inputs.entry(input.tick).or_default().push(input.clone()),
-                RecEvent::HotLoad { .. } | RecEvent::Edit { .. } => loads.push_back(event),
-                RecEvent::Note { .. }
-                | RecEvent::Zoom { .. }
-                | RecEvent::Presentation { .. }
-                | RecEvent::UiSound(_) => {}
+                RecEvent::HotLoad { .. } => loads.push_back((event, false)),
+                RecEvent::Edit { tick, .. } => loads.push_back((event, noted.contains(tick))),
+                RecEvent::Note { tick, .. } => {
+                    noted.insert(*tick);
+                }
+                RecEvent::Zoom { .. } | RecEvent::Presentation { .. } | RecEvent::UiSound(_) => {}
             }
         }
         let mut replay = Replay {
@@ -405,9 +408,11 @@ impl<'a> Replay<'a> {
 
     /// Applies the hot-loads and edits now due, in the order they were made: a world
     /// hot-load just before its tick runs, a style load and an edit once their tick has
-    /// run. One not yet due holds back those made after it.
+    /// run. An edit made after a note on its tick waits until the next step (or
+    /// [`Replay::finish`]), so readers checking that tick's notes see the world the note
+    /// saw. One not yet due holds back those made after it.
     fn apply_loads(&mut self, before_step: bool) -> Result<(), String> {
-        while let Some(event) = self.loads.front().copied() {
+        while let Some((event, after_note)) = self.loads.front().copied() {
             match event {
                 RecEvent::HotLoad {
                     tick,
@@ -436,7 +441,8 @@ impl<'a> Replay<'a> {
                     source,
                     edits,
                 } => {
-                    if *tick > self.session.world.tick {
+                    let held = after_note && !before_step && *tick == self.session.world.tick;
+                    if *tick > self.session.world.tick || held {
                         break;
                     }
                     self.session

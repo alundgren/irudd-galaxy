@@ -63,7 +63,7 @@ pub(crate) fn run(
             }
         )));
     }
-    if !matches!(what, "load" | "input" | "edit") && !positional.is_empty() {
+    if !matches!(what, "load" | "input" | "edit" | "debug") && !positional.is_empty() {
         return Err(usage(format!(
             "live {what} takes options only, not `{}`",
             positional.join(" ")

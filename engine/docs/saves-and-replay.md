@@ -138,8 +138,9 @@ inputs in `inputs_via`, and live `history` says `input from keyboard via live`.
 
 `galaxy sim replay <recording>` builds the modules from the recorded files (never the
 module folders), starts from the recorded world, applies each input, hot-load and edit on
-its tick (hot-loads and edits in the order they were made), and compares the end hash
-with the recorded one. A world hot-load made after the last
+its tick (hot-loads and edits in the order they were made; an edit made after a note on
+its tick comes after that note is checked), and compares the end hash with the recorded
+one. A world hot-load made after the last
 tick ran (recorded for the tick that never came, as when the recording is written right
 after a load or the window closes before the next tick) is applied at the end, since the
 recorded end already holds it: after a note on the last tick (taken before the load), and

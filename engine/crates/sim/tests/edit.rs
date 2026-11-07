@@ -475,6 +475,12 @@ fn a_walk_is_moved_with_place_and_a_dangling_reference_is_refused() {
         ),
         // Its spots and doors would name a place that is gone: what resume checks.
         ("remove places.room_b", "nothing changed"),
+        // A located thing that is no being: removing its location would drop it onto the
+        // shared plane with no move.
+        (
+            "remove places.probe_a engine.location",
+            "`engine.location` is kept by the engine",
+        ),
     ] {
         let e = s.edit("test", &[edit(line)]).unwrap_err();
         assert!(e.contains(says), "{line}: {e}");
@@ -562,4 +568,30 @@ impl CloneAs for Input {
             ..self.clone()
         }
     }
+}
+
+#[test]
+fn a_note_taken_before_an_edit_on_its_tick_replays_to_the_world_it_saw() {
+    let mut s = Session::new(purse(), 1).unwrap();
+    s.start_recording(BuildStamp::current());
+    s.step(&[]).unwrap();
+    let seen = s.world.hash();
+    s.note("before live edit", None, None);
+    s.edit("live", &[edit("set purse.buyer purse.wallet coins=5")])
+        .unwrap();
+    s.step(&[]).unwrap();
+    let edited = s.world.hash();
+    s.edit("live", &[edit("set purse.buyer purse.wallet coins=6")])
+        .unwrap();
+    s.note("after another", None, None);
+    let rec = s.recording().unwrap();
+    let (again, report) = replay(&rec).unwrap();
+    assert!(report.identical, "{report:?}");
+    assert_eq!(again.world, s.world);
+    assert_eq!(report.notes.len(), 2);
+    assert_eq!(report.notes[0].hash, seen);
+    // A note after an edit on its tick sees it; one on the last tick is checked before
+    // what follows it, and the end still has it.
+    assert_ne!(report.notes[1].hash, edited);
+    assert_eq!(report.notes[1].hash, s.world.hash());
 }

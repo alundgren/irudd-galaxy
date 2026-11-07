@@ -391,8 +391,9 @@ pub fn refuse_kept(entity: &str, action: &Action, world: &World) -> Result<(), S
     let has = world.component(entity, component).is_some();
     if owned.is_empty() {
         return match (put, fields) {
+            // A thing with none may be given one; once it has one, it is the engine's,
+            // removal included (a whole thing with it can still be removed).
             (true, _) if *new_ok && !has => Ok(()),
-            (_, None) if *new_ok => Ok(()),
             _ => refuse(format!("`{component}`"), how),
         };
     }

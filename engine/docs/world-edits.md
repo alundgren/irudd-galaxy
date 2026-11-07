@@ -126,7 +126,7 @@ and an edit may not write them; the refusal says what to use instead (`KEPT` in
 |---|---|---|
 | `engine.walk` | all of it | an input or a debug event starts a walk; `place` teleports |
 | `engine.travel` | all of it | an input or a debug event goes through a door; `place` teleports |
-| `engine.location` | all of it, once a thing has one | `place`, which moves the position, location and any walk together |
+| `engine.location` | all of it, removal included, once a thing has one | `place`, which moves the position, location and any walk together |
 | `engine.talk` | `current`, `seen`, `active` | an input or a debug event starts or answers a talk; the other fields can be set |
 | `engine.life` | `current`, `phase`, `start_tick` and the saved pose fields | change the acts or advance the clock |
 
@@ -168,7 +168,9 @@ after an edit is marked with no new field, and an unedited world's hash is uncha
 replay (and so audit, film, look, what-if and the recording views) keeps edits and
 hot-loads in one queue in the order they were made, and makes each edit through the same
 `Session::edit` once its tick has run, so the world, its facts and its hash come back the
-same. A recording written right after a live edit replays to it. Recordings and saves
+same. An edit made after an F8 note on its tick waits until readers have checked that
+note, so an audit sees the world the note saw. A recording written right after a live
+edit replays to it. Recordings and saves
 without edits read, replay and hash exactly as before; the recording and save format
 numbers are unchanged.
 
