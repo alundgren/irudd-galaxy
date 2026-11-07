@@ -61,6 +61,43 @@ struct Plan<'a> {
     kept: Vec<(u64, String, usize)>,
 }
 
+/// Checks each note in `inside` (tick order) on the replayed world at the moment it was
+/// taken. A film drawn by another build (`frames`: each frame's tick and hash) is also held
+/// to its frame on the note's tick where that frame shows the note's world: a frame shows
+/// the world its tick ended on, which the tick's first note saw, except on the recording's
+/// last tick, where the film draws the end (held to the recorded end instead).
+fn check_notes(
+    rec: &Recording,
+    inside: &[&(u64, String, usize)],
+    frames: Option<&[(u64, String)]>,
+) -> Result<Vec<Value>, Failure> {
+    let mut checked = Vec::new();
+    if inside.is_empty() {
+        return Ok(checked);
+    }
+    let mut replay = Replay::new(rec)
+        .map_err(|e| Failure::bad_input(format!("the recording can't run on this engine: {e}")))?;
+    let mut first_at = None;
+    for (tick, hash, number) in inside.iter().copied() {
+        while replay.session.world.tick < *tick {
+            if !replay.step().map_err(Failure::runtime)? {
+                break;
+            }
+        }
+        replay.at_note(*number).map_err(Failure::runtime)?;
+        let mut identical = replay.session.world.hash() == *hash;
+        let first = first_at.replace(*tick) != Some(*tick);
+        if first
+            && *tick < rec.end.tick
+            && let Some((_, frame)) = frames.into_iter().flatten().find(|(t, _)| t == tick)
+        {
+            identical &= frame == hash;
+        }
+        checked.push(json!({ "tick": tick, "identical": identical }));
+    }
+    Ok(checked)
+}
+
 pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
     opts.only("film", FILM_OPTIONS).map_err(Failure::usage)?;
     let rec = Recording::read(path)
@@ -315,30 +352,19 @@ fn film_with(plan: &Plan, drawer: &Drawer, out: &Path) -> Result<(Value, bool), 
         .filter(|(tick, _, _)| (plan.from..=plan.to).contains(tick))
         .collect();
     inside.sort_by_key(|(tick, _, number)| (*tick, *number));
-    let mut checked = Vec::new();
-    if !inside.is_empty() {
-        let mut replay = Replay::new(plan.rec)
-            .map_err(|e| bad(format!("the recording can't run on this engine: {e}")))?;
-        let mut first_at = None;
-        for (tick, hash, number) in inside {
-            while replay.session.world.tick < *tick {
-                if !replay.step().map_err(Failure::runtime)? {
-                    break;
-                }
-            }
-            replay.at_note(*number).map_err(Failure::runtime)?;
-            let mut identical = replay.session.world.hash() == *hash;
-            // A frame shows the world its tick ended on, which the tick's first note saw.
-            let first = first_at.replace(*tick) != Some(*tick);
-            if first
-                && matches!(drawer, Drawer::Other(_))
-                && let Some(f) = manifest.frames.iter().find(|f| f.tick == *tick)
-            {
-                identical &= f.hash == *hash;
-            }
-            checked.push(json!({ "tick": tick, "identical": identical }));
-        }
-    }
+    let frames: Option<Vec<(u64, String)>> = matches!(drawer, Drawer::Other(_)).then(|| {
+        manifest
+            .frames
+            .iter()
+            .map(|f| (f.tick, f.hash.clone()))
+            .collect()
+    });
+    let checked =
+        check_notes(plan.rec, &inside, frames.as_deref()).map_err(|f| match f.kind.as_ref() {
+            // As before: a recording this engine can't run names its path.
+            "bad_input" => f.with("path", plan.path.display().to_string()),
+            _ => f,
+        })?;
     // A film to the recording's last tick ends on the world the recording ended on.
     let end = (last.tick == plan.rec.end.tick)
         .then(|| json!({ "tick": last.tick, "identical": last.hash == plan.rec.end.hash }));
@@ -704,4 +730,86 @@ pub fn show(dir: &Path, opts: &Opts) -> Result<Output, Failure> {
         out["more_changes"] = json!(m.changes.len() - 20);
     }
     Ok(Output::Json(out))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use galaxy_sim::BuildStamp;
+    use galaxy_sim::edit::Edit;
+
+    /// `note; edit; note` on tick 1, the recording ending there or a tick later, and the
+    /// frames a film drawn by another build would hold: each tick's world as the film draws
+    /// it (the end, on the recording's last tick).
+    fn notes_around_an_edit(more: bool) -> (Recording, Vec<(u64, String)>) {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/edits/purse");
+        let mut s = Session::new(vec![Module::read(&dir).unwrap()], 1).unwrap();
+        s.start_recording(BuildStamp::current());
+        s.step(&[]).unwrap();
+        let first_note = s.world.hash();
+        s.note("before live edit", None, None);
+        s.edit(
+            "inputs",
+            &[Edit::parse_text("set purse.buyer purse.wallet coins=5").unwrap()],
+        )
+        .unwrap();
+        s.note("after live edit", None, None);
+        let mut frames = vec![(0, s.recording().unwrap().start.hash())];
+        if more {
+            frames.push((1, first_note));
+            s.step(&[]).unwrap();
+        }
+        frames.push((s.world.tick, s.world.hash()));
+        (s.recording().unwrap(), frames)
+    }
+
+    fn kept(rec: &Recording) -> Vec<(u64, String, usize)> {
+        rec.events
+            .iter()
+            .filter(|e| matches!(e, RecEvent::Note { .. }))
+            .enumerate()
+            .filter_map(|(i, e)| match e {
+                RecEvent::Note {
+                    tick,
+                    hash: Some(h),
+                    ..
+                } => Some((*tick, h.clone(), i + 1)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_film_by_another_build_checks_notes_either_side_of_an_edit_on_the_last_tick() {
+        let (rec, frames) = notes_around_an_edit(false);
+        assert_eq!(rec.end.tick, 1);
+        let kept = kept(&rec);
+        let inside: Vec<_> = kept.iter().collect();
+        let checked = check_notes(&rec, &inside, Some(&frames)).unwrap();
+        assert_eq!(checked.len(), 2);
+        assert!(
+            checked.iter().all(|c| c["identical"] == true),
+            "{checked:?}"
+        );
+        // The end frame is the recording's end, which the film checks on its own.
+        assert_eq!(frames.last().unwrap().1, rec.end.hash);
+    }
+
+    #[test]
+    fn a_film_by_another_build_checks_notes_either_side_of_an_edit_a_tick_before_the_end() {
+        let (rec, mut frames) = notes_around_an_edit(true);
+        assert_eq!(rec.end.tick, 2);
+        let kept = kept(&rec);
+        let inside: Vec<_> = kept.iter().collect();
+        let checked = check_notes(&rec, &inside, Some(&frames)).unwrap();
+        assert!(
+            checked.iter().all(|c| c["identical"] == true),
+            "{checked:?}"
+        );
+        // A frame that doesn't show the world the tick's first note saw is still caught.
+        frames[1].1 = rec.end.hash.clone();
+        let checked = check_notes(&rec, &inside, Some(&frames)).unwrap();
+        assert_eq!(checked[0]["identical"], false);
+        assert_eq!(checked[1]["identical"], true);
+    }
 }
