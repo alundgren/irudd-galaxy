@@ -89,7 +89,8 @@ A recording is one JSON file that holds everything needed to run a session again
   launcher runs exactly that build for `galaxy sim replay` and `galaxy-gm audit`;
 - `modules`: the exact files of every module at the start;
 - `seed` and `start`: the whole world the session started from;
-- `events`, in order: inputs (`tick`, `source`, `name`, `payload`), hot-loads (`tick`,
+- `events`, in order: inputs (`tick`, `source`, `name`, `payload`, and `via` for one that
+  did not come from the window itself), hot-loads (`tick`,
   `module` and its exact new files), notes (`tick`, `text`, the world's `hash` then, and
   from a played session the `camera`, a moment, and the `frame` file that was seen) and
   zooms (`tick`, and the `view` height the wheel left; one a tick), widget presentation
@@ -123,7 +124,12 @@ within two seconds of each other).
 
 An input is anything from outside the sim: a key, a click, a scenario step. Its `name` is
 a declared event kind and its `source` says where it came from, so flight controls and
-widget clicks fit the same shape later.
+widget clicks fit the same shape later. An input `galaxy-gm live input` sent
+(`live-socket.md`) also carries `via: "live"`: it went through the same path as the
+window's own key or click, so its `source`, its event and the world are those the window
+would have made, and only `via` tells it apart. `via` is kept beside the world, never in
+it or its hash; the `inputs` view prints `keyboard via live`, `summary` counts such
+inputs in `inputs_via`, and live `history` says `input from keyboard via live`.
 
 ## Replay
 

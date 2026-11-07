@@ -1,256 +1,788 @@
-# The fitting loop by real clicks and drags at the design size: the cradle on a new
-# game (three parts on the rack, priced), a part picked up that can't be paid for, the
-# lens bought and fitted after the first sale, the thrusters refused for power while
-# still held, Orrin's talk beside the panel, mining at two a second, hold pods fitted
-# over the free mass, and the pods refused coming off while the bigger hold is full.
+# The fitting loop by real clicks and drags at the design size: ore runs until the lens
+# is one hold away, then the cradle (three parts on the rack, priced), a part picked up
+# that can't be paid for, the lens bought and fitted with the next sale, the thrusters
+# refused for power while still held, Orrin's talk beside the panel, mining at two a
+# second, more ore runs until the pods are paid for, hold pods fitted over the free
+# mass, and the pods refused coming off while the bigger hold is full.
 # At the exchange with a full hold, a click on the resting Buy 1 buys nothing.
 # Rooms glide open, so a click after opening or leaving one waits for the glide.
 
 # The flights between are scripted Mine and Dock orders, which fly themselves;
 # hand-mining.inputs flies them by hand.
+# Ore runs at Cinder Kiln until one hold more pays for the lens.
 [[input]]
-tick = 1
+tick = 10
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 856
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 1466
+name = "core.open"
+
+[[input]]
+tick = 1471
+name = "core.sell"
+
+[[input]]
+tick = 1481
+name = "core.launch"
+
+[[input]]
+tick = 1491
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 2386
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 2833
+name = "core.open"
+
+[[input]]
+tick = 2838
+name = "core.sell"
+
+[[input]]
+tick = 2848
+name = "core.launch"
+
+[[input]]
+tick = 2858
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 3946
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 4461
+name = "core.open"
+
+[[input]]
+tick = 4466
+name = "core.sell"
+
+[[input]]
+tick = 4476
+name = "core.launch"
+
+[[input]]
+tick = 4486
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 5686
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 6253
+name = "core.open"
+
+[[input]]
+tick = 6258
+name = "core.sell"
+
+[[input]]
+tick = 6268
+name = "core.launch"
+
+[[input]]
+tick = 6278
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 7486
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 8052
+name = "core.open"
+
+[[input]]
+tick = 8057
+name = "core.sell"
+
+[[input]]
+tick = 8067
+name = "core.launch"
+
+[[input]]
+tick = 8077
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 9436
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 10003
+name = "core.open"
+
+[[input]]
+tick = 10008
+name = "core.sell"
+
+[[input]]
+tick = 10018
+name = "core.launch"
+
+[[input]]
+tick = 10028
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 11206
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 11773
+name = "core.open"
+
+[[input]]
+tick = 11778
+name = "core.sell"
+
+[[input]]
+tick = 11788
+name = "core.launch"
+
+[[input]]
+tick = 11798
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 13006
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 13572
+name = "core.open"
+
+[[input]]
+tick = 13577
+name = "core.sell"
+
+[[input]]
+tick = 13587
+name = "core.launch"
+
+[[input]]
+tick = 13597
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 14806
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 15373
+name = "core.open"
+
+[[input]]
+tick = 15378
+name = "core.sell"
+
+[[input]]
+tick = 15388
+name = "core.launch"
+
+[[input]]
+tick = 15398
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 16636
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 17203
+name = "core.open"
+
+[[input]]
+tick = 17208
+name = "core.sell"
+
+[[input]]
+tick = 17218
+name = "core.launch"
+# The route goes on.
+[[input]]
+tick = 17229
 name = "core.ahead"
 payload = { down = true }
 
 [[input]]
-tick = 11
+tick = 17239
 name = "core.ahead"
 payload = { down = false }
 
 [[input]]
-tick = 60
+tick = 17288
 name = "core.mine"
 
 [[input]]
-tick = 330
+tick = 18540
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 480
+tick = 19152
 widget = "sign_cradle"
 
 [[note]]
-tick = 530
-text = "First visit to the cradle with 0 cr: three parts on the rack with prices and numbers."
+tick = 19202
+text = "First visit to the cradle with 2879 cr, short of the lens: three parts on the rack with prices and numbers."
 
 [[pointer]]
-tick = 540
+tick = 19212
 action = "pickup"
 widget = "part_lens"
 
 [[pointer]]
-tick = 545
+tick = 19217
 action = "move"
 widget = "socket_drill"
 
 [[note]]
-tick = 550
-text = "Holding the lens with 0 cr: every socket says now why it can't go there."
+tick = 19222
+text = "Holding the lens with 2879 cr: every socket says now why it can't go there."
 
 [[pointer]]
-tick = 560
+tick = 19232
 action = "drop"
 widget = "socket_drill"
 
 [[click]]
-tick = 590
+tick = 19262
 widget = "close"
 
 [[click]]
-tick = 630
+tick = 19302
 widget = "sign_exchange"
 
 [[note]]
-tick = 655
+tick = 19327
 text = "Kiln exchange with a full hold: Buy 1 rests in place, with its reason beside it."
 
 [[click]]
-tick = 665
+tick = 19337
 widget = "buy1_plate"
 
 [[click]]
-tick = 672
+tick = 19344
 widget = "sell_ore"
 
 [[click]]
-tick = 690
+tick = 19362
 widget = "close"
 
 [[click]]
-tick = 730
+tick = 19402
 widget = "sign_cradle"
 
 [[pointer]]
-tick = 780
+tick = 19452
 action = "pickup"
 widget = "part_lens"
 
 [[pointer]]
-tick = 785
+tick = 19457
 action = "move"
 widget = "socket_drill"
 
 [[note]]
-tick = 790
-text = "Holding the lens with 97 cr: the drill mount says Drop here; the others say where it goes."
+tick = 19462
+text = "Holding the lens with 3143 cr: the drill mount says Drop here; the others say where it goes."
 
 [[pointer]]
-tick = 800
+tick = 19472
 action = "drop"
 widget = "socket_drill"
 
 [[note]]
-tick = 830
+tick = 19502
 text = "Lens fitted: one receipt under the title, power 2 of 3, the ship mines 2 a second."
 
 [[pointer]]
-tick = 840
+tick = 19512
 action = "pickup"
 widget = "part_thrusters"
 
 [[pointer]]
-tick = 845
+tick = 19517
 action = "move"
 widget = "socket_engine"
 
 [[note]]
-tick = 850
+tick = 19522
 text = "Holding the thrusters: the engine socket says they need 2 power and 1 is free."
 
 [[pointer]]
-tick = 860
+tick = 19532
 action = "drop"
 widget = "socket_engine"
 
 [[click]]
-tick = 890
+tick = 19562
 widget = "speaker.core.kiln_fitter"
 
 [[note]]
-tick = 900
+tick = 19572
 text = "Orrin introduces himself; his bubble stays beside him, clear of the panel."
 
 [[click]]
-tick = 910
+tick = 19582
 widget = "talk.core.kiln_fitter_intro"
 
 [[click]]
-tick = 925
+tick = 19597
 widget = "talk.core.kiln_fitter_intro"
 
 [[click]]
-tick = 940
+tick = 19612
 widget = "talk.core.kiln_fitter_intro"
 
 [[click]]
-tick = 960
+tick = 19632
 widget = "speaker.core.kiln_fitter"
 
 [[note]]
-tick = 970
+tick = 19642
 text = "Orrin's line after the fit is flavour, not the receipt again."
 
 [[click]]
-tick = 980
+tick = 19652
 widget = "talk.core.kiln_fitter_talk"
 
 [[click]]
-tick = 1000
+tick = 19672
 widget = "close"
 
 [[click]]
-tick = 1040
+tick = 40417
 widget = "launch"
 
+# Ore runs until one hold more pays for the pods.
 [[input]]
-tick = 1080
+tick = 19722
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 21061
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 21973
+name = "core.open"
+
+[[input]]
+tick = 21978
+name = "core.sell"
+
+[[input]]
+tick = 21988
+name = "core.launch"
+
+[[input]]
+tick = 21998
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 22936
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 23503
+name = "core.open"
+
+[[input]]
+tick = 23508
+name = "core.sell"
+
+[[input]]
+tick = 23518
+name = "core.launch"
+
+[[input]]
+tick = 23528
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 24436
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 25002
+name = "core.open"
+
+[[input]]
+tick = 25007
+name = "core.sell"
+
+[[input]]
+tick = 25017
+name = "core.launch"
+
+[[input]]
+tick = 25027
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 25966
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 26533
+name = "core.open"
+
+[[input]]
+tick = 26538
+name = "core.sell"
+
+[[input]]
+tick = 26548
+name = "core.launch"
+
+[[input]]
+tick = 26558
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 27496
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 28063
+name = "core.open"
+
+[[input]]
+tick = 28068
+name = "core.sell"
+
+[[input]]
+tick = 28078
+name = "core.launch"
+
+[[input]]
+tick = 28088
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 29026
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 29592
+name = "core.open"
+
+[[input]]
+tick = 29597
+name = "core.sell"
+
+[[input]]
+tick = 29607
+name = "core.launch"
+
+[[input]]
+tick = 29617
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 30586
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 31153
+name = "core.open"
+
+[[input]]
+tick = 31158
+name = "core.sell"
+
+[[input]]
+tick = 31168
+name = "core.launch"
+
+[[input]]
+tick = 31178
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 32086
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 32652
+name = "core.open"
+
+[[input]]
+tick = 32657
+name = "core.sell"
+
+[[input]]
+tick = 32667
+name = "core.launch"
+
+[[input]]
+tick = 32677
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 33706
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 34273
+name = "core.open"
+
+[[input]]
+tick = 34278
+name = "core.sell"
+
+[[input]]
+tick = 34288
+name = "core.launch"
+
+[[input]]
+tick = 34298
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 35236
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 35802
+name = "core.open"
+
+[[input]]
+tick = 35807
+name = "core.sell"
+
+[[input]]
+tick = 35817
+name = "core.launch"
+
+[[input]]
+tick = 35827
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 36736
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 37303
+name = "core.open"
+
+[[input]]
+tick = 37308
+name = "core.sell"
+
+[[input]]
+tick = 37318
+name = "core.launch"
+
+[[input]]
+tick = 37328
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 38296
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 38863
+name = "core.open"
+
+[[input]]
+tick = 38868
+name = "core.sell"
+
+[[input]]
+tick = 38878
+name = "core.launch"
+
+[[input]]
+tick = 38888
+name = "core.mine"
+source = "script"
+
+[[input]]
+tick = 39826
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 40392
+name = "core.open"
+
+[[input]]
+tick = 40397
+name = "core.sell"
+
+[[input]]
+tick = 40407
+name = "core.launch"
+# The route goes on.
+[[input]]
+tick = 40457
 name = "core.mine"
 
 [[note]]
-tick = 1230
+tick = 41400
 text = "Mining with the lens: two ore a second."
 
 [[input]]
-tick = 1320
+tick = 41490
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 1470
+tick = 42116
 widget = "sign_exchange"
 
 [[click]]
-tick = 1510
+tick = 42156
 widget = "sell_ore"
 
 [[click]]
-tick = 1530
+tick = 42176
 widget = "close"
 
 [[click]]
-tick = 1570
+tick = 42216
 widget = "sign_cradle"
 
 [[pointer]]
-tick = 1620
+tick = 42266
 action = "pickup"
 widget = "part_pods"
 
 [[pointer]]
-tick = 1640
+tick = 42286
 action = "drop"
 widget = "socket_hold"
 
 [[note]]
-tick = 1670
-text = "Pods fitted: mass 4 of 3 free, 1 over: 10% slower, turns 10% wider; hold 9."
+tick = 42316
+text = "Pods fitted: mass 4 of 3 free, 1 over: 10% slower, turns 10% wider; hold 36."
 
 [[click]]
-tick = 1690
+tick = 42336
 widget = "close"
 
 [[click]]
-tick = 1730
+tick = 42376
 widget = "launch"
 
 [[input]]
-tick = 1770
+tick = 42416
 name = "core.mine"
 
 [[note]]
-tick = 1900
+tick = 42970
 text = "In flight with the pods: the hull carries them, a little slower."
 
 [[input]]
-tick = 2060
+tick = 43880
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 2230
+tick = 44584
 widget = "sign_cradle"
 
 [[pointer]]
-tick = 2280
+tick = 44634
 action = "pickup"
 widget = "part_pods"
 
 [[pointer]]
-tick = 2285
+tick = 44639
 action = "move"
 widget = "on_ship_drill"
 
 [[note]]
-tick = 2290
-text = "Holding the pods with 9 aboard: the tray says it can't take them off before I let go."
+tick = 44644
+text = "Holding the pods with 36 aboard: the tray says it can't take them off before I let go."
 
 [[pointer]]
-tick = 2300
+tick = 44654
 action = "drop"
 widget = "on_ship_drill"
 
 [[note]]
-tick = 2330
+tick = 44684
 text = "Let go on the tray: the pods went back to their socket; nothing changed."

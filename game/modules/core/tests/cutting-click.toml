@@ -1,0 +1,201 @@
+# Cutting takes judgment by clicks alone (rules.HEAT), with no key pressed: parked as in
+# cutting.toml between the south-east seam (rock5) and its spall (rock10), facing the
+# spall. A click on the seam, in reach but off the nose, turns her onto it where she sits
+# (the helm's own turn rate, no flying) until the nose settles on its centre, not at the
+# edge of the aim (rules.SETTLE), and the beam latches on there. Once the seam has glazed,
+# a click on the spall moves the beam there the same way, and a click back on the seam
+# finishes the hold, 18 seconds from the first click. The ship never moves off her spot.
+seed = 7
+ticks = 730
+
+[[input]]
+tick = 1
+name = "core.mine"
+payload = { rock = "core.rock10" }
+[[input]]
+tick = 146
+name = "core.cancel"
+payload = { down = true }
+[[input]]
+tick = 180
+name = "core.mine"
+source = "ui"
+payload = { rock = "core.rock5" }
+[[input]]
+tick = 365
+name = "core.mine"
+source = "ui"
+payload = { rock = "core.rock10" }
+[[input]]
+tick = 550
+name = "core.mine"
+source = "ui"
+payload = { rock = "core.rock5" }
+[[expect]]
+tick = 181
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Turning onto the rock."
+[[expect]]
+tick = 181
+entity = "ship"
+component = "pilot"
+field = "facing"
+equals = "core.rock5"
+[[expect]]
+tick = 181
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+[[expect]]
+tick = 197
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 197
+entity = "ship"
+component = "pilot"
+field = "target"
+equals = "core.rock5"
+[[expect]]
+tick = 197
+entity = "ship"
+component = "pilot"
+field = "latched"
+equals = true
+[[expect]]
+tick = 197
+entity = "ship"
+component = "engine.helm"
+field = "turn"
+equals = 0.0
+[[expect]]
+tick = 364
+entity = "rock5"
+component = "engine.model"
+field = "look"
+equals = "core.rock_glazed"
+[[expect]]
+tick = 366
+entity = "ship"
+component = "pilot"
+field = "facing"
+equals = "core.rock10"
+[[expect]]
+tick = 383
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 383
+entity = "ship"
+component = "pilot"
+field = "target"
+equals = "core.rock10"
+[[expect]]
+tick = 383
+entity = "ship"
+component = "taught"
+field = "swap"
+equals = 1
+[[expect]]
+tick = 567
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 567
+entity = "ship"
+component = "pilot"
+field = "target"
+equals = "core.rock5"
+[[expect]]
+tick = 718
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 23
+[[expect]]
+tick = 722
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 24
+[[expect]]
+tick = 383
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = 72.9
+[[expect]]
+tick = 383
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = 73.25
+[[expect]]
+tick = 383
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = -32.7
+[[expect]]
+tick = 383
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_most = -32.4
+[[expect]]
+tick = 567
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = 72.9
+[[expect]]
+tick = 567
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = 73.25
+[[expect]]
+tick = 567
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = -32.7
+[[expect]]
+tick = 567
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_most = -32.4
+[[expect]]
+tick = 722
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = 72.9
+[[expect]]
+tick = 722
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = 73.25
+[[expect]]
+tick = 722
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = -32.7
+[[expect]]
+tick = 722
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_most = -32.4

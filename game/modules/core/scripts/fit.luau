@@ -12,7 +12,8 @@ local fit = {
     FREE_MASS = 3, -- mass the hull carries with no cost
     SLOW = 0.1, -- top speed and turn rate lost for each unit of mass over
     FLOOR = 0.5, -- never slower than this share
-    HOLD = 6, -- the bare hull's hold
+    HOLD = 24, -- the bare hull's hold
+    OLD_HOLD = 6, -- the bare hull's hold in a save from before the opening hour's retune
     MINE = 1, -- ore a second the bare hull's beam cuts
     SPEED = 20, -- the bare hull's top speed, world units a second, in the locked flight
     OLD_SPEED = 12, -- the bare hull's top speed in a save from before the locked flight
@@ -34,9 +35,10 @@ end
 
 -- What the hull and its fitted parts add up to. `without` leaves one fitted part out,
 -- and `with` adds one that isn't fitted, to ask what a change would make. `hull` is the
--- bare hull's top speed (fit.hull_speed); fit.SPEED when left out.
-function fit.totals(parts, without, with, hull)
-    local t = { power = 0, mass = 0, hold = fit.HOLD, mine = fit.MINE, speed = hull or fit.SPEED }
+-- bare hull's top speed (fit.hull_speed) and `hull_hold` its hold (fit.hull_hold);
+-- fit.SPEED and fit.HOLD when left out.
+function fit.totals(parts, without, with, hull, hull_hold)
+    local t = { power = 0, mass = 0, hold = hull_hold or fit.HOLD, mine = fit.MINE, speed = hull or fit.SPEED }
     for _, p in parts do
         local on = (p.fitted and p.id ~= without) or p.id == with
         if on then
@@ -57,12 +59,15 @@ end
 -- Why `p` can't be dropped on `target` (a socket ID, or "locker" to take it off), or ""
 -- when it can. Every rule answers here, so the room shows each refusal while the part
 -- is still being dragged, before it is let go. `load` is the cargo aboard.
-function fit.verdict(p, target, parts, credits, load)
+-- `hull_hold` is the bare hull's hold (fit.totals). A part with `holds` is one the fitter
+-- fits only once the pilot has cut that many full holds (`brought`: holds filled by the
+-- beam, the work itself); it says so before it says what it costs.
+function fit.verdict(p, target, parts, credits, load, hull_hold)
     if target == "locker" then
         if not p.fitted then return "it isn't fitted" end
         -- A control in the rack (socket "rack") is never taken away once bought.
         if p.socket == "rack" then return "controls never come off" end
-        local after = fit.totals(parts, p.id, nil)
+        local after = fit.totals(parts, p.id, nil, nil, hull_hold)
         if load > after.hold then return "you carry " .. load .. "; the hold would take " .. after.hold end
         return ""
     end
@@ -71,6 +76,9 @@ function fit.verdict(p, target, parts, credits, load)
     -- Power first: without it the part couldn't go on even once paid for.
     local free = fit.POWER - fit.totals(parts).power
     if p.power > free then return "it needs " .. p.power .. " power; " .. free .. " is free" end
+    if not p.owned and (p.holds or 0) > (p.brought or 0) then
+        return "Orrin: \"Bring in " .. p.holds .. " full holds and I'll fit it.\" You've brought " .. (p.brought or 0)
+    end
     if not p.owned and credits < p.price then return "it costs " .. p.price .. " cr; you have " .. credits end
     return ""
 end
@@ -79,9 +87,9 @@ end
 -- happens, one change each: what it costs, then each number that moves, from what it
 -- is to what it would be. Each is { text, good }: good is true when that is better,
 -- false when worse, nil for the cost and the power left free. `hull` as in fit.totals.
-function fit.change_list(p, parts, hull)
-    local before = fit.totals(parts, nil, nil, hull)
-    local after = p.fitted and fit.totals(parts, p.id, nil, hull) or fit.totals(parts, nil, p.id, hull)
+function fit.change_list(p, parts, hull, hull_hold)
+    local before = fit.totals(parts, nil, nil, hull, hull_hold)
+    local after = p.fitted and fit.totals(parts, p.id, nil, hull, hull_hold) or fit.totals(parts, nil, p.id, hull, hull_hold)
     local list = {}
     if not p.fitted then table.insert(list, { text = p.owned and "from your locker, free" or p.price .. " cr" }) end
     local function moved(name, a, b, unit)
@@ -159,6 +167,14 @@ end
 function fit.hull_speed(ctx)
     local f = ctx.get("ship", "fit")
     return f and f.hull_speed or fit.SPEED
+end
+
+-- The bare hull's hold this ship was built with: fit.HOLD in a new game. A save from
+-- before the opening hour's retune loads with the field's default, fit.OLD_HOLD, and
+-- keeps its small hold.
+function fit.hull_hold(ctx)
+    local f = ctx.get("ship", "fit")
+    return f and f.hull_hold or fit.HOLD
 end
 
 -- Ore a second the beam cuts with the parts fitted now.

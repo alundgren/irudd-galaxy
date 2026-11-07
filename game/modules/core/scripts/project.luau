@@ -122,17 +122,50 @@ function project.carried(ctx, hold)
     return project.list(hold, cargo or "", owner)
 end
 
--- The giver is ready to ask once her gift is answered (or she has none).
-local function asked(ctx, job)
-    if job.after == "" then return true end
-    local gift = ctx.get(job.after, "gift")
-    return gift == nil or gift.answered
+-- Whether the giver's ask has been said to the player.
+local function heard(ctx, job_id)
+    for _, id in ctx.query("offer") do
+        local offer = ctx.get(id, "offer")
+        if offer.project == job_id and offer.step == project.ASKED and offer.heard then return true end
+    end
+    return false
+end
+
+-- Whether the giver's own build is lived in: it stands, and its station has had a
+-- counted visit since it opened (`visits` now, `opened` then): the player has flown out
+-- and come back to find it working. Her ask for more waits on it. A giver with no build
+-- of her own, or an ask already said, waits on nothing.
+function project.lived(done, visits, opened, said)
+    return said or not done or visits > opened
+end
+
+local function lived(ctx, job_id, job)
+    for _, id in ctx.query("facility") do
+        if ctx.get(id, "facility").keeper == job.giver then
+            local build = ctx.get(id, "build")
+            if build then
+                local visits = ctx.get(build.station, "port").visits
+                return project.lived(build.done, visits, build.opened, heard(ctx, job_id))
+            end
+        end
+    end
+    return true
+end
+
+-- The giver is ready to ask once her gift is answered (or she has none) and her build is
+-- lived in.
+local function asked(ctx, job_id, job)
+    if job.after ~= "" then
+        local gift = ctx.get(job.after, "gift")
+        if gift and not gift.answered then return false end
+    end
+    return lived(ctx, job_id, job)
 end
 
 -- A keeper's everyday line while the project needs something said, or nil for their
 -- usual one. `hold` is after the caller's writes.
 function project.line(ctx, keeper, hold, station)
-    local _, job = project.find(ctx)
+    local job_id, job = project.find(ctx)
     if not job then return nil end
     local lasting = happen.line(ctx, keeper, station)
     if lasting then return lasting end
@@ -150,7 +183,11 @@ function project.line(ctx, keeper, hold, station)
             return "Make room for " .. job.units .. " " .. job.cargo .. " and they're yours."
         end
     elseif keeper == job.giver then
-        if step == project.ACCEPTED then
+        if step == project.ASKED and not asked(ctx, job_id, job) then
+            -- Her galley at work, before she asks for more: fly out, come back, and she will.
+            local gift = job.after ~= "" and ctx.get(job.after, "gift")
+            if not gift or gift.answered then return "Look at them eat. Come by again; I've an idea brewing." end
+        elseif step == project.ACCEPTED then
             return "Glassite grows out north-east, past the ore."
         elseif step == project.FIRING or step == project.READY then
             return "I can almost taste the greens."
@@ -158,7 +195,9 @@ function project.line(ctx, keeper, hold, station)
             return "The beds will drink ice; Tova takes it."
         end
     elseif keeper == job.planner then
-        if step == project.ASKED and asked(ctx, job) then
+        if step == project.ASKED and asked(ctx, job_id, job) then
+            -- Heard her out already ("Not now"): he doesn't send the player to ask.
+            if heard(ctx, job_id) then return "Ines told you her plan? There's room on the deck for it." end
             return "Ines has plans for the galley. Ask her."
         elseif step >= project.ACCEPTED and step <= project.CARRIED then
             return "I've staked out the greenhouse plot."
@@ -167,19 +206,77 @@ function project.line(ctx, keeper, hold, station)
     return nil
 end
 
+-- What a keeper met only now says first, before their introduction (history.fold): the
+-- maker of the giver's goods and the planner who staked its plot have news of the player's
+-- part in it. Nil when the project is no news to them.
+function project.news(ctx, keeper)
+    local _, job = project.find(ctx)
+    if not job or job.step <= project.ACCEPTED then return nil end
+    local giver = project.first(name(ctx, job.giver))
+    if keeper == job.maker then
+        if job.step == project.FIRING then return giver .. "'s " .. job.cargo .. " are in the kiln, from your " .. job.ware .. "." end
+        if job.step == project.READY then return "Your " .. job.ware .. " fired clear." end
+        if job.step == project.CARRIED then return "Mind " .. giver .. "'s " .. job.cargo .. ". Glass doesn't bounce." end
+        if job.step < project.DONE then return "Did " .. giver .. "'s " .. job.cargo .. " travel well? I fired them thick." end
+        return "My glass is in " .. giver .. "'s greenhouse, from your " .. job.ware .. "."
+    elseif keeper == job.planner then
+        if job.step < project.DONE then return "I've staked out " .. giver .. "'s greenhouse plot for you." end
+        return "Your greenhouse is the pride of our deck."
+    end
+    return nil
+end
+
+-- A keeper's line in place of their idle one, remembering the player's part in the
+-- project once their own part is over: the maker of its goods, and whoever bought the ware
+-- that finished it (the exchange of its station). Nil for nothing to say.
+function project.remembers(ctx, keeper, station)
+    local _, job = project.find(ctx)
+    if not job then return nil end
+    local giver = project.first(name(ctx, job.giver))
+    if keeper == job.maker and job.step >= project.CARRIED then
+        if job.step == project.CARRIED then return "Mind " .. giver .. "'s " .. job.cargo .. ". Glass doesn't bounce." end
+        if job.step < project.DONE then return "Did " .. giver .. "'s " .. job.cargo .. " travel well? I fired them thick." end
+        return "My glass is in " .. giver .. "'s greenhouse. Go and look."
+    end
+    local build = ctx.get(job.site, "build")
+    if job.step == project.DONE and build and build.station == station then
+        local exchange = ctx.get(station, "port").exchange
+        local facility = exchange and ctx.get(exchange, "facility")
+        if facility and facility.keeper == keeper then
+            return "Your " .. build.ware .. " filled " .. project.first(name(ctx, build.keeper)) .. "'s beds. I still take it."
+        end
+    end
+    return nil
+end
+
+-- The giver's gift was answered (`taken` or declined): her ask after it begins by
+-- remembering which, before what it is about.
+function project.gifted(ctx, gift, taken)
+    for _, id in ctx.query("offer") do
+        local offer = ctx.get(id, "offer")
+        local job = ctx.get(offer.project, "project")
+        if job and job.after == gift and offer.step == project.ASKED then
+            local first = ctx.get(id, "engine.talk").first
+            ctx.patch(first, "engine.talk_line", { text = taken and "That ration was plain, I know. The crews are tired of them."
+                or "You turned my ration down. The crews are tired of them too." })
+        end
+    end
+end
+
 -- Writes -----------------------------------------------------------------------------
 
 -- Turns each of the project's offers on or off at `station`: on while the project is at
 -- its step, what it needs holds and its speaker stands there, off after "Not now" until
 -- the next docking. A speaker's everyday talk (`instead`) rests while one of theirs is
 -- on. A talk being heard is never cut short: voices.retire comes back for it. `hold`
--- and `job` are after the caller's writes (job defaults to the world's).
+-- and `job` are after the caller's writes (job defaults to the world's). Returns the
+-- speakers with an offer on, by id (rumour.offers waits for them).
 function project.offers(ctx, station, hold, job)
     local job_id, now = project.find(ctx)
     job = job or now
-    if not job then return end
+    if not job then return {} end
     local room = fit.hold(ctx) - rules.load(hold)
-    local ready = asked(ctx, job)
+    local ready = asked(ctx, job_id, job)
     local on_for, instead_of = {}, {}
     for _, id in ctx.query("offer") do
         local offer = ctx.get(id, "offer")
@@ -204,6 +301,7 @@ function project.offers(ctx, station, hold, job)
             if not (want and gift) then ctx.patch(instead, "engine.talk", { enabled = want }) end
         end
     end
+    return on_for
 end
 
 -- The glaziers working the site: on the deck by the scaffold while it is built, the first
@@ -265,12 +363,13 @@ function project.chosen(ctx, talk, choice, open, hold)
         hold[job.ware] -= job.need
         local station = home(ctx, job.maker)
         ctx.patch(id, "project", { fired = ctx.get(station, "port").visits })
-        ctx.patch(job.maker_act, "engine.act", { state = "firing " .. gave .. " " .. job.cargo })
+        places.restate(ctx, job.maker_act, "firing " .. gave .. " " .. job.cargo)
+        places.go(ctx, job.maker, job.maker_act) -- the room shows it: she takes it to the kiln
         receipt = "Gave " .. job.need .. " " .. job.ware .. " for " .. gave .. " " .. job.cargo .. ": " .. maker .. " fires them."
     elseif step == project.READY then
         if fit.hold(ctx) - rules.load(hold) < job.units then return nil, hold end
         hold[job.cargo] = (hold[job.cargo] or 0) + job.units
-        ctx.patch(job.maker_act, "engine.act", { state = job.maker_state })
+        places.restate(ctx, job.maker_act, job.maker_state)
         receipt = "Loaded " .. gave .. " " .. job.units .. " " .. job.cargo .. " for " .. port_name(ctx, home(ctx, job.giver))
             .. ": they stay hers until she has them."
     elseif step == project.CARRIED then
@@ -304,7 +403,7 @@ function project.arrived(ctx, station, counted, visits)
     local id, job = project.find(ctx)
     if job and counted and station == home(ctx, job.maker) and project.fired(job, visits) then
         ctx.patch(id, "project", { step = project.READY })
-        ctx.patch(job.maker_act, "engine.act", { state = "packing " .. project.first(name(ctx, job.giver)) .. "'s " .. job.cargo })
+        places.restate(ctx, job.maker_act, "packing " .. project.first(name(ctx, job.giver)) .. "'s " .. job.cargo)
     end
     return happen.arrived(ctx, station, counted)
 end

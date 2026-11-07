@@ -1,0 +1,87 @@
+# The key that stops the beam goes when the beam does. The hand cutter is turned off the
+# rock and back with Space held, so the beam comes on again with "Cutting." and its key,
+# "Let go of Space · stop"; Space let go a tick later stops it before a unit lands, and the
+# key part goes with it, so the key pill shows what fits now instead (hud.luau's hint),
+# and "Cutting." gives way to "Beam off.".
+seed = 7
+ticks = 300
+
+[[input]]
+tick = 1
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 10
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 45
+name = "core.mine"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 80
+name = "core.right"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 95
+name = "core.right"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 100
+name = "core.left"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 115
+name = "core.left"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 116
+name = "core.mine"
+source = "keyboard"
+payload = { down = false }
+
+# Cutting again, with the key that stops it.
+[[expect]]
+tick = 115
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 115
+entity = "ship"
+component = "pilot"
+field = "press"
+equals = "Let go of Space · stop"
+# Let go: off, and the stop key with it.
+[[expect]]
+tick = 116
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+[[expect]]
+tick = 116
+entity = "ship"
+component = "pilot"
+field = "press"
+equals = ""
+[[expect]]
+tick = 116
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Beam off."
+[[expect]]
+tick = 300
+entity = "ship"
+component = "pilot"
+field = "press"
+equals = ""

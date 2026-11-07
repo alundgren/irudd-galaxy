@@ -11,6 +11,7 @@
 local log = { KEEP = 60, SHORT = 38 }
 local places = require("./places")
 local project = require("./project")
+local notice = require("./notice")
 
 -- Where an entry belongs: the station the ship is at, on its deck or in one of its
 -- rooms, or "" in flight. The docking's own entry is written on the tick the ship
@@ -40,21 +41,23 @@ local function put(ctx, text, talk, open, leaves, after)
     return n
 end
 
--- What just happened to the ship: logged and shown as the current message.
-function log.add(ctx, text)
-    ctx.patch("ship", "pilot", { logged = put(ctx, text), message = text })
+-- What just happened to the ship: logged and shown as the current message, with its
+-- `parts` (notice.with: a goal, a lesson, a key), which are shown but not logged.
+function log.add(ctx, text, parts)
+    ctx.patch("ship", "pilot", notice.with({ logged = put(ctx, text) }, text, parts))
 end
 
--- Several things that happened at once, logged in order; the last is the message.
-function log.add_all(ctx, texts)
+-- Several things that happened at once, logged in order; the last is the message,
+-- shown with `parts`.
+function log.add_all(ctx, texts, parts)
     local n = ctx.get("ship", "pilot").logged
     for _, text in texts do n = put(ctx, text, nil, nil, nil, n) end
-    ctx.patch("ship", "pilot", { logged = n, message = texts[#texts] })
+    ctx.patch("ship", "pilot", notice.with({ logged = n }, texts[#texts], parts))
 end
 
 -- Leaving the station: logged and shown like log.add, and the visit ends with it.
 function log.leave(ctx, text)
-    ctx.patch("ship", "pilot", { logged = put(ctx, text, nil, nil, true), message = text })
+    ctx.patch("ship", "pilot", notice.with({ logged = put(ctx, text, nil, nil, true) }, text))
 end
 
 -- Something a person said: logged only, so talk never follows the ship into space.

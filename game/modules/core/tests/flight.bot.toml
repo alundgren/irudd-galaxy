@@ -1,4 +1,4 @@
 inputs = "tests/flight.inputs"
-ticks = 720
+ticks = 2366
 size = [1280, 720]
 seed = 1

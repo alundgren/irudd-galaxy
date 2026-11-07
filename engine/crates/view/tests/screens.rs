@@ -400,6 +400,7 @@ fn missing_reads_and_query_membership_rebuild_a_hidden_screen() {
         source: "ui".into(),
         name: "test.click".into(),
         payload: Default::default(),
+        via: None,
     }])
     .unwrap();
     v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);

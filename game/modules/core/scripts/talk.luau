@@ -11,6 +11,7 @@ local fit = require("./fit")
 local places = require("./places")
 local project = require("./project")
 local salvage = require("./salvage")
+local rumour = require("./rumour")
 
 -- Who is speaking and where: "Tova Reyes at Lantern Dock".
 local function source(ctx, talk)
@@ -71,14 +72,40 @@ return {
             local talk, line = event.payload.talk, event.payload.line
             local said = ctx.get(line, "engine.talk_line")
             local open = (said.next or "") ~= ""
-            sign(ctx, open and ctx.get(talk, "engine.talk").speaker or nil)
-            if not open then voices.retire(ctx) end
+            local spoken = ctx.get(talk, "engine.talk")
+            sign(ctx, open and spoken.speaker or nil)
+            -- A keeper's introduction left midway picks up where it was left: what was heard
+            -- stays heard, so the next click starts at the first line not yet acknowledged.
+            if open and not spoken.seen and talk == spoken.speaker .. "_intro" then
+                ctx.patch(talk, "engine.talk", { first = said.next })
+            end
+            if not open then voices.retire(ctx, talk) end
             local quoted = "\u{201C}" .. said.text .. "\u{201D}"
             -- An offer once said stays pinned in the log until it is answered (log.pinned).
             local gift = ctx.get(talk, "gift")
             if gift and not gift.heard then ctx.patch(talk, "gift", { heard = true }) end
+            -- News heard in an introduction isn't said again in the everyday line, which
+            -- follows it (`heard` below: voices.refresh).
+            if line == spoken.speaker .. "_intro_news" then ctx.record("heard", {}) end
+            -- A keeper's first word on their building, said with their everyday line, is
+            -- said once: heard, it gives way to the line alone (`heard` below).
+            if line == spoken.speaker .. "_now" then
+                for _, id in ctx.query("build") do
+                    local build = ctx.get(id, "build")
+                    if build.keeper == spoken.speaker and build.first_due then
+                        ctx.patch(id, "build", { first_due = false })
+                        ctx.record("heard", {})
+                    end
+                end
+            end
+            -- A rumour's lead heard to its end, or word of the find heard: lines follow it.
+            if rumour.said(ctx, talk, line, said.text, open) then ctx.record("heard", {}) end
             local offer = ctx.get(talk, "offer")
-            if offer and not offer.heard then ctx.patch(talk, "offer", { heard = true }) end
+            if offer and not offer.heard then
+                ctx.patch(talk, "offer", { heard = true })
+                -- Once it is heard, nobody sends the player to hear it (`heard` below).
+                ctx.record("heard", {})
+            end
             local id, entry = heard(ctx, talk)
             if logged(ctx, talk, quoted) then
                 if id and not open then ctx.patch(id, "entry", { open = false }) end
@@ -105,7 +132,13 @@ return {
                 local hold = ctx.get("ship", "hold")
                 local taken = choice == gift.take and fit.hold(ctx) - rules.load(hold) >= gift.units
                 local over = taken or choice ~= gift.take
-                ctx.patch(talk, "gift", { answered = over, heard = true })
+                ctx.patch(talk, "gift", { answered = over, heard = true, taken = taken })
+                -- What she asks next remembers whether you took it, and her everyday line
+                -- follows the answer (`heard` below).
+                if over then
+                    project.gifted(ctx, talk, taken)
+                    ctx.record("heard", {})
+                end
                 if over then
                     if not open then
                         ctx.patch(talk, "engine.talk", { enabled = false })
@@ -120,6 +153,8 @@ return {
             end
             if not receipt then receipt = project.chosen(ctx, talk, choice, open, ctx.get("ship", "hold")) end
             if not receipt then receipt = salvage.chosen(ctx, talk, choice, open) end
+            -- Told what the player saw: the keeper remembers it, and word of it spreads.
+            if rumour.chosen(ctx, talk, answer and answer.next) then ctx.record("heard", {}) end
             local id, entry = heard(ctx, talk)
             if id then
                 ctx.patch(id, "entry", { text = entry.text .. " " .. said, open = open })
@@ -147,7 +182,16 @@ return {
         end,
         -- A project moved on (an answer's receipt) or a build finished: the keepers'
         -- lines follow it. The handler that changed it still read the world before.
-        confirmed = function(_, ctx) refresh(ctx) end,
+        heard = function(_, ctx) refresh(ctx) end,
+        confirmed = function(_, ctx)
+            refresh(ctx)
+            -- Someone the answer brought into the room (a skipper aboard) wears their sign.
+            local station = places.docked(ctx)
+            if station then
+                local pilot = ctx.get("ship", "pilot")
+                signs.show(ctx, station, pilot.room, pilot.log_open, signs.speaking(ctx))
+            end
+        end,
         grown = function(_, ctx) refresh(ctx) end,
         docked = function(event, ctx)
             local pilot = ctx.get("ship", "pilot")

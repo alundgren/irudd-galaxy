@@ -1,4 +1,4 @@
 inputs = "tests/hand-mining.inputs"
-ticks = 570
+ticks = 1589
 size = [1280, 720]
 seed = 7

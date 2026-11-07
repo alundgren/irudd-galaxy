@@ -622,6 +622,7 @@ mod tests {
             ("live watch", live::WATCH_OPTIONS),
             ("live shot", live::SHOT_OPTIONS),
             ("live load", live::LOAD_OPTIONS),
+            ("live input", live::INPUT_OPTIONS),
         ] {
             let c = help::find(Tool::Gm, path).unwrap();
             assert_eq!(sorted(c.options()), sorted(takes.to_vec()), "{path}");

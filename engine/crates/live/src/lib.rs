@@ -18,7 +18,7 @@ pub mod reads;
 pub mod server;
 
 pub use host::{Host, Live};
-pub use protocol::{Discovery, Op, PROTOCOL, RunningModule, WireError};
+pub use protocol::{Act, Discovery, Op, PROTOCOL, RunningModule, Step, WireError};
 pub use server::{ServerOptions, Wake};
 
 /// Moves the live folder (where running games write their discovery files) to this

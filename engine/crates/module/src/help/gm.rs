@@ -363,8 +363,9 @@ pub static COMMANDS: &[Command] = &[
             (
                 "facts",
                 "each: seq, tick, kind, by (input from keyboard, script <module> <file> \
-              on <event>, engine <service>, start of <module>, hot-load of <module>) and \
-              payload",
+              on <event>, engine <service>, start of <module>, hot-load of <module>; \
+              input from keyboard via live, with via: live, for what galaxy-gm live input \
+              pressed) and payload",
             ),
             (
                 "log",
@@ -509,6 +510,76 @@ pub static COMMANDS: &[Command] = &[
         example: "galaxy-gm live load",
         next: "galaxy-gm live watch or live state to see the change take; galaxy sim replay \
                <session>/recording.json after closing the game proves it replays.",
+        topic: "live",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "live input",
+        synopsis: "[<step>...] [--follow <file>] [--game <pid|session>]",
+        answers: "Play the running game by hand from another process: hold keys down for as \
+                  long as you say, several at once, and move and click the pointer.",
+        about: "Steps reach the game the way its window's own keyboard and mouse do, on \
+                the ticks they name, without the window needing focus: the game sees the \
+                same events, sources and hash, and the recording marks each input via \
+                live (live history --inputs, galaxy-gm recording <rec> inputs and its \
+                summary's inputs_via), so a session played this way says so, and it \
+                replays, audits and films like any other. Steps: down <key>, up <key>, \
+                hold <key> <seconds> (down now, up after; the steps after it run \
+                meanwhile), tap <key> (0.1 s), wait <seconds>, move <x> <y>, click <x> \
+                <y> (logical pixels from the window's top left). Keys are manifest key \
+                names (w, space, shift, up, 1, f3, mouse_right) or mouse_left; Esc and F8 \
+                are the window's own and stay there; a real mouse moving over the window \
+                moves the pointer too. Steps given as arguments (or joined \
+                with ;) run as one timeline and the command returns once they have run. \
+                Without steps it reads lines from stdin, or with --follow <file> lines \
+                added to that file, running each line as it arrives, until a line end: \
+                so you can hold W, look with live shot or live state from another shell, \
+                then send up w. Everything still held when the command ends, or when its \
+                connection closes because it was killed, is let go. While an F8 note is \
+                open it is refused (kind runtime); an input runs at most 300 seconds.",
+        args: &[
+            (
+                "<step>",
+                "steps run as one timeline, such as \"hold w 2\" \"hold a 0.5\" or \
+                 \"tap e; wait 1; click 640 360\"",
+            ),
+            (
+                "--follow <file>",
+                "run each line added to this file as it arrives, until a line end; the \
+                 file may not exist yet; add lines (echo \"down w\" >> file), don't \
+                 rewrite it",
+            ),
+            (
+                "--game <pid|session>",
+                "which running game, by its pid or session folder name; needed only when \
+             several run and none is clearly meant (the error lists them)",
+            ),
+        ],
+        output: &[
+            (
+                "from_tick, to_tick, seconds",
+                "the first and last tick the steps ran over, and the seconds between them \
+                 (hold w 2 is 2)",
+            ),
+            (
+                "steps",
+                "each step taken: the tick it took effect on and the step (down w, up w, \
+                 move 640 360)",
+            ),
+            (
+                "released_at_end",
+                "keys the steps left down, let go when they ended",
+            ),
+            (
+                "unbound",
+                "keys no running module binds: holding them sent nothing",
+            ),
+            ("hash", "the world's hash after the last tick"),
+        ],
+        writes: "",
+        example: "galaxy-gm live input \"hold w 2\" \"hold a 0.5\"",
+        next: "galaxy-gm live state or live shot to see where it got you; live history \
+               --inputs lists what it pressed, each by input from keyboard via live.",
         topic: "live",
     },
     Command {
@@ -1165,13 +1236,16 @@ pub static COMMANDS: &[Command] = &[
             (
                 "summary",
                 "build, seed, modules and versions, ticks (start, end), seconds, \
-              counts of inputs, notes, zooms and hot-loads, inputs_by_name, end_hash",
+              counts of inputs, notes, zooms and hot-loads, inputs_by_name, inputs_via \
+              (inputs that came another way than the window: live for galaxy-gm live \
+              input), end_hash",
             ),
             (
                 "rows",
                 "timeline: `0:01.0 (tick 31) order drift.ship: dock drift.berth (from \
               drift.order_dock down); arrived at 0:04.3`; inputs: \
-              `tick 31 t 1.03 keyboard drift.order_dock down`; orders: \
+              `tick 31 t 1.03 keyboard drift.order_dock down` (`keyboard via live` when \
+              galaxy-gm live input pressed it); orders: \
               `tick 31 t 1.03 order drift.ship: dock drift.berth` or `arrived ...`; zooms: \
               the view height the wheel set",
             ),
@@ -1665,7 +1739,11 @@ pub static TOPICS: &[Topic] = &[
                 turns it off). galaxy-gm live reads the game through it: status, state, \
                 history, watch, shot. Reads never change the world or its hash. live load \
                 hot-loads changed modules between two ticks and records it like play --watch, \
-                so the session still replays. Each command picks the one running game, or the \
+                so the session still replays. live input plays it by hand from another \
+                process: keys held down for as long as you say, several at once, and the \
+                pointer, through the same path as the window's keyboard and mouse (no focus \
+                needed), recorded via live so a session played that way says so; what it \
+                holds is let go when it ends or dies. Each command picks the one running game, or the \
                 one running the modules it loads, or the one playing modules in the working \
                 folder; otherwise it lists them (kind several_games) and --game <pid or \
                 session> picks one. With no game running, kind no_game.",
@@ -1676,20 +1754,38 @@ pub static TOPICS: &[Topic] = &[
             ("A value over ticks", "gm live watch"),
             ("What the window shows", "gm live shot"),
             ("Load changed modules without restarting", "gm live load"),
+            ("Hold keys, move and click, by hand", "gm live input"),
         ],
-        recipes: &[Recipe {
-            title: "Edit a running game",
-            steps: &[
-                "galaxy play --modules <modules>",
-                "galaxy-gm live status",
-                "galaxy-gm live state --entity <being>",
-                "Edit the module's script (a different spot to walk to), then:",
-                "galaxy-gm live load",
-                "galaxy-gm live watch --entity <being> --component engine.position --field x --ticks 90",
-                "galaxy-gm live shot --out now.png",
-                "Close the window, then: galaxy sim replay <session>/recording.json",
-            ],
-        }],
+        recipes: &[
+            Recipe {
+                title: "Play a running game by hand from another process",
+                steps: &[
+                    "galaxy play --modules <modules>",
+                    "Hold W for 2 seconds while holding A for the first 0.5 seconds:",
+                    "galaxy-gm live input \"hold w 2\" \"hold a 0.5\"",
+                    "galaxy-gm live state --entity <ship>",
+                    "Hold a key while you look: galaxy-gm live input --follow steps.txt (in \
+                     the background), then echo \"down w\" >> steps.txt, galaxy-gm live shot \
+                     --out now.png, echo \"up w\" >> steps.txt, and echo end >> steps.txt",
+                    "galaxy-gm live history --inputs --last 10 (each by input from keyboard \
+                     via live)",
+                    "Close the window, then: galaxy sim replay <session>/recording.json",
+                ],
+            },
+            Recipe {
+                title: "Edit a running game",
+                steps: &[
+                    "galaxy play --modules <modules>",
+                    "galaxy-gm live status",
+                    "galaxy-gm live state --entity <being>",
+                    "Edit the module's script (a different spot to walk to), then:",
+                    "galaxy-gm live load",
+                    "galaxy-gm live watch --entity <being> --component engine.position --field x --ticks 90",
+                    "galaxy-gm live shot --out now.png",
+                    "Close the window, then: galaxy sim replay <session>/recording.json",
+                ],
+            },
+        ],
     },
     Topic {
         name: "hovers",

@@ -1,4 +1,4 @@
 inputs = "tests/radio-play.inputs"
-ticks = 1560
+ticks = 2487
 size = [1280, 720]
 seed = 7

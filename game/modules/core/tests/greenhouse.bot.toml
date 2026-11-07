@@ -1,8 +1,8 @@
 # Ines's greenhouse by real clicks (tests/greenhouse-play.inputs): the trade loop through
 # the galley and her gift, then her ask accepted, glassite to Sefa, the panes loaded as
-# Ines's and handed to her, two holds of ice, her thanks and Noor in the greenhouse. size
+# Ines's and handed to her, two runs of ice, her thanks and Noor in the greenhouse. size
 # is physical pixels. 26 notes.
 inputs = "tests/greenhouse-play.inputs"
-ticks = 8961
+ticks = 19067
 size = [1280, 720]
 seed = 1

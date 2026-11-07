@@ -7,11 +7,30 @@ local PLATE = { role = "sells", base = 28, target = 24, stock = 24, rate = 2 }
 
 return {
     hold_capacity = function()
-        assert(rules.transfer(5, 12) == 1)
-        assert(rules.transfer(6, 12) == 0)
+        -- The bare hull carries 24.
+        assert(rules.transfer(23, 12) == 1)
+        assert(rules.transfer(24, 12) == 0)
         assert(rules.load({ ore = 2, plate = 3, rations = 1 }) == 6)
         assert(rules.list({ ore = 4, plate = 2, rations = 0 }) == "4 ore, 2 plate")
         assert(rules.list({ ore = 0, plate = 0, rations = 0 }) == "nothing")
+    end,
+    stations_are_named_with_their_way = function()
+        assert(rules.compass(10, 0) == "east" and rules.compass(-10, 1) == "west")
+        assert(rules.compass(0, 10) == "north" and rules.compass(1, -10) == "south")
+        assert(rules.compass(10, 10) == "north-east" and rules.compass(-10, -9) == "south-west")
+        assert(rules.compass(10, -4) == "east", "within 22.5 degrees of east")
+        local stations = { { name = "Cinder Kiln", x = 360, y = -442 }, { name = "Lantern Dock", x = -324, y = -348 } }
+        assert(rules.bearings({ x = 0, y = 0 }, stations) == "Cinder Kiln south-east · Lantern Dock south-west")
+        -- A station well on screen wears its own name instead.
+        assert(rules.bearings({ x = -300, y = -330 }, stations) == "Cinder Kiln east")
+        -- Off screen but close: 50 units north is past the top of a 64-unit view, so it
+        -- is still named (a 70-unit radius once left it nameless and unseen).
+        local kiln = { { name = "Cinder Kiln", x = 0, y = 50 } }
+        assert(rules.bearings({ x = 0, y = 0 }, kiln) == "Cinder Kiln north")
+        assert(rules.bearings({ x = 0, y = 100 }, kiln) == "Cinder Kiln south")
+        assert(rules.bearings({ x = -60, y = 50 }, kiln) == "Cinder Kiln east", "past the side of the view")
+        assert(rules.bearings({ x = 30, y = 30 }, kiln) == "", "well on screen: no bearing")
+        assert(rules.bearings({ x = 0, y = 0 }, {}) == "")
     end,
     depleted_rock = function()
         assert(rules.transfer(0, 0) == 0)

@@ -460,6 +460,7 @@ pub fn arrival(world: &World, clicked: bool) -> Option<Input> {
             .as_object()
             .unwrap()
             .clone(),
+        via: None,
     })
 }
 

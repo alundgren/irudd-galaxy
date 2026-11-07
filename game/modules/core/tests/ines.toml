@@ -1,0 +1,303 @@
+# Ines at the galley site in the first hour (start.toml, scripts/station.luau): she
+# waits at the bare site from the start, and a click there hears why she wants the galley.
+# Her everyday line counts the plate still to come. The first plate sold into it brings
+# her word into the sale's log entry and her everyday line, and once the galley stands
+# she isn't introduced again: her introduction keeps the words she said, and her thanks
+# are on offer.
+# The route is trade.inputs', with a visit to the site before the first plate is sold.
+seed = 7
+ticks = 6389
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+
+[[input]]
+tick = 60
+name = "core.mine"
+
+[[input]]
+tick = 960
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 1737
+name = "core.open"
+
+[[input]]
+tick = 1742
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+
+[[input]]
+tick = 1747
+name = "core.sell"
+
+[[input]]
+tick = 1757
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+
+[[input]]
+tick = 1777
+name = "core.launch"
+
+[[input]]
+tick = 1787
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 2638
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+
+[[input]]
+tick = 2641
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2638 }
+
+[[input]]
+tick = 2648
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_intro" }
+
+[[input]]
+tick = 2649
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
+
+[[input]]
+tick = 2650
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
+
+[[input]]
+tick = 2651
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
+
+[[input]]
+tick = 2658
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_talk" }
+
+[[input]]
+tick = 2659
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_talk", line = "core.lantern_cook_now" }
+
+[[input]]
+tick = 2668
+name = "core.close"
+
+[[input]]
+tick = 2698
+name = "core.open"
+
+[[input]]
+tick = 2708
+name = "core.sell"
+
+[[input]]
+tick = 2718
+name = "core.launch"
+
+[[input]]
+tick = 2723
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 2768
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+
+[[input]]
+tick = 2773
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+
+[[input]]
+tick = 2778
+name = "core.close"
+
+[[input]]
+tick = 2838
+name = "core.launch"
+
+[[input]]
+tick = 2848
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 3686
+name = "core.open"
+
+[[input]]
+tick = 3696
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+
+[[input]]
+tick = 3716
+name = "core.launch"
+
+[[input]]
+tick = 3726
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 4577
+name = "core.open"
+
+[[input]]
+tick = 4587
+name = "core.sell"
+
+[[input]]
+tick = 4607
+name = "core.launch"
+
+[[input]]
+tick = 4617
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 5455
+name = "core.open"
+
+[[input]]
+tick = 5465
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+
+[[input]]
+tick = 5485
+name = "core.launch"
+
+[[input]]
+tick = 5495
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 6346
+name = "core.open"
+
+[[input]]
+tick = 6356
+name = "core.sell"
+
+[[input]]
+tick = 6376
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+
+[[input]]
+tick = 6386
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+
+[[input]]
+tick = 6406
+name = "core.launch"
+
+[[input]]
+tick = 6416
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 7254
+name = "core.open"
+
+[[input]]
+tick = 7264
+name = "core.sell"
+
+# At the bare site from the start.
+[[expect]]
+tick = 5
+entity = "lantern_cook"
+component = "engine.location"
+field = "place"
+equals = "core.lantern_galley_room"
+
+# Her introduction, in the log.
+[[expect]]
+tick = 2663
+entity = "log10"
+component = "entry"
+field = "text"
+equals = "Ines Varga at Lantern Dock: “I'm Ines. This scaffold is going to be my galley.” “The crews here eat cold tins between shifts. I want them at a table, eating hot.” “Every plate you sell to Tova goes into it. I'll be counting.”"
+
+# Her everyday line counts what is still to come, and her thanks wait on the galley.
+[[expect]]
+tick = 2663
+entity = "lantern_cook_now"
+component = "engine.talk_line"
+field = "text"
+equals = "40 plate, and I can light the stove."
+
+[[expect]]
+tick = 2663
+entity = "lantern_cook_gift"
+component = "engine.talk"
+field = "enabled"
+equals = false
+
+# The first plate in: her word joins the sale's entry, and leads her everyday line until
+# it is heard (first-plate.toml).
+[[expect]]
+tick = 2710
+entity = "log12"
+component = "entry"
+field = "text"
+equals = "Sold 13 plate to Lantern Dock for 455 cr. 13 plate went into the galley: 13 of 40. Ines Varga, from the site: “That's the first of it! I can almost hear the stove.”"
+
+[[expect]]
+tick = 2710
+entity = "lantern_cook_now"
+component = "engine.talk_line"
+field = "text"
+equals = "That's the first of it! I can almost hear the stove. 27 plate to go, and the crews eat hot."
+
+# Built: no second introduction, and her thanks are on offer.
+[[expect]]
+tick = 6381
+entity = "lantern_cook_intro"
+component = "engine.talk"
+field = "seen"
+equals = true
+
+[[expect]]
+tick = 6381
+entity = "lantern_cook_intro1"
+component = "engine.talk_line"
+field = "text"
+equals = "I'm Ines. This scaffold is going to be my galley."
+
+[[expect]]
+tick = 6381
+entity = "lantern_cook_gift"
+component = "engine.talk"
+field = "enabled"
+equals = true

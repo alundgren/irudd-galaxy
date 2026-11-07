@@ -22,517 +22,517 @@ tick = 60
 name = "core.mine"
 
 [[input]]
-tick = 330
+tick = 960
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 715
+tick = 1852
 widget = "sign_exchange"
 
 [[note]]
-tick = 723
+tick = 1860
 text = "Kiln exchange: a full hold of ore; buying plate rests until I sell."
 
 [[click]]
-tick = 748
+tick = 1885
 widget = "sell_ore"
 
 [[click]]
-tick = 763
+tick = 1900
 widget = "buymax_plate"
 
 [[note]]
-tick = 771
+tick = 1908
 text = "Sold the ore, bought plate; each unit of plate asked a little more."
 
 [[click]]
-tick = 786
+tick = 1923
 widget = "close"
 
 [[click]]
-tick = 819
+tick = 1956
 widget = "launch"
 
 [[input]]
-tick = 859
+tick = 1996
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[click]]
-tick = 1204
+tick = 2882
 widget = "sign_galley"
 
 [[note]]
-tick = 1212
-text = "Lantern Dock: the galley site, 0 of 10 plate in."
+tick = 2890
+text = "Lantern Dock: the galley site, 0 of 40 plate in, and Ines waiting in it."
 
 [[click]]
-tick = 1237
+tick = 2915
 widget = "close"
 
 [[click]]
-tick = 1270
+tick = 2948
 widget = "sign_exchange"
 
 [[click]]
-tick = 1303
+tick = 2981
 widget = "sell_plate"
 
 [[note]]
-tick = 1311
-text = "Plate sold into the galley: 3 of 10."
+tick = 2989
+text = "Plate sold into the galley: 13 of 40."
 
 [[click]]
-tick = 1326
+tick = 3004
 widget = "close"
 
 [[click]]
-tick = 1359
+tick = 3037
 widget = "launch"
 
 [[input]]
-tick = 1399
+tick = 3077
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[note]]
-tick = 1549
+tick = 3227
 text = "A quick undock and redock: still one visit, nothing restocked."
 
 [[click]]
-tick = 1564
+tick = 3242
 widget = "launch"
 
 [[input]]
-tick = 1604
+tick = 3282
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 1949
+tick = 4165
 widget = "sign_exchange"
 
 [[click]]
-tick = 1982
+tick = 4198
 widget = "buymax_plate"
 
 [[click]]
-tick = 1997
+tick = 4213
 widget = "close"
 
 [[click]]
-tick = 2030
+tick = 4246
 widget = "launch"
 
 [[input]]
-tick = 2070
+tick = 4286
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[click]]
-tick = 2415
+tick = 5172
 widget = "sign_exchange"
 
 [[click]]
-tick = 2448
+tick = 5205
 widget = "sell_plate"
 
 [[click]]
-tick = 2463
+tick = 5220
 widget = "close"
 
 [[click]]
-tick = 2496
+tick = 5253
 widget = "launch"
 
 [[input]]
-tick = 2536
+tick = 5293
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 2881
+tick = 6176
 widget = "sign_exchange"
 
 [[click]]
-tick = 2914
+tick = 6209
 widget = "buymax_plate"
 
 [[click]]
-tick = 2929
+tick = 6224
 widget = "close"
 
 [[click]]
-tick = 2962
+tick = 6257
 widget = "launch"
 
 [[input]]
-tick = 3002
+tick = 6297
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[click]]
-tick = 3347
+tick = 7183
 widget = "sign_exchange"
 
 [[click]]
-tick = 3380
+tick = 7216
 widget = "sell_plate"
 
 [[note]]
-tick = 3388
-text = "The tenth plate: the galley is built."
+tick = 7224
+text = "The fortieth plate: the galley is built."
 
 [[click]]
-tick = 3403
+tick = 7239
 widget = "close"
 
 [[note]]
-tick = 3411
+tick = 7247
 text = "The station has grown: the galley stands where the scaffold was, with Ines by it."
 
 [[click]]
-tick = 3436
+tick = 7272
 widget = "sign_galley"
 
 [[click]]
-tick = 3469
+tick = 7305
 widget = "speaker.core.lantern_cook"
 
 [[note]]
-tick = 3477
+tick = 7313
 text = "Ines introduces herself."
 
 [[click]]
-tick = 3492
+tick = 7328
 widget = "talk.core.lantern_cook_intro"
 
 [[click]]
-tick = 3507
+tick = 7343
 widget = "talk.core.lantern_cook_intro"
 
 [[click]]
-tick = 3522
+tick = 7358
 widget = "talk.core.lantern_cook_intro"
 
 # Once she's introduced, Ines offers a ration for the plate, once; take it.
 [[click]]
-tick = 3537
+tick = 7373
 widget = "speaker.core.lantern_cook"
 [[click]]
-tick = 3552
+tick = 7388
 widget = "talk.core.lantern_cook_gift"
 [[note]]
-tick = 3560
+tick = 7396
 text = "Ines offers a ration on the house, with Take it and No, thanks."
 [[click]]
-tick = 3567
+tick = 7403
 widget = "choice.core.lantern_cook_gift_take"
 [[click]]
-tick = 3582
+tick = 7418
 widget = "talk.core.lantern_cook_gift"
 [[click]]
-tick = 3597
+tick = 7433
 widget = "buymax_rations"
 
 [[note]]
-tick = 3605
+tick = 7441
 text = "Bought rations at the galley."
 
 [[click]]
-tick = 3620
+tick = 7456
 widget = "close"
 
 [[click]]
-tick = 3653
+tick = 7489
 widget = "log_open"
 
 [[note]]
-tick = 3661
+tick = 7497
 text = "The log: sales, the galley built, the conversation."
 
 [[click]]
-tick = 3676
+tick = 7512
 widget = "log_close"
 
 [[click]]
-tick = 3691
+tick = 7527
 widget = "launch"
 
 [[input]]
-tick = 3731
+tick = 7567
 name = "core.dock"
 payload = { station = "core.kiln" }
 
 [[click]]
-tick = 4076
+tick = 8450
 widget = "sign_exchange"
 
 [[click]]
-tick = 4109
+tick = 8483
 widget = "sell_rations"
 
 [[note]]
-tick = 4117
+tick = 8491
 text = "Rations sold to the Kiln crews."
 
 # After the galley: Ines's greenhouse (tests/greenhouse.toml plays it headless).
 [[click]]
-tick = 4130
+tick = 8504
 widget = "close"
 [[click]]
-tick = 4163
+tick = 8537
 widget = "launch"
 [[input]]
-tick = 4203
+tick = 8577
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[click]]
-tick = 4548
+tick = 9463
 widget = "key_galley"
 [[click]]
-tick = 4581
+tick = 9496
 widget = "speaker.core.lantern_cook"
 [[click]]
-tick = 4596
+tick = 9511
 widget = "talk.core.greenhouse_ask"
 [[click]]
-tick = 4611
+tick = 9526
 widget = "talk.core.greenhouse_ask"
 [[click]]
-tick = 4626
+tick = 9541
 widget = "talk.core.greenhouse_ask"
 [[note]]
-tick = 4634
+tick = 9549
 text = "Ines asks for a greenhouse, with Accept and Not now."
 [[click]]
-tick = 4641
+tick = 9556
 widget = "choice.core.greenhouse_ask_yes"
 [[click]]
-tick = 4656
+tick = 9571
 widget = "talk.core.greenhouse_ask"
 [[click]]
-tick = 4671
+tick = 9586
 widget = "close"
 [[note]]
-tick = 4711
+tick = 9626
 text = "Accepted: a plot is staked on the deck, and the Greenhouse joins the key."
 [[click]]
-tick = 4721
+tick = 9636
 widget = "launch"
 [[input]]
-tick = 4761
+tick = 9676
 name = "core.mine"
 payload = { rock = "core.glassite1" }
 [[input]]
-tick = 5111
+tick = 11051
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[click]]
-tick = 5411
+tick = 12042
 widget = "sign_exchange"
 [[click]]
-tick = 5444
+tick = 12075
 widget = "speaker.core.kiln_trader"
 [[click]]
-tick = 5459
+tick = 12090
 widget = "talk.core.kiln_trader_intro"
 [[click]]
-tick = 5474
+tick = 12105
 widget = "talk.core.kiln_trader_intro"
 [[click]]
-tick = 5489
+tick = 12120
 widget = "talk.core.kiln_trader_intro"
 [[click]]
-tick = 5504
+tick = 12135
 widget = "speaker.core.kiln_trader"
 [[click]]
-tick = 5519
+tick = 12150
 widget = "talk.core.greenhouse_glassite"
 [[note]]
-tick = 5527
-text = "Sefa asks for 4 glassite for the panes."
+tick = 12158
+text = "Sefa asks for 8 glassite for the panes."
 [[click]]
-tick = 5534
+tick = 12165
 widget = "choice.core.greenhouse_glassite_yes"
 [[click]]
-tick = 5549
+tick = 12180
 widget = "talk.core.greenhouse_glassite"
 [[click]]
-tick = 5564
+tick = 12195
 widget = "talk.core.greenhouse_glassite"
 [[note]]
-tick = 5579
+tick = 12210
 text = "Glassite handed over: Sefa fires Ines's panes."
 [[click]]
-tick = 5594
+tick = 12225
 widget = "close"
 [[click]]
-tick = 5627
+tick = 12258
 widget = "launch"
 [[input]]
-tick = 5667
+tick = 12298
 name = "core.mine"
 [[input]]
-tick = 6019
+tick = 13189
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[click]]
-tick = 6319
+tick = 13825
 widget = "sign_exchange"
 [[note]]
-tick = 6344
+tick = 13850
 text = "Back at the Kiln with a full hold: the panes are ready but wait for room."
 [[click]]
-tick = 6352
-widget = "sell"
+tick = 13858
+widget = "sell_ore"
 [[click]]
-tick = 6367
+tick = 13873
 widget = "speaker.core.kiln_trader"
 [[click]]
-tick = 6382
+tick = 13888
 widget = "talk.core.greenhouse_panes"
 [[note]]
-tick = 6390
+tick = 13896
 text = "Sold out: Sefa offers to load the panes."
 [[click]]
-tick = 6397
+tick = 13903
 widget = "choice.core.greenhouse_panes_yes"
 [[click]]
-tick = 6412
+tick = 13918
 widget = "talk.core.greenhouse_panes"
 [[note]]
-tick = 6427
-text = "Loaded: the hold shows Ines's 4 panes."
+tick = 13933
+text = "Loaded: the hold shows Ines's 8 panes."
 [[click]]
-tick = 6442
+tick = 13948
 widget = "close"
 [[click]]
-tick = 6475
+tick = 13981
 widget = "launch"
 [[input]]
-tick = 6515
+tick = 14021
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[click]]
-tick = 6857
+tick = 14904
 widget = "key_galley"
 [[click]]
-tick = 6890
+tick = 14937
 widget = "speaker.core.lantern_cook"
 [[click]]
-tick = 6905
+tick = 14952
 widget = "talk.core.greenhouse_deliver"
 [[note]]
-tick = 6913
+tick = 14960
 text = "Ines asks for her panes."
 [[click]]
-tick = 6920
+tick = 14967
 widget = "choice.core.greenhouse_deliver_yes"
 [[click]]
-tick = 6935
+tick = 14982
 widget = "talk.core.greenhouse_deliver"
 [[click]]
-tick = 6950
+tick = 14997
 widget = "talk.core.greenhouse_deliver"
 [[click]]
-tick = 6965
+tick = 15012
 widget = "close"
 [[note]]
-tick = 7005
+tick = 15052
 text = "The scaffold goes up, and two glaziers work by it."
 [[click]]
-tick = 7015
+tick = 15062
 widget = "launch"
 [[input]]
-tick = 7055
+tick = 15102
 name = "core.mine"
 payload = { rock = "core.ice1" }
 [[input]]
-tick = 7375
+tick = 16104
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[click]]
-tick = 7705
+tick = 16822
 widget = "sign_exchange"
 [[click]]
-tick = 7738
+tick = 16855
 widget = "sell_ice"
 [[click]]
-tick = 7760
+tick = 16877
 widget = "close"
 [[click]]
-tick = 7810
+tick = 16927
 widget = "launch"
 [[input]]
-tick = 7850
+tick = 16967
 name = "core.mine"
-payload = { rock = "core.ice1" }
+payload = { rock = "core.ice2" }
 [[input]]
-tick = 8170
+tick = 17890
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[click]]
-tick = 8500
+tick = 18606
 widget = "sign_exchange"
 [[click]]
-tick = 8533
+tick = 18639
 widget = "sell_ice"
 [[note]]
-tick = 8548
-text = "The twelfth ice: the greenhouse is built."
+tick = 18654
+text = "The thirtieth ice: the greenhouse is built."
 [[click]]
-tick = 8555
+tick = 18661
 widget = "close"
 [[note]]
-tick = 8595
+tick = 18701
 text = "The greenhouse stands, and lamp strings hang on the deck for the lamp night."
 [[click]]
-tick = 8605
+tick = 18711
 widget = "key_galley"
 [[click]]
-tick = 8638
+tick = 18744
 widget = "speaker.core.lantern_cook"
 [[click]]
-tick = 8653
+tick = 18759
 widget = "talk.core.lantern_cook_thanks"
 [[click]]
-tick = 8668
+tick = 18774
 widget = "talk.core.lantern_cook_thanks"
 [[click]]
-tick = 8683
+tick = 18789
 widget = "talk.core.lantern_cook_thanks"
 [[note]]
-tick = 8698
+tick = 18804
 text = "Ines has thanked me."
 [[click]]
-tick = 8705
+tick = 18811
 widget = "close"
 [[click]]
-tick = 8738
+tick = 18844
 widget = "key_greenhouse"
 [[click]]
-tick = 8771
+tick = 18877
 widget = "speaker.core.lantern_grower"
 [[click]]
-tick = 8786
+tick = 18892
 widget = "talk.core.lantern_grower_intro"
 [[click]]
-tick = 8801
+tick = 18907
 widget = "talk.core.lantern_grower_intro"
 [[click]]
-tick = 8816
+tick = 18922
 widget = "talk.core.lantern_grower_intro"
 [[note]]
-tick = 8831
+tick = 18937
 text = "Noor Hale, the grower, in her greenhouse."
 [[click]]
-tick = 8838
+tick = 18944
 widget = "close"
 [[click]]
-tick = 8871
+tick = 18977
 widget = "launch"
 [[note]]
-tick = 8951
+tick = 19057
 text = "Lantern Dock from the reach, wearing its green dome."

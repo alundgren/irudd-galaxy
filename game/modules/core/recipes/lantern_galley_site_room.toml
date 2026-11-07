@@ -192,3 +192,14 @@ at = [0.6, -2.5, 0]
 [[marker]]
 name = "spot.greens"
 at = [0.6, -2.6, 0]
+# The open galley's seats (lantern_galley_room), here too so the same spots name places
+# in the room before and after it is built.
+[[marker]]
+name = "spot.crew_a"
+at = [1.55, -0.15, 0]
+[[marker]]
+name = "spot.crew_b"
+at = [0.1, 0.4, 0]
+[[marker]]
+name = "spot.seat"
+at = [-0.1, -0.7, 0]

@@ -1,0 +1,301 @@
+# The galley is lived in before Ines asks for more (scripts/station.luau, project.luau).
+# The sale that builds it seats two crews at her table, eating, and her thanks begin with
+# what the player made happen. Once her gift is answered she doesn't ask for the
+# greenhouse on that first visit: she says to come by again, and Bram doesn't send the
+# player to her yet. Stepping out and straight back in doesn't count; once the player
+# has flown out and docked again, a counted visit, she asks. The route is
+# greenhouse.toml's up to her gift taken, on the first visit to the open galley.
+seed = 7
+ticks = 6625
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 960
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1737
+name = "core.open"
+[[input]]
+tick = 1742
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1747
+name = "core.sell"
+[[input]]
+tick = 1757
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1777
+name = "core.launch"
+[[input]]
+tick = 1787
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2638
+name = "core.open"
+[[input]]
+tick = 2648
+name = "core.sell"
+[[input]]
+tick = 2658
+name = "core.launch"
+[[input]]
+tick = 2663
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2708
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 2713
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+[[input]]
+tick = 2718
+name = "core.close"
+[[input]]
+tick = 2778
+name = "core.launch"
+[[input]]
+tick = 2788
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 3626
+name = "core.open"
+[[input]]
+tick = 3636
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 3656
+name = "core.launch"
+[[input]]
+tick = 3666
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 4517
+name = "core.open"
+[[input]]
+tick = 4527
+name = "core.sell"
+[[input]]
+tick = 4547
+name = "core.launch"
+[[input]]
+tick = 4557
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 5395
+name = "core.open"
+[[input]]
+tick = 5405
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 5425
+name = "core.launch"
+[[input]]
+tick = 5435
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 6126
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6059 }
+[[input]]
+tick = 6286
+name = "core.open"
+[[input]]
+tick = 6296
+name = "core.sell"
+[[input]]
+tick = 6316
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 6319
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6316 }
+[[input]]
+tick = 6321
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_intro" }
+[[input]]
+tick = 6322
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
+[[input]]
+tick = 6323
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
+[[input]]
+tick = 6324
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
+[[input]]
+tick = 6326
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_gift" }
+[[input]]
+tick = 6327
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift1" }
+[[input]]
+tick = 6328
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift2", choice = "core.lantern_cook_gift_take" }
+[[input]]
+tick = 6329
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift3" }
+
+# Built: the crews sit at her table.
+[[expect]]
+tick = 6320
+entity = "lantern_crew1"
+component = "engine.location"
+field = "place"
+equals = "core.lantern_galley_room"
+[[expect]]
+tick = 6320
+entity = "lantern_crew2"
+component = "engine.model"
+field = "model"
+equals = "core.person_crew2_seated"
+[[expect]]
+tick = 6320
+entity = "lantern_cook_gift1"
+component = "engine.talk_line"
+field = "text"
+equals = "Hear them? Crews at my table, eating hot. Your plate did that."
+# Her gift taken on the first visit: no ask yet, her everyday talk instead.
+[[expect]]
+tick = 6331
+entity = "greenhouse_ask"
+component = "engine.talk"
+field = "enabled"
+equals = false
+[[expect]]
+tick = 6331
+entity = "lantern_cook_talk"
+component = "engine.talk"
+field = "enabled"
+equals = true
+[[expect]]
+tick = 6331
+entity = "lantern_cook_now"
+component = "engine.talk_line"
+field = "text"
+equals = "Look at them eat. Come by again; I've an idea brewing."
+[[expect]]
+tick = 6331
+entity = "lantern_master_now"
+component = "engine.talk_line"
+field = "text"
+equals = "Your plate built our galley. The field still holds 125 ore."
+# Out to the station and straight back into her galley: seconds of clicks, not a visit.
+[[input]]
+tick = 6333
+name = "core.close"
+[[input]]
+tick = 6338
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 6341
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6338 }
+[[expect]]
+tick = 6343
+entity = "greenhouse_ask"
+component = "engine.talk"
+field = "enabled"
+equals = false
+# Flown out past the berth and docked again: a counted visit since the galley opened, and
+# back in her galley she asks.
+[[input]]
+tick = 6346
+name = "core.close"
+[[input]]
+tick = 6351
+name = "core.launch"
+[[input]]
+tick = 6361
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 6421
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 6431
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 6604
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6537 }
+[[expect]]
+tick = 6610
+entity = "lantern"
+component = "port"
+field = "visits"
+equals = 4
+[[expect]]
+tick = 6610
+entity = "lantern_galley"
+component = "build"
+field = "opened"
+equals = 3
+[[input]]
+tick = 6615
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 6618
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6615 }
+[[expect]]
+tick = 6620
+entity = "greenhouse_ask"
+component = "engine.talk"
+field = "enabled"
+equals = true
+[[expect]]
+tick = 6620
+entity = "lantern_master_now"
+component = "engine.talk_line"
+field = "text"
+equals = "Ines has plans for the galley. Ask her."

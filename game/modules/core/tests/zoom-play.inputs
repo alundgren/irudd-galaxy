@@ -1,43 +1,52 @@
-# Trader labels at every zoom: zoomed fully in, turn south and fly across Little
-# Mercy's route as she leaves Lantern Dock, so her label yields while it would sit on
-# the HUD; then zoomed fully out, where she is named far off. Six notes.
+# Trader labels at every zoom: zoomed fully in, turn south and fly out to Little Mercy's
+# lane as she comes along it from Lantern Dock, so her label yields while it would sit on
+# the HUD and is drawn once she is beside the ship; then zoomed fully out, where she is
+# named, and a Dock order to Cinder Kiln, where she and Quiet Lamp lie moored without
+# labels once she has flown on there. Six notes.
+[[input]]
+tick = 1
+name = "core.right"
+payload = { down = true }
 [[zoom]]
 tick = 10
 steps = 20.0
 [[input]]
-tick = 20
-name = "core.right"
-payload = { down = true }
-[[input]]
-tick = 35
+tick = 16
 name = "core.right"
 payload = { down = false }
 [[input]]
-tick = 140
+tick = 370
 name = "core.ahead"
 payload = { down = true }
-[[input]]
-tick = 212
-name = "core.ahead"
-payload = { down = false }
 [[note]]
-tick = 120
+tick = 657
 text = "Zoomed fully in: Little Mercy is still off screen, so no label of hers is drawn."
 [[note]]
-tick = 196
+tick = 737
 text = "Zoomed in, she passes below the ship: her label would sit on the message, so it yields."
 [[note]]
-tick = 230
+tick = 753
 text = "Zoomed in, she is beside the ship: named, clear of the orders, status and message."
+[[input]]
+tick = 777
+name = "core.ahead"
+payload = { down = false }
 [[zoom]]
-tick = 260
+tick = 797
 steps = -40.0
+[[input]]
+tick = 807
+name = "core.dock"
+payload = { station = "core.kiln" }
 [[note]]
-tick = 300
-text = "Zoomed fully out: Little Mercy named far from the ship; Quiet Lamp by Cinder Kiln wears none."
+tick = 837
+text = "Zoomed fully out: Little Mercy named as she flies on towards Cinder Kiln."
+[[input]]
+tick = 1720
+name = "core.launch"
 [[note]]
-tick = 400
-text = "Zoomed out: Little Mercy moored off Cinder Kiln wears no label."
+tick = 1760
+text = "Zoomed out off Cinder Kiln: Little Mercy and Quiet Lamp lie moored by it and wear no labels."
 [[note]]
-tick = 470
-text = "Zoomed out with nothing pressed: the rocks and the station rings turn slowly."
+tick = 1840
+text = "Zoomed out with nothing pressed, coasting off Cinder Kiln: nothing jitters."

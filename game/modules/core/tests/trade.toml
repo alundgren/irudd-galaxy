@@ -4,7 +4,7 @@
 # a quick undock-and-redock tap is not a visit, and a site trades nothing until built.
 # tests/trade.inputs holds the same route for sim runs and shots.
 seed = 7
-ticks = 2840
+ticks = 7214
 
 [[input]]
 tick = 1
@@ -18,209 +18,209 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 960
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 600
+tick = 1737
 name = "core.open"
 [[input]]
-tick = 605
+tick = 1742
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 610
+tick = 1747
 name = "core.sell"
 [[input]]
-tick = 620
+tick = 1757
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 640
+tick = 1777
 name = "core.launch"
 [[input]]
-tick = 650
+tick = 1787
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 960
+tick = 2638
 name = "core.open"
 [[input]]
-tick = 970
+tick = 2648
 name = "core.sell"
 [[input]]
-tick = 980
+tick = 2658
 name = "core.launch"
 [[input]]
-tick = 985
+tick = 2663
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 1030
+tick = 2708
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 1035
+tick = 2713
 name = "core.buy"
 payload = { ware = "rations", units = 0 }
 [[input]]
-tick = 1040
+tick = 2718
 name = "core.close"
 [[input]]
-tick = 1100
+tick = 2778
 name = "core.launch"
 [[input]]
-tick = 1110
+tick = 2788
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 1410
+tick = 3626
 name = "core.open"
 [[input]]
-tick = 1420
+tick = 3636
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 1440
+tick = 3656
 name = "core.launch"
 [[input]]
-tick = 1450
+tick = 3666
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 1760
+tick = 4517
 name = "core.open"
 [[input]]
-tick = 1770
+tick = 4527
 name = "core.sell"
 [[input]]
-tick = 1790
+tick = 4547
 name = "core.launch"
 [[input]]
-tick = 1800
+tick = 4557
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 2100
+tick = 5395
 name = "core.open"
 [[input]]
-tick = 2110
+tick = 5405
 name = "core.buy"
 payload = { ware = "plate", units = 0 }
 [[input]]
-tick = 2130
+tick = 5425
 name = "core.launch"
 [[input]]
-tick = 2140
+tick = 5435
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2450
+tick = 6286
 name = "core.open"
 [[input]]
-tick = 2460
+tick = 6296
 name = "core.sell"
 [[input]]
-tick = 2480
+tick = 6316
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 2290
+tick = 6126
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6059 }
 [[input]]
-tick = 2483
+tick = 6319
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2480 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6316 }
 [[input]]
-tick = 2490
+tick = 6326
 name = "core.buy"
 payload = { ware = "rations", units = 0 }
 [[input]]
-tick = 2510
+tick = 6346
 name = "core.launch"
 [[input]]
-tick = 2520
+tick = 6356
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 2820
+tick = 7194
 name = "core.open"
 [[input]]
-tick = 2830
+tick = 7204
 name = "core.sell"
 
 # Docked at the Kiln with a full hold of ore: buying plate is refused.
 [[expect]]
-tick = 606
+tick = 1743
 entity = "ship"
 component = "hold"
 field = "plate"
 equals = 0
 [[expect]]
-tick = 606
+tick = 1743
 entity = "ship"
 component = "hold"
 field = "ore"
-equals = 6
+equals = 24
 
-# Six ore sell unit by unit as the Kiln's stock fills.
+# A hold of ore sells unit by unit as the Kiln's stock fills.
 [[expect]]
-tick = 615
+tick = 1752
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 97
+equals = 379
 [[expect]]
-tick = 615
+tick = 1752
 entity = "kiln_ore"
 component = "market"
 field = "stock"
-equals = 33
+equals = 74
 
 # Buy as much plate as the credits allow; each unit asks a little more.
 [[expect]]
-tick = 630
+tick = 1767
 entity = "ship"
 component = "hold"
 field = "plate"
-equals = 3
+equals = 13
 [[expect]]
-tick = 630
+tick = 1767
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 11
+equals = 0
 [[expect]]
-tick = 630
+tick = 1767
 entity = "ship"
 component = "pilot"
 field = "sale"
-equals = -86
+equals = -379
 [[expect]]
-tick = 630
+tick = 1767
 entity = "kiln_plate"
 component = "market"
 field = "stock"
-equals = 21
+equals = 59
 
 # At Lantern Dock the plate goes into the galley.
 [[expect]]
-tick = 975
+tick = 2653
 entity = "lantern_galley"
 component = "build"
 field = "given"
-equals = 3
+equals = 13
 [[expect]]
-tick = 975
+tick = 2653
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 122
+equals = 455
 [[expect]]
-tick = 975
+tick = 2653
 entity = "lantern"
 component = "port"
 field = "visits"
@@ -228,136 +228,137 @@ equals = 1
 
 # A quick launch and redock is still a docking, but not a visit: nothing settles.
 [[expect]]
-tick = 1025
+tick = 2703
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.lantern"
 [[expect]]
-tick = 1025
+tick = 2703
 entity = "lantern"
 component = "port"
 field = "visits"
 equals = 1
 [[expect]]
-tick = 1025
+tick = 2703
 entity = "lantern_plate"
 component = "market"
 field = "stock"
-equals = 20
+equals = 66
 
 # The galley site trades nothing before it is built.
 [[expect]]
-tick = 1036
+tick = 2714
 entity = "ship"
 component = "hold"
 field = "rations"
 equals = 0
 [[expect]]
-tick = 1036
+tick = 2714
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 122
+equals = 455
 
-# Back at the Kiln, a counted visit has eased its plate stock back by two.
+# Back at the Kiln: its plate stock has eased back by 6 on each counted docking since
+# (Lantern Dock's, then its own), less the 15 just bought.
 [[expect]]
-tick = 1430
+tick = 3646
 entity = "kiln"
 component = "port"
 field = "visits"
 equals = 2
 [[expect]]
-tick = 1430
+tick = 3646
 entity = "kiln_plate"
 component = "market"
 field = "stock"
-equals = 19
+equals = 56
 [[expect]]
-tick = 1430
+tick = 3646
 entity = "ship"
 component = "hold"
 field = "plate"
-equals = 4
+equals = 15
 
-# The tenth plate builds the galley: a new building, its cook in its kitchen, and
+# The fortieth plate builds the galley: a new building, its cook in its kitchen, and
 # rations for sale.
 [[expect]]
-tick = 2470
+tick = 6306
 entity = "lantern_galley"
 component = "build"
 field = "done"
 equals = true
 [[expect]]
-tick = 2470
+tick = 6306
 entity = "lantern_galley"
 component = "engine.model"
 field = "model"
 equals = "core.galley"
 [[expect]]
-tick = 2470
+tick = 6306
 entity = "lantern_galley"
 component = "facility"
 field = "name"
 equals = "Galley"
 [[expect]]
-tick = 2470
+tick = 6306
 entity = "lantern_cook"
 component = "engine.location"
 field = "place"
 equals = "core.lantern_galley_room"
 [[expect]]
-tick = 2470
+tick = 6306
 entity = "lantern_cook"
 component = "engine.life"
 field = "name"
 equals = ""
 [[expect]]
-tick = 2470
+tick = 6306
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Sold 4 plate to Lantern Dock for 136 cr. The galley is built: Ines Varga sells rations there."
+equals = "Sold 17 plate to Lantern Dock for 576 cr. The galley is built: Ines Varga sells rations there."
 [[expect]]
-tick = 2470
+tick = 6306
 entity = "lantern_master_now"
 component = "engine.talk_line"
 field = "text"
-equals = "The field still holds 78 ore."
+equals = "Your plate built our galley. The field still holds 125 ore."
 
 # In her own room she wears her name sign.
 [[expect]]
-tick = 2485
+tick = 6321
 entity = "lantern_cook"
 component = "engine.life"
 field = "name"
 equals = "Ines Varga"
 [[expect]]
-tick = 2500
+tick = 6336
 entity = "ship"
 component = "hold"
 field = "rations"
-equals = 6
+equals = 24
 [[expect]]
-tick = 2500
+tick = 6336
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 70
+equals = 223
 
 # The Kiln's crews buy the rations.
 [[expect]]
-tick = 2840
+tick = 7214
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 181
+equals = 629
 [[expect]]
-tick = 2840
+tick = 7214
 entity = "kiln_rations"
 component = "market"
 field = "stock"
-equals = 32
+equals = 114
 [[expect]]
 entity = "kiln"
 component = "port"
