@@ -758,8 +758,10 @@ pub static COMMANDS: &[Command] = &[
                 scale, default 1; 1.25 lays 1280x720 out as 1024x576). No resize or hot_load. \
                 It runs the matching galaxy play --headless, as fast as the machine goes, and \
                 replays its recording; bots never open a window. Scenarios and bots run side \
-                by side on half the machine's cores, the longest first; reports keep file order \
-                and don't depend on it. A \
+                by side on at most half the machine's cores (a thread per scenario, a galaxy \
+                process per bot), the longest first. The modules are read once a run, and each \
+                scenario starts a world and Luau states of its own from them. Reports keep file \
+                order and don't depend on it. The longest single file sets the time. A \
                 missing GPU (notes need one) is status unavailable, never a pass. Performance \
                 scenes (tests/*.perf.toml) are not run: galaxy-gm perf runs them. Any failure \
                 exits 5 with kind tests_failed.",

@@ -65,7 +65,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::edit::Edit;
-use crate::session::{Input, Session};
+use crate::session::{Input, Prepared, Session};
 
 /// Every key an inputs file takes: its entry, the key, an example as TOML and what it does.
 /// `galaxy-gm fields inputs` prints it; a test reads a file made of every example.
@@ -666,12 +666,13 @@ pub fn run_module_tests(modules: &[Module], owner: &str) -> Result<Vec<ScenarioR
         .iter()
         .find(|m| m.id() == owner)
         .ok_or_else(|| format!("module `{owner}` is not loaded"))?;
+    let prepared = Prepared::new(modules.to_vec());
     module
         .files
         .0
         .iter()
         .filter(|(path, _)| path.starts_with("tests/") && path.ends_with(".toml"))
-        .map(|(path, text)| run_scenario(modules, owner, path, text))
+        .map(|(path, text)| run_prepared(&prepared, owner, path, text))
         .collect()
 }
 
@@ -683,6 +684,18 @@ pub fn run_scenario(
     file: &str,
     text: &str,
 ) -> Result<ScenarioReport, String> {
+    run_prepared(&Prepared::new(modules.to_vec()), owner, file, text)
+}
+
+/// [`run_scenario`] with a module set worked out once for several scenarios, each in a
+/// session of its own ([`Session::prepared`]); the same report.
+pub fn run_prepared(
+    prepared: &Prepared,
+    owner: &str,
+    file: &str,
+    text: &str,
+) -> Result<ScenarioReport, String> {
+    let modules = prepared.modules();
     let at = |e: String| format!("{owner}: {file}: {e}");
     let raw: RawScenario = toml::from_str(text).map_err(|e| at(e.to_string()))?;
     let qualify_kind = |name: &str| ids::qualify_type(owner, name);
@@ -721,7 +734,7 @@ pub fn run_scenario(
         };
         edits.push((tick, edit.qualify(&full, &kind).map_err(at)?));
     }
-    let mut session = Session::new(modules.to_vec(), raw.seed).map_err(at)?;
+    let mut session = Session::prepared(prepared, raw.seed).map_err(at)?;
     for list in inputs.values() {
         for input in list {
             session.check_input(input).map_err(at)?;

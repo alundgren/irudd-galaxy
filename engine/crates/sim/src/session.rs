@@ -31,6 +31,7 @@ use galaxy_api::engine::{
 };
 use galaxy_module::ids;
 use galaxy_module::module::Module;
+use galaxy_script::vm::Code;
 use galaxy_script::{Abort, Event, ScriptSet, Target};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -90,16 +91,43 @@ pub struct Session {
     resume_pending: bool,
 }
 
-/// Loads every module's scripts against `registry`. Problems are listed with their
-/// module.
+/// A module set worked out once for many new sessions ([`Session::prepared`]): the
+/// modules, their models' solid outlines and a bytecode cache their scripts compile into.
+/// Outlines and bytecode are pure functions of the module files, so a session started
+/// from here is the one [`Session::new`] starts; sessions share nothing else. `galaxy-gm
+/// test` starts every scenario of a run from one.
+#[derive(Clone)]
+pub struct Prepared {
+    modules: Vec<Module>,
+    shapes: Shapes,
+    code: Code,
+}
+
+impl Prepared {
+    pub fn new(modules: Vec<Module>) -> Prepared {
+        Prepared {
+            shapes: Shapes::of(&modules),
+            modules,
+            code: Code::default(),
+        }
+    }
+
+    pub fn modules(&self) -> &[Module] {
+        &self.modules
+    }
+}
+
+/// Loads every module's scripts against `registry`, compiling into `code`. Problems are
+/// listed with their module.
 fn load_scripts(
     modules: Vec<Module>,
     registry: &Registry,
+    code: &Code,
 ) -> Result<BTreeMap<String, Loaded>, String> {
     let mut out = BTreeMap::new();
     let mut problems = Vec::new();
     for module in modules {
-        match ScriptSet::load(&module, registry) {
+        match ScriptSet::load_with(&module, registry, code) {
             Ok(scripts) => {
                 out.insert(module.id().to_owned(), Loaded { module, scripts });
             }
@@ -116,8 +144,28 @@ fn load_scripts(
 impl Session {
     /// A new world from `modules`' start states.
     pub fn new(modules: Vec<Module>, seed: u64) -> Result<Session, String> {
+        Session::start(modules, seed, None, &Code::default())
+    }
+
+    /// [`Session::new`] with `prepared`'s modules, without working out their outlines or
+    /// compiling their scripts again.
+    pub fn prepared(prepared: &Prepared, seed: u64) -> Result<Session, String> {
+        Session::start(
+            prepared.modules.clone(),
+            seed,
+            Some(prepared.shapes.clone()),
+            &prepared.code,
+        )
+    }
+
+    fn start(
+        modules: Vec<Module>,
+        seed: u64,
+        shapes: Option<Shapes>,
+        code: &Code,
+    ) -> Result<Session, String> {
         let registry = Registry::new(&modules.iter().collect::<Vec<_>>())?;
-        let modules = load_scripts(modules, &registry)?;
+        let modules = load_scripts(modules, &registry, code)?;
         let mut world = World::new(seed);
         for (id, loaded) in &modules {
             let mut batch = Batch::new(Cause::Start { module: id.clone() });
@@ -150,7 +198,7 @@ impl Session {
         }
         Ok(Session {
             world,
-            shapes: Shapes::of(modules.values().map(|l| &l.module)),
+            shapes: shapes.unwrap_or_else(|| Shapes::of(modules.values().map(|l| &l.module))),
             modules,
             registry,
             log: Vec::new(),
@@ -165,7 +213,7 @@ impl Session {
     /// still fits its schema (new fields get their defaults).
     pub fn resume(modules: Vec<Module>, mut world: World) -> Result<Session, String> {
         let registry = Registry::new(&modules.iter().collect::<Vec<_>>())?;
-        let modules = load_scripts(modules, &registry)?;
+        let modules = load_scripts(modules, &registry, &Code::default())?;
         world.conform(&registry, |w| {
             w.cause(Cause::Engine {
                 service: "load".into(),
@@ -529,7 +577,7 @@ impl Session {
             .collect();
         list.push(module.clone());
         let registry = Registry::new(&list.iter().collect::<Vec<_>>())?;
-        let modules = load_scripts(list, &registry)?;
+        let modules = load_scripts(list, &registry, &Code::default())?;
         let cause = Cause::HotLoad {
             module: id.clone(),
             version: module.manifest.version.to_string(),

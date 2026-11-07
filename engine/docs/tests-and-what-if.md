@@ -96,13 +96,35 @@ itself wrong (an unknown event, an expectation after the last tick) fails with t
 and the others still run. `--only <text>` keeps the tests whose file or name contains it.
 
 **Side by side.** The Luau tests take well under a second and run first, one after another.
-Scenarios and bots then share one queue on half the machine's cores, the longest first (a
-bot's ticks count about ten times a scenario's, for its frames and its replay), so the
-longest run, not the sum, sets how long `test` takes. Each scenario builds its own world
-and Luau states in its own thread and each bot is its own `galaxy` process with its own
-session folder, so nothing one writes is read by another: the results, and the report,
-are the same whatever order they finish in and however many run at once. Reports keep
-file order.
+Scenarios and bots then share one queue, the longest first, so the longest run, not the
+sum, sets how long `test` takes. The order comes from each file's `ticks`: a bot's count
+about ten times a scenario's (its frames and its replay), and each file adds its start
+(about 50 scenario ticks for a scenario, 2000 for a bot's process, GPU and replay), so
+with many short files the bots still start first.
+
+**Half the cores.** At most half of `available_parallelism` (at least one) run at once,
+never more than there are files: each scenario is one thread, and each bot one `galaxy`
+process waited on by one thread. The other half is left to builds and other agents'
+tests on the same machine.
+
+**Once a run, not once a file.** The modules are read and checked once. The scenarios
+then start from one prepared set (`galaxy_sim::Prepared`): the modules, their models'
+solid outlines and a bytecode cache. Outlines come from parsing every model's glTF, which
+was most of a scenario's start on a module with many models, and compiling is per source
+text. Both are pure functions of the module files, so a session started from the set is
+the one `Session::new` starts (a test checks the hashes match on several threads).
+
+**Isolated.** Each scenario builds its own world and Luau states in its own thread and
+each bot is its own `galaxy` process with its own session folder; the prepared set holds
+nothing a session writes. The results, and the report, are the same whatever order they
+finish in and however many run at once. Reports keep file order.
+
+**What is left.** A bot's start is its own process: modules, world, its view (models
+parsed once each), the GPU device its notes are drawn with, then writing the session and
+the GM's replay of it. These are about a second together. Most of a bot's time is its
+ticks: every tick builds a headless frame (scene, screens, problem checks), several times
+a bare tick's cost, and the replay check runs the ticks again. With short files the floor
+is the longest single file.
 
 ## What-if
 
@@ -167,6 +189,13 @@ the entities and only the facts and causes added since.
   One queue for both lets a long scenario run beside the bots. Splitting the queue in two
   (scenarios on threads, bots on processes) would leave one pool idle while the other
   works.
+- **A process for every scenario, or bots in the GM's process.** A process per scenario
+  would add its start, the modules' reading and a world, to files that take a fraction of
+  a second. Playing bots inside the GM would save their start, but a bot is the same
+  `galaxy play --headless` a person runs, which is what it tests.
+- **A cache on disk.** Outlines or bytecode kept between runs would save the once-a-run
+  work too, but a stale cache could make a test pass that should fail, and the work is a
+  fraction of a second once a run.
 - **Half the cores, not the build permit.** Other agents build and test on the same
   machine. Taking `cargo xtask`'s build permit would make every `test` wait behind every
   build, and builds behind tests, though a test compiles nothing; half the cores leaves the

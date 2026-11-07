@@ -65,7 +65,25 @@ pub struct NamedNode {
 }
 
 pub fn read_nodes(text: &str) -> Result<BTreeMap<String, NamedNode>, String> {
-    let doc = Gltf::from_slice(text.as_bytes()).map_err(|e| format!("not a glTF file: {e}"))?;
+    nodes_of(&parse(text)?)
+}
+
+/// [`read_parts`] and [`read_nodes`] together, from one parse of the text.
+pub type Model = (MeshData, Vec<PartRange>, BTreeMap<String, NamedNode>);
+
+/// [`read_parts`] then [`read_nodes`], reading the text once: the same results and the
+/// same first error.
+pub fn read_model(text: &str) -> Result<Model, String> {
+    let doc = parse(text)?;
+    let (mesh, parts) = parts_of(&doc)?;
+    Ok((mesh, parts, nodes_of(&doc)?))
+}
+
+fn parse(text: &str) -> Result<Gltf, String> {
+    Gltf::from_slice(text.as_bytes()).map_err(|e| format!("not a glTF file: {e}"))
+}
+
+fn nodes_of(doc: &Gltf) -> Result<BTreeMap<String, NamedNode>, String> {
     let scene = doc
         .default_scene()
         .or_else(|| doc.scenes().next())
@@ -276,7 +294,10 @@ impl PartInfo {
 /// Reads a model from `.gltf` text, with the vertices each part (a node with a mesh)
 /// became, in reading order.
 pub fn read_parts(text: &str) -> Result<(MeshData, Vec<PartRange>), String> {
-    let doc = Gltf::from_slice(text.as_bytes()).map_err(|e| format!("not a glTF file: {e}"))?;
+    parts_of(&parse(text)?)
+}
+
+fn parts_of(doc: &Gltf) -> Result<(MeshData, Vec<PartRange>), String> {
     let mut buffers = Vec::new();
     for buffer in doc.buffers() {
         let gltf::buffer::Source::Uri(uri) = buffer.source() else {

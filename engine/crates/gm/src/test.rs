@@ -2,8 +2,10 @@
 //! `galaxy_script::testrun`) and its scenario runs (`tests/*.toml`,
 //! `galaxy_sim::scenario`), with the modules beside it loaded as `check` loads them, and
 //! its bots (`tests/*.bot.toml`, [`crate::bot`]), headless; scenarios and bots run side by
-//! side ([`side_by_side`]). Performance scenes (`tests/*.perf.toml`) are not tests: `galaxy-gm perf` runs them ([`crate::perf`]).
-//! Reports each; any failure exits 5 with kind `tests_failed`.
+//! side ([`side_by_side`]), the scenarios from modules prepared once a run
+//! ([`galaxy_sim::Prepared`]). Performance scenes (`tests/*.perf.toml`) are not tests:
+//! `galaxy-gm perf` runs them ([`crate::perf`]). Reports each; any failure exits 5 with kind
+//! `tests_failed`.
 
 use std::path::Path;
 
@@ -14,7 +16,7 @@ use galaxy_module::failure::code;
 use galaxy_module::module::Module;
 use galaxy_module::{Failure, gate, manifest};
 use galaxy_script::testrun;
-use galaxy_sim::scenario;
+use galaxy_sim::{Prepared, scenario};
 use serde_json::{Value, json};
 
 /// Options `test` takes.
@@ -100,10 +102,16 @@ pub fn run(dir: &Path, only: Option<&str>) -> Result<Output, Failure> {
         .map(|&(path, text)| Job::Scenario(path, text))
         .chain(declared.iter().map(|&(path, text)| Job::Bot(path, text)))
         .collect();
+    // The scenarios' modules, their models' outlines and compiled scripts, worked out once
+    // for the run; each scenario still has a world and Luau states of its own.
+    let prepared = (!scenario_files.is_empty()).then(|| Prepared::new(all));
     let started = std::time::Instant::now();
     let mut done = side_by_side(&jobs, Job::cost, |job| {
         let report = match *job {
-            Job::Scenario(path, text) => scenario_report(&all, module.id(), path, text),
+            Job::Scenario(path, text) => {
+                let prepared = prepared.as_ref().expect("prepared for the scenarios");
+                scenario_report(prepared, module.id(), path, text)
+            }
             Job::Bot(path, text) => crate::bot::run(&module, root, path, text),
         };
         (report, started.elapsed())
@@ -193,8 +201,9 @@ enum Job<'a> {
 }
 
 impl Job<'_> {
-    /// About how long it takes, to start the longest first: its ticks, a bot's weighted by
-    /// what a headless frame and the replay cost beside a bare tick.
+    /// About how long it takes, in scenario ticks, to start the longest first: its start
+    /// and its ticks, a bot's weighted by what a headless frame and the replay cost beside
+    /// a bare tick.
     fn cost(&self) -> u64 {
         let ticks = |text: &str| {
             toml::from_str::<toml::Table>(text)
@@ -203,8 +212,10 @@ impl Job<'_> {
                 .map_or(0, |n| n.max(0) as u64)
         };
         match *self {
-            Job::Scenario(_, text) => ticks(text),
-            Job::Bot(_, text) => ticks(text).saturating_mul(BOT_TICK_COST),
+            Job::Scenario(_, text) => SCENARIO_START.saturating_add(ticks(text)),
+            Job::Bot(_, text) => {
+                BOT_START.saturating_add(ticks(text).saturating_mul(BOT_TICK_COST))
+            }
         }
     }
 }
@@ -212,10 +223,17 @@ impl Job<'_> {
 /// A headless bot tick (the tick, its frame and the replay's tick) against a scenario's.
 const BOT_TICK_COST: u64 = 10;
 
+/// A scenario's start (its world from the run's prepared modules) in scenario ticks.
+const SCENARIO_START: u64 = 50;
+
+/// A bot's start and finish in scenario ticks: the `galaxy` process, its modules, world,
+/// screen and GPU, writing the session, and the replay's start.
+const BOT_START: u64 = 2000;
+
 /// A scenario's report. A scenario that is itself wrong (or modules that don't start)
 /// fails with that message, and the others still run.
-fn scenario_report(all: &[Module], owner: &str, path: &str, text: &str) -> Value {
-    match scenario::run_scenario(all, owner, path, text) {
+fn scenario_report(prepared: &Prepared, owner: &str, path: &str, text: &str) -> Value {
+    match scenario::run_prepared(prepared, owner, path, text) {
         Ok(r) => json!({
             "file": path,
             "passed": r.passed,
