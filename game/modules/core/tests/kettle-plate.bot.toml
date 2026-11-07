@@ -1,0 +1,10 @@
+# Cold Kettle's plate by real clicks (tests/kettle-plate.inputs), from her moored in a
+# set greenhouse: a hold of plate bought in the Kiln exchange, 12 of it handed to Bram
+# with his gold button, two trips out and back, the beds in bloom and Noor's thanks.
+# size is physical pixels. 5 notes.
+inputs = "tests/kettle-plate.inputs"
+ticks = 1235
+size = [1280, 720]
+# The UI scale the route was written at: 125% display scaling, on any machine.
+scale = 1.25
+seed = 7
