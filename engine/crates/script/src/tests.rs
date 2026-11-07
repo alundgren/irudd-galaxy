@@ -62,6 +62,61 @@ fn store() -> Store {
     s
 }
 
+#[test]
+fn screen_refreshes_isolate_upvalues_and_required_tables() {
+    let mut module = module(
+        r#"local shared = require('./lib')
+        local calls = 0
+        return {
+            cadence = function() shared.calls = 99 end,
+            screen = function(ctx, ui)
+                local bell = ctx.get('one', 'bell')
+                local copy = ctx.get('one', 'bell')
+                copy.rings = 100
+                assert(ctx.get('one', 'bell').rings == bell.rings)
+                calls += 1
+                shared.calls += 1
+                return ui.text { text = calls .. ':' .. shared.calls .. ':' .. bell.rings }
+            end,
+        }"#,
+    );
+    module
+        .files
+        .0
+        .insert("lib.luau".into(), "return { calls = 0 }".into());
+    let registry = Registry::new(&[&module]).unwrap();
+    let scripts = ScriptSet::load(&module, &registry).unwrap();
+    let mut screens = [
+        crate::screens::Screen::new(&module, "main.luau", &registry),
+        crate::screens::Screen::new(&module, "main.luau", &registry),
+    ];
+    let mut world = store();
+    for rings in 2..5 {
+        world
+            .0
+            .get_mut(&("aa.one".into(), "aa.bell".into()))
+            .unwrap()
+            .insert("rings".into(), json!(rings));
+        assert!(
+            scripts
+                .call(
+                    0,
+                    Target::Cadence,
+                    &world,
+                    &registry,
+                    &mut SimRng::for_key(1, "t")
+                )
+                .result
+                .is_ok()
+        );
+        for screen in &mut screens {
+            screen.refresh(&world);
+            assert!(screen.problems.is_empty(), "{:?}", screen.problems);
+            assert_eq!(screen.tree.as_ref().unwrap().text, format!("1:1:{rings}"));
+        }
+    }
+}
+
 fn run(script: &str, target: Target<'_>) -> crate::Outcome {
     let m = module(script);
     let registry = Registry::new(&[&m]).unwrap();

@@ -50,6 +50,9 @@ constructors. Its reads invalidate the cached tree when their data changes. It h
 simulation writes, random stream or tick access, and shares the fresh VM and budgets.
 Returning nil hides the screen. `screens.md` describes layout, anchors, clicks and replay.
 `galaxy-gm types` includes `ScreenCtx`, `Ui`, `Widget` and the optional script function.
+Screens share their immutable module-file snapshot between calls, just as simulation
+scripts do. Creating a fresh VM copies a reference to those files, not their contents;
+neither the sandbox nor its per-call allocation and step budgets are reused.
 
 Place commands are bound in `place_api.rs`. They apply in command order: a walk after
 a move uses the new place, and consecutive clock advances add up. Their expansions pass
