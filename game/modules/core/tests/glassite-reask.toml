@@ -349,7 +349,7 @@ tick = 7413
 entity = "kiln_trader_now"
 component = "engine.talk_line"
 field = "text"
-equals = "8 glassite for Ines's panes. North of our berth, by the lone buoy."
+equals = "8 glassite for Ines's panes. North, a touch east, by the lone buoy."
 
 [[expect]]
 tick = 7413

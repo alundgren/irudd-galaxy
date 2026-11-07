@@ -445,7 +445,9 @@ silhouette and colour, in several sizes (`engine.model` scale; a bigger rock hol
   they all share keeps shrinking through `engine.model` morph. Once it is empty it becomes
   `ore.empty`, `glassite_pebbles`: a few dark pebbles with warm glowing caps. A lone buoy
   marks the drift, and just north of its rocks lies an old stone ring, dark until the
-  ship comes near (below, "The first rumour").
+  ship comes near (below, "The first rumour"). Four loose shards (`glassite_shard1` to
+  `4`, chipped and worn glassite, drawn only: never solid, never mined) lie 50 to 70
+  units out on either side, so a ship passing wide of the drift still sees lilac.
 - Pebbles and ice splinters (`debris`, `debris_ice`) and faint drifting dust
   (`[particles.dust]` from three `engine.emitter` points) round the drifts: drawn only,
   never solid, never mined.
@@ -797,11 +799,13 @@ to the far drift and back with a question. It is world state (`rumour` on
 
 1. **The lead.** While Ines's greenhouse needs glassite and the player hasn't been out to
    it, Sefa, once met, says where it grows before anything else (a story talk): "Glassite
-   for Ines's panes? Pell's Luck brings me mine." "Fly north from our berth, a long way
-   out." "A lone buoy marks her drift. The rocks glow lilac." It is a bearing and two
-   landmarks, never a marker, and true: the drift lies north of the Kiln's berth, a
-   little east. Heard once; her everyday line keeps the landmark: "8 glassite for Ines's
-   panes. North of our berth, by the lone buoy."
+   for Ines's panes? Pell's Luck brings me mine." "Fly north from our berth, a touch
+   east. It's far." "A lone buoy marks her drift. The rocks glow lilac." It is a bearing
+   and two landmarks, never a marker, and true: the drift lies 15 degrees east of north
+   from the Kiln's berth, about 500 units out. A pilot who holds that heading within a
+   dozen degrees either way sees its rocks, or the loose shards wide of it, on screen
+   (`tests/glassite-heading*.toml`). Heard once; her everyday line keeps the landmark:
+   "8 glassite for Ines's panes. North, a touch east, by the lone buoy."
 2. **The find.** By the lone buoy and the lilac rocks, just north of them, lies a ring of
    dark worn stone with standing stones on its band and glassite growing up through it
    (`stone_ring`). Flying within 40 units of it, as it comes on screen, wakes it once:
@@ -828,11 +832,14 @@ Told, her idle line becomes "Pell won't cut near your ring. She says it hums."
 after, her introduction starts with it (`history.fold`), otherwise her next everyday line
 is it, once: "Your ring's on my oldest chart, unnamed."
 
-**Measured** on the headless route `tests/glassite-lead.toml` (seed 7, flights scripted):
-from launching at Cinder Kiln after Sefa's lead to the ring waking, 774 ticks, **25.8
-seconds** of flight on a scripted Mine of the nearest glassite rock (Kiln to drift is
-about 530 units, the cruise is 20 a second). By hand, with the turn north and finding the
-buoy, that is some 30 to 40 seconds. A save from before the rumour loads and plays on
+**Measured**, headless, flown by keys alone from the Kiln's berth (seed 7, no orders): a
+third of a second of turn, then straight on at the cruise of 20 a second. Holding her
+heading (15 degrees east of north), the lone buoy comes on screen after about **23
+seconds**; 12 degrees west of it (nearly due north), the western shards after about 23
+seconds; 12 degrees east, the eastern shards after about 26 seconds. From the shards the
+drift is a short turn away. On the scripted route of `tests/glassite-lead.toml` (a Mine of
+the nearest glassite rock), launching after her lead to the ring waking is 774 ticks,
+25.8 seconds. A save from before the rumour loads and plays on
 without it: the ring and its talks are new entities.
 
 ## After the greenhouse: Cold Kettle adrift
@@ -1259,7 +1266,7 @@ for every second of beam time however it is broken up, the berth ring, regrowth 
 and the worked-out message for an empty and a full hold, and in `tests/cutting.luau` the
 stone's heat, cold to warm to glazed and back, and simulated holds guarding how much an
 attentive hand beats clicking once and waiting, under "Cutting takes judgment") and
-sixty-two scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
+sixty-five scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
 below):
 the opening's pace (`opening.toml`, above under "The opening hour"), cutting with
 judgment (`cutting.toml`: Sefa's word on the first hand beam, the seam warming, glazing
@@ -1335,7 +1342,10 @@ no lead and her question waits for the handover), the first rumour
 put away once heard, the flight north and the ring waking with its log line, the
 glassite handed over first, then her question, the answer and her reply, Mags met after
 with the news first and no longer news once heard; `glassite-reask.toml`: the exchange
-left mid-reply, and back, she picks up her reply and doesn't ask again), its choices (`greenhouse-choices.toml`:
+left mid-reply, and back, she picks up her reply and doesn't ask again; `glassite-heading.toml`,
+`glassite-heading-west.toml` and `glassite-heading-east.toml`: her words followed by keys
+alone from the Kiln's berth, on her heading and 12 degrees either side of it, bring the
+buoy or the shards well inside the view), its choices (`greenhouse-choices.toml`:
 "Not now" offered again on the next docking, the glassite offer off with 3 aboard and
 on with 8, the panes waiting on a full hold, Ines's panes not sold at the exchange,
 the receipts), Sefa's gold button (`sefa-hand.toml`: one press hands her the glassite
