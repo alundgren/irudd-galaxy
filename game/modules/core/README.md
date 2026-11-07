@@ -25,9 +25,10 @@ hour. The two controls that fly for you come several hours in, once you have don
 work by hand.
 
 Why you are out here arrives in order, a line at a time, with no wall of text. The first
-message is Bram Okafor on the radio from Lantern Dock: "Welcome, pilot. Our galley wants
-40 plate: sheet the Kiln fires from ore. What a station wants, your log lists as WANTED."
-So plate and WANTED are both in a person's words before either can be acted on. In
+message is Bram Okafor on Lantern Dock's radio: "Welcome, pilot. Our galley needs plate:
+the Kiln fires it from ore." Under his line, each on its own, come the goal it gives
+(`WANTED` Lantern Dock's galley: 40 plate) and a lesson ("Your log keeps every
+WANTED."), so plate and WANTED are both named before either can be acted on. In
 flight the radio plays the nearer
 station's channel, so on the way to Cinder Kiln it says "We buy ore for the kiln and sell
 the plate it makes." In each room the panel says "Click Sefa to talk" (Tova, Bram, and so
@@ -102,7 +103,7 @@ by hand to clear an obstruction when approaching from the far side of a station.
 
 The first hour is work by hand: cutting, flying and selling, with nothing to wait on.
 The space is wide rather than the ship slow; the flight numbers stay locked (cruise
-20 units a second, boost 40). The bottom strip names each station off screen and the
+20 units a second, boost 40). The bottom stack names each station off screen and the
 way it lies (`rules.bearings`), so the far ones are always findable.
 
 | Leg | Units | Cruise | Boost |
@@ -122,7 +123,7 @@ are rich seams that give half as much again for the same cutting; two of them (r
 rock8) have a small spall beside them (rock10, rock12) to put the beam on while the seam
 cools. The
 first time the beam comes on by hand, before the stone has warmed, Sefa at Cinder Kiln
-says on the radio what to watch: "Watch the stone under your beam. Warm, it comes away
+says on Cinder Kiln's radio what to watch: "Watch the stone under your beam. Warm, it comes away
 fast. Once it glazes, move the beam to another rock and let it cool." Her line stays
 under the beam until the stone first glazes or the beam goes off. Hessa on the Cold
 Kettle hails you on your first or second flight out, whichever comes first, with her
@@ -270,10 +271,11 @@ ice and glassite); glazed stone goes pale and flat, unhatched like glaze on a po
 shimmers all over (`looks.*_glazed`, `particles.glazed_*`). The beam: on glazed stone it goes pale and flickers, its sparks
 thrown wide and no chips coming back up it (`beams.cutter_glazed`). The words: each
 unit's count ends with the stone's state ("cold stone, it warms as you cut", "warm:
-cutting fast", "glazed: put the beam on another rock"), the moment it glazes the line
-says "The stone glazes and the beam skates: put it on another rock while this one cools.",
-and the hint strip says "Click another rock, or turn onto one · this one has glazed, let it
-cool" until the beam has been moved off a hot rock three times (`taught.swap`).
+cutting fast", "glazed: cutting slowly"). The moment it glazes, the notice says "The stone
+has glazed: the beam skates on it.", a lesson under it says "Glazed stone cools once the
+beam is off it.", and the key pill says "Click another rock,
+or A or D · move the beam", which stays until the beam has been moved off a hot rock
+three times (`taught.swap`).
 
 Moving the beam is a turn (A or D, Space held) or a click on the other rock: in reach but
 off the nose, she turns onto it where she sits (a quarter turn in about half a second, no
@@ -1100,7 +1102,11 @@ kind. Each kind of thing has its own look, so a glance tells them apart:
 | Kind | Look | Kit call |
 | --- | --- | --- |
 | Status (the HUD chip) | dark ink, lantern-gold border, white text | `kit.chip(ui, w)` |
-| A key hint | dark ink pill, thin gold frame | `kit.pill(ui, w)` |
+| A key hint | dark ink pill, thin gold frame | `kit.pill(ui, w)`, or `look = kit.LOOK.pill` on a text |
+| The radio, and a person's line on it | a slim dark strip with a violet frame; the speaker's name on the amber tag, then where from, quieter | `kit.radio(ui, w)`, `spans = kit.speaker("Bram", "Lantern Dock")` |
+| What just happened in flight | a lighter plum card, no frame, the ship's icon | `kit.note(ui, w)`, or `look = kit.LOOK.note` on a text |
+| A goal someone gave | warm midnight, thin gold frame, a cream `WANTED` tag | `kit.goal(ui, w)`, or `look = kit.LOOK.goal` on a text |
+| A lesson about the game | a paper card, ink frame, black words | `kit.lesson(ui, w)`, or `look = kit.LOOK.lesson` on a text |
 | A place (a room panel, the open log) | parchment, ink frame, soft shadow | `kit.place(ui, w)` |
 | A place's title | large and heavy | `kit.heading(ui, w)` |
 | The trade table | a lighter sheet in the place, ruled column heads | `kit.sheet(ui, w)`, `kit.heads(ui, { { "Ware", 160 }, ... })` |
@@ -1149,15 +1155,26 @@ tall). While the beam cuts, the hold's count reads short (`4/24`, the crate says
 is) and the units this cut has brought in sit beside it (`+2`). The log's book sits
 bottom left, the radio top left in flight, the station plate top left when docked (the
 station's name, `Unclaimed`, as no faction holds a core station yet, and `Docked here`),
-and one strip at the bottom in flight: the latest message and the one key that fits
-where the ship is. Rocks and stations are click targets: under the pointer a rock lifts
+and a stack at the bottom in flight (`scripts/hud.luau`), one surface per kind of thing
+and a gap between them, so they never run together: the latest message (a person on
+the radio, their name first on its tag, or what just happened), the goal it gives, a
+lesson, the stations off screen, and the one key that fits where the ship is. A
+message never mixes kinds: `scripts/notice.luau` carries its goal, lesson and key
+(`press`) beside it, shown only while it shows, so "Cutting." comes with the pill
+"Let go of Space · stop" rather than the words in its line, and a hint with no key in it
+("Fly slowly into a berth's glowing ring to dock") is a lesson. Each line is centred
+under the ship; short surfaces are only as wide as their words, and two share a line
+when both fit (the goal and the lesson, the bearings and the key), within `layout.BOTTOM`,
+which clears the log's book at 960x540. So the opening's five surfaces cover less of
+the reach than the one panel before them did: at 1280x720, 59,200 pixels against 62,800,
+and 61,500 once the key is `Hold Space · cut the rock`. Rocks and stations are click targets: under the pointer a rock lifts
 and outlines and says what a click does and how much of its ware is left, and a station
 shows its posted prices. In flight each station wears its name under it while it is in
 view, a `yield` label like the traders'. Unless it is well on screen (within 40 units
-across and 24 up or down, inside the starting 64-unit view), a station is named in a
-second line of the bottom strip with the way to it in compass words (`Cinder Kiln
-south-east · Lantern Dock south-west`, `rules.bearings`), so the way home is never lost
-when the stations are off screen. A trading room has two tables, each headed by a row
+across and 24 up or down, inside the starting 64-unit view), a station is named in
+the bottom stack with the way to it in compass words (`Cinder Kiln
+south-east · Lantern Dock south-west`, `rules.bearings`) on a small dark label like the
+stations' own names, so the way home is never lost when the stations are off screen. A trading room has two tables, each headed by a row
 in the keeper's name: what they buy from you (`Sefa buys`, Pays you, Stock, Hold) and
 what they sell to you (`Sefa sells`, Asks you, Stock, Hold), each good's verbs under its row,
 and each receipt a `CONFIRMED` tag.
@@ -1193,10 +1210,10 @@ same buildings in its own paint (`recipes/kiln_exchange.toml`,
 `recipes/kiln_office.toml`). Every collision outline is unchanged: the stripes,
 pennants and marks sit inside the footprints.
 
-Hints teach and then retire (`scripts/teach.luau`). The strip shows one key and what
+Hints teach and then retire (`scripts/teach.luau`). The key pill shows one key and what
 it does where the ship is (`Space · dock at Lantern Dock` in a berth's ring, `Hold Space
-· cut the rock ahead` with the nose on a rock in reach, `A or D · point your nose at the
-rock` beside one, the way to dock once the hold is full, else W, A or D, Shift, and 0
+· cut the rock` with the nose on a rock in reach, `A or D · turn onto the rock` beside
+one, the way to dock once the hold is full, else W, A or D, Shift, and 0
 while the jets or the rig fly), each until it has been used three times.
 Messages report what happened and leave the keys to the strip. A room says "Click Tova to talk" until its keeper's
 introduction has been heard, and for anyone's first three conversations. Messages report what happened, not how fast it happens.

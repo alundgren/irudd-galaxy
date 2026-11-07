@@ -83,4 +83,12 @@ tick = 1050
 entity = "log3"
 component = "entry"
 field = "text"
-equals = "The rig stops with the rock you picked: click another, or Space for the nearest."
+equals = "The rig stops with the rock you picked."
+
+# Both ways on are in its key: Space for the nearest, or a click on another.
+[[expect]]
+tick = 1050
+entity = "ship"
+component = "pilot"
+field = "press"
+equals = "Space · the nearest rock, or click another"

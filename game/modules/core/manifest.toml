@@ -20,6 +20,13 @@ room = "id"
 sale = "int"
 deal = "text"
 message = "text"
+# What came with the message, each drawn its own way (scripts/notice.luau, hud.luau): a
+# goal it gives, a lesson about the game and the key that fits it ("<key> · <what it
+# does>"). `aside` is the message they came with: once another message shows, they go.
+goal = "text"
+lesson = "text"
+press = "text"
+aside = "text"
 logged = "int"
 log_open = "bool"
 # The station last docked at, and whether the ship has been away from it since:

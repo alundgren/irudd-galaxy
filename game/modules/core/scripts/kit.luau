@@ -6,6 +6,11 @@
 --
 --   kit.chip(ui, w)        status: dark ink, lantern-gold border (the HUD chip)
 --   kit.pill(ui, w)        a key hint: dark ink pill
+--   kit.radio(ui, w)       the radio: a slim dark strip with a violet frame; a person's
+--                          line on the radio wears it too
+--   kit.note(ui, w)        what just happened in flight: a lighter plum card, no frame
+--   kit.goal(ui, w)        a goal someone gave: warm midnight with a gold frame
+--   kit.lesson(ui, w)      how the game works: a paper card, black words
 --   kit.plate(ui, w)       the docked station's plate: dark ink, thin gold frame
 --   kit.place(ui, w)       a place: the parchment room panel
 --   kit.sheet(ui, w)       the trade table's sheet, inside a place
@@ -21,6 +26,8 @@
 --   kit.label(ui, w)       a small dark world label
 -- Spans, for ui.text / ui.button `spans`:
 --   kit.name(name, role)   the name heavy and underlined amber, the role quieter
+--   kit.speaker(name, from) on a dark surface: the name on an amber tag, then where
+--                          from, quieter
 --   kit.amount(n, unit, dark) a black amount with a blue + or vermilion - mark
 --   kit.bars(level, of)    signal bars: lit gold, unlit dim
 --   kit.hint(text)         "W · fly ahead": the key heavy with a gold rule, then the rest
@@ -40,6 +47,7 @@ kit.LOOK = {
     gain = "gain", loss = "loss", gain_dark = "gain_dark", loss_dark = "loss_dark",
     lit = "lit", unlit = "unlit",
     key = "key", plate = "plate", plate_name = "plate_name", figure = "figure",
+    note = "note", goal = "goal", lesson = "lesson", quiet_dark = "quiet_dark",
 }
 
 -- Text sizes: a place's title, a surface's own heading, body text and small print
@@ -57,6 +65,10 @@ end
 
 function kit.chip(ui, w) return ui.panel(with(w, kit.LOOK.chip)) end
 function kit.pill(ui, w) return ui.panel(with(w, kit.LOOK.pill)) end
+function kit.radio(ui, w) return ui.panel(with(w, kit.LOOK.radio)) end
+function kit.note(ui, w) return ui.panel(with(w, kit.LOOK.note)) end
+function kit.goal(ui, w) return ui.panel(with(w, kit.LOOK.goal)) end
+function kit.lesson(ui, w) return ui.panel(with(w, kit.LOOK.lesson)) end
 function kit.plate(ui, w) return ui.panel(with(w, kit.LOOK.plate)) end
 function kit.place(ui, w) return ui.panel(with(w, kit.LOOK.place)) end
 function kit.sheet(ui, w) return ui.panel(with(w, kit.LOOK.sheet)) end
@@ -131,6 +143,15 @@ function kit.name(name, role)
     local spans = { { text = name, look = kit.LOOK.name } }
     if role and role ~= "" then
         table.insert(spans, { text = "  " .. role, look = kit.LOOK.quiet })
+    end
+    return spans
+end
+
+-- Spans, on a dark surface: who is speaking on an amber tag, then where from, quieter.
+function kit.speaker(name, from)
+    local spans = { { text = name, look = kit.LOOK.name_tag } }
+    if from and from ~= "" then
+        table.insert(spans, { text = "  " .. from, look = kit.LOOK.quiet_dark })
     end
     return spans
 end

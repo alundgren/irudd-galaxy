@@ -67,7 +67,7 @@ tick = 181
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Sefa on the radio: \"Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.\""
+equals = "Sefa on Cinder Kiln's radio: “Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.”"
 [[expect]]
 tick = 181
 entity = "ship"
@@ -85,7 +85,7 @@ tick = 300
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Sefa on the radio: \"Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.\""
+equals = "Sefa on Cinder Kiln's radio: “Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.”"
 [[expect]]
 tick = 330
 entity = "rock5"
@@ -103,7 +103,34 @@ tick = 330
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "The stone glazes and the beam skates: put it on another rock while this one cools."
+equals = "The stone has glazed: the beam skates on it."
+# Each kind apart (scripts/notice.luau): what happened above, how glazed stone comes back
+# as a lesson, and the keys that move the beam in the key pill.
+[[expect]]
+tick = 330
+entity = "ship"
+component = "pilot"
+field = "lesson"
+equals = "Glazed stone cools once the beam is off it."
+[[expect]]
+tick = 330
+entity = "ship"
+component = "pilot"
+field = "press"
+equals = "Click another rock, or A or D · move the beam"
+# The click on the spall puts the beam on it: both ways to stop it are in its key.
+[[expect]]
+tick = 366
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Cutting."
+[[expect]]
+tick = 366
+entity = "ship"
+component = "pilot"
+field = "press"
+equals = "Click the rock, or fly · stop"
 [[expect]]
 tick = 330
 entity = "ship"

@@ -98,7 +98,14 @@ tick = 95
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Point your nose at the rock to cut it: A or D turns."
+equals = "The rock is in reach, but off your nose."
+# The keys that turn onto it are their own part, beside the line (scripts/notice.luau).
+[[expect]]
+tick = 95
+entity = "ship"
+component = "pilot"
+field = "press"
+equals = "A or D · turn onto the rock"
 # Back on the rock with Space still held: cutting again.
 [[expect]]
 tick = 115
@@ -165,4 +172,11 @@ tick = 240
 entity = "ship"
 component = "pilot"
 field = "message"
+equals = ""
+# How docking works is a lesson of its own, with no message beside it.
+[[expect]]
+tick = 240
+entity = "ship"
+component = "pilot"
+field = "lesson"
 equals = "Fly into a station's berth ring, the glowing ring off its dock, and the clamps take you in."

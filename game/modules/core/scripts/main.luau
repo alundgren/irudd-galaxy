@@ -8,6 +8,7 @@ local undock = require("./launch")
 local cutter = require("./cutter")
 local project = require("./project")
 local salvage = require("./salvage")
+local notice = require("./notice")
 
 -- Which hint each held key teaches.
 local TEACHES = { ahead = "thrust", back = "thrust", left = "turn", right = "turn", boost = "boost" }
@@ -29,9 +30,14 @@ local function scripted(event)
     return event.source == "script"
 end
 
-local function message(ctx, text)
-    ctx.patch("ship", "pilot", { message = text })
+-- A message, and its parts (notice.luau): what the pilot sees, not logged.
+local function message(ctx, text, parts)
+    ctx.patch("ship", "pilot", notice.with({}, text, parts))
 end
+
+-- A rock in reach is off the nose: what the pilot hears, and the keys that turn onto it.
+local OFF_NOSE = "The rock is in reach, but off your nose."
+local TURN = { press = "A or D · turn onto the rock" }
 
 local function stop(ctx)
     -- A beam cut short here lets go like any other, so its hum stops with it.
@@ -42,7 +48,7 @@ local function stop(ctx)
     ctx.put("ship", "held", {})
     ctx.put("ship", "engine.beam", {})
     ctx.patch("ship", "pilot", { mining = false, target = "", latched = false, auto = false, cut_from = 0, cut_work = 0,
-        approach = false, facing = "" })
+        approach = false, facing = "", press = "" })
 end
 
 -- The keys that fly the ship off the dock: the movement keys, not boost alone.
@@ -58,7 +64,7 @@ end
 
 -- What Sefa at Cinder Kiln says on the radio the first time the hand beam comes on,
 -- before the stone has warmed: what to watch while cutting.
-local WATCH = "Sefa on the radio: \"Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.\""
+local WATCH = "Sefa on Cinder Kiln's radio: \u{201C}Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.\u{201D}"
 
 -- The hand beam comes on: `cutter.on`, and the first time Sefa says what to watch.
 local function hand_on(ctx, rock, latched)
@@ -80,7 +86,7 @@ local function cut_ahead(ctx, latched)
         local hold = ctx.get("ship", "hold")
         message(ctx, rules.worked_out(rules.load(hold), project.carried(ctx, hold), cutter.buyers(ctx, hold)))
     elseif gap <= cutter.reach(ctx) then
-        message(ctx, "Point your nose at the rock to cut it: A or D turns.")
+        message(ctx, OFF_NOSE, TURN)
     else
         message(ctx, "No rock in reach. The cutter reaches " .. cutter.reach(ctx) .. " units: fly closer.")
     end
@@ -199,7 +205,7 @@ local function mine(event, ctx)
         ctx.record("hitch", { barge = barge }) -- tow.luau passes it, next tick
         return
     end
-    if salvage.towing(ctx) then message(ctx, "Not with a barge in tow: 0 casts off the line."); return end
+    if salvage.towing(ctx) then message(ctx, "Not with a barge in tow.", { press = "0 · cast off the line" }); return end
     if rock ~= nil and pilot.mining and pilot.target == rock then cutter.off(ctx, "Beam off."); return end
     if rules.load(ctx.get("ship", "hold")) >= fit.hold(ctx) then message(ctx, "Hold full. Dock to sell or trade."); return end
     if rock ~= nil and (not ctx.get(rock, "ore") or ctx.get(rock, "ore").left <= 0) then
@@ -253,9 +259,9 @@ local function facing(event, ctx)
     local rock = event.payload.rock
     local pilot = ctx.get("ship", "pilot")
     if pilot.facing ~= rock or rock == "" then return end
-    local function done(text)
+    local function done(text, parts)
         local fields = { facing = "" }
-        if text then fields.message = text end
+        if text then notice.with(fields, text, parts) end
         ctx.patch("ship", "pilot", fields)
         ctx.patch("ship", "engine.helm", { turn = 0 })
     end
@@ -279,7 +285,7 @@ local function facing(event, ctx)
     end
     -- A whole turn takes two seconds on the bare hull; past three, something holds the nose.
     if ctx.tick - (event.payload.from or ctx.tick) > 3 * rules.TICKS then
-        done("Point your nose at the rock to cut it: A or D turns.")
+        done(OFF_NOSE, TURN)
         return
     end
     ctx.patch("ship", "engine.helm", { turn = turn })
@@ -312,11 +318,15 @@ local function dock(event, ctx)
         return
     end
     local name = station and ctx.get(station, "port").name or "a station"
-    message(ctx, "Fly into " .. name .. "'s berth ring, the glowing ring off its dock, and the clamps take you in.")
+    -- How docking works is a lesson, with no message of its own.
+    message(ctx, "", { lesson = "Fly into " .. name .. "'s berth ring, the glowing ring off its dock, and the clamps take you in." })
 end
 
--- What the pilot hears the moment the stone under a hand beam glazes.
-local GLAZED = "The stone glazes and the beam skates: put it on another rock while this one cools."
+-- The moment the stone under a hand beam glazes: what happened, how glazed stone comes
+-- back, and the keys that move the beam (the hint strip's own, hud.luau), each apart.
+local GLAZED = "The stone has glazed: the beam skates on it."
+local GLAZE = { lesson = "Glazed stone cools once the beam is off it.",
+    press = "Click another rock, or A or D · move the beam" }
 
 local told = cutter.told
 
@@ -351,7 +361,7 @@ local function cut(ctx, pilot)
     local turned = not steady and phase ~= was
     if amount <= 0 then
         local fields = { cut_work = work, cut_from = ctx.tick }
-        if turned and phase == "glazed" then fields.message = GLAZED end
+        if turned and phase == "glazed" then notice.with(fields, GLAZED, GLAZE) end
         ctx.patch("ship", "pilot", fields)
         if turned and phase == "glazed" then told(ctx) end
         return
@@ -373,7 +383,7 @@ local function cut(ctx, pilot)
     local fields = { cut_work = rest, cut_from = ctx.tick, gained = pilot.gained + amount, away = true,
         holds = pilot.holds + (full and 1 or 0), message = line }
     if turned and phase == "glazed" then
-        fields.message = GLAZED
+        notice.with(fields, GLAZED, GLAZE)
         told(ctx)
     elseif not steady and ctx.get("ship", "taught").heat == 1 then
         fields.message = nil
@@ -399,6 +409,7 @@ local function cut(ctx, pilot)
         cutter.off(ctx, nil)
         ctx.patch("ship", "pilot", { cut_work = rest }) -- off's reads predate this cut
         local lines = {}
+        local parts
         local others = {}
         if left <= 0 then
             -- The count is of rocks holding this rock's ware; the rig moves on to any.
@@ -422,10 +433,11 @@ local function cut(ctx, pilot)
             table.insert(lines, "Hold full: " .. project.carried(ctx, now) .. " aboard.")
         end
         if left <= 0 and not full and pilot.chosen then
-            table.insert(lines, "The rig stops with the rock you picked: click another, or Space for the nearest.")
+            table.insert(lines, "The rig stops with the rock you picked.")
+            parts = { press = "Space · the nearest rock, or click another" }
         end
         -- Both beats on one unit log both, the hold's last so it is the message showing.
-        log.add_all(ctx, lines)
+        log.add_all(ctx, lines, parts)
         if not full and pilot.auto and not pilot.chosen and #others > 0 then
             -- The rig (or a script's order) moves on to the nearest rock by itself.
             local at = ctx.get("ship", "engine.position")
