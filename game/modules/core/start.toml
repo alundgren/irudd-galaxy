@@ -1696,29 +1696,34 @@ bit = { channel = "core.kiln_radio", n = 3, text = "Orrin fits parts at our crad
 
 # Loose glassite shards strewn wide of the drift, two each side: their lilac comes on
 # screen for a pilot who holds Sefa's heading only roughly (tests/glassite-heading*.toml).
-# Drawn only, like the debris: never solid and never mined.
+# Solid like the rocks (a ship flown into one is turned aside, tests/glassite-shard.toml),
+# but never mined.
 [entities.glassite_shard1]
 "engine.spin" = { rate = 2 }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 284, y = 240 }
+"engine.body" = { fixed = true }
 "engine.model" = { model = "core.glassite_chipped", look = "core.glassite", scale = 0.6 }
 
 [entities.glassite_shard2]
 "engine.spin" = { rate = -3 }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 264, y = 254 }
+"engine.body" = { fixed = true }
 "engine.model" = { model = "core.glassite_worn", look = "core.glassite", scale = 0.5 }
 
 [entities.glassite_shard3]
 "engine.spin" = { rate = -2 }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 404, y = 248 }
+"engine.body" = { fixed = true }
 "engine.model" = { model = "core.glassite_chipped", look = "core.glassite", scale = 0.6 }
 
 [entities.glassite_shard4]
 "engine.spin" = { rate = 3 }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 426, y = 262 }
+"engine.body" = { fixed = true }
 "engine.model" = { model = "core.glassite_worn", look = "core.glassite", scale = 0.5 }
 
 [entities.glassite_rumour]

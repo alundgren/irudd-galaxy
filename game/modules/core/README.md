@@ -449,8 +449,9 @@ silhouette and colour, in several sizes (`engine.model` scale; a bigger rock hol
   `ore.empty`, `glassite_pebbles`: a few dark pebbles with warm glowing caps. A lone buoy
   marks the drift, and just north of its rocks lies an old stone ring, dark until the
   ship comes near (below, "The first rumour"). Four loose shards (`glassite_shard1` to
-  `4`, chipped and worn glassite, drawn only: never solid, never mined) lie 50 to 70
-  units out on either side, so a ship passing wide of the drift still sees lilac.
+  `4`, chipped and worn glassite, solid like the rocks but never mined) lie 50 to 70
+  units out on either side, so a ship passing wide of the drift still sees lilac. Flown
+  into, one turns the ship aside with a bump; no route or lane passes near them.
 - Pebbles and ice splinters (`debris`, `debris_ice`) and faint drifting dust
   (`[particles.dust]` from three `engine.emitter` points) round the drifts: drawn only,
   never solid, never mined.
@@ -1269,7 +1270,7 @@ for every second of beam time however it is broken up, the berth ring, regrowth 
 and the worked-out message for an empty and a full hold, and in `tests/cutting.luau` the
 stone's heat, cold to warm to glazed and back, and simulated holds guarding how much an
 attentive hand beats clicking once and waiting, under "Cutting takes judgment") and
-sixty-nine scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
+seventy scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
 below):
 the opening's pace (`opening.toml`, above under "The opening hour"), cutting with
 judgment (`cutting.toml`: Sefa's word on the first hand beam, the seam warming, glazing
@@ -1354,7 +1355,8 @@ with the news first and no longer news once heard; `glassite-reask.toml`: the ex
 left mid-reply, and back, she picks up her reply and doesn't ask again; `glassite-heading.toml`,
 `glassite-heading-west.toml` and `glassite-heading-east.toml`: her words followed by keys
 alone from the Kiln's berth, on her heading and 12 degrees either side of it, bring the
-buoy or the shards well inside the view), its choices (`greenhouse-choices.toml`:
+buoy or the shards well inside the view; `glassite-shard.toml`: flown into a shard, the
+ship knocks against it and is turned aside, not passed through), its choices (`greenhouse-choices.toml`:
 "Not now" offered again on the next docking, the glassite offer off with 3 aboard and
 on with 8, the panes waiting on a full hold, Ines's panes not sold at the exchange,
 the receipts), Sefa's gold button (`sefa-hand.toml`: one press hands her the glassite
