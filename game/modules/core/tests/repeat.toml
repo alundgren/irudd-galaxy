@@ -1,4 +1,4 @@
-ticks = 2100
+ticks = 5010
 [[input]]
 tick = 1
 name = "core.ahead"
@@ -11,107 +11,107 @@ payload = { down = false }
 tick = 60
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 960
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 600
+tick = 1638
 name = "core.open"
 [[input]]
-tick = 660
+tick = 1698
 name = "core.sell"
 [[input]]
-tick = 720
+tick = 1758
 name = "core.close"
 [[input]]
-tick = 780
+tick = 1818
 name = "core.launch"
 
 [[input]]
-tick = 900
+tick = 1938
 name = "core.mine"
 
 [[input]]
-tick = 1200
+tick = 3060
 name = "core.dock"
 payload = { station = "core.lantern" }
 
 [[input]]
-tick = 1500
+tick = 3675
 name = "core.open"
 
 [[input]]
-tick = 1560
+tick = 3735
 name = "core.sell"
 
 [[input]]
-tick = 1561
+tick = 3736
 name = "core.sell"
 
 [[input]]
-tick = 1620
+tick = 3795
 name = "core.close"
 
 [[input]]
-tick = 1680
+tick = 3855
 name = "core.launch"
 
 [[input]]
-tick = 1740
+tick = 3915
 name = "core.mine"
 
 [[expect]]
-tick = 1590
+tick = 3765
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 142
+equals = 720
 
 [[expect]]
-tick = 1590
+tick = 3765
 entity = "lantern_ore"
 component = "market"
 field = "stock"
-equals = 36
+equals = 86
 
-# The second hold worked rock1 out; docking again brought fresh stone into it, half
-# its twelve.
+# The second hold worked rock1 out again; docking again brought fresh stone into it,
+# half its seven, rounded down.
 [[expect]]
-tick = 1590
+tick = 3765
 entity = "rock1"
 component = "ore"
 field = "left"
-equals = 6
+equals = 3
 
-# The second hold's last unit is rock1's last too: the log keeps both beats, the rock's
-# first and the full hold last.
+# The first hold takes three small rocks and part of a fourth: the log keeps each rock's
+# beat, then the full hold (beats.toml has both beats on one unit).
 [[expect]]
-tick = 1150
-entity = "log5"
+tick = 910
+entity = "log3"
 component = "entry"
 field = "text"
-equals = "Rock cut down to pebbles. 6 more rocks hold ore."
+equals = "Rock cut down to pebbles. 8 more rocks hold ore."
 
 [[expect]]
-tick = 1150
-entity = "log6"
+tick = 910
+entity = "log4"
 component = "entry"
 field = "text"
-equals = "Hold full: 6 ore aboard."
+equals = "Hold full: 24 ore aboard."
 
 [[expect]]
-tick = 1150
+tick = 3010
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Hold full: 6 ore aboard."
+equals = "Hold full: 24 ore aboard."
 
 [[expect]]
-tick = 2100
+tick = 5010
 entity = "ship"
 component = "hold"
 field = "ore"
-equals = 6
+equals = 24
 
 [[expect]]
 facts = "sold"

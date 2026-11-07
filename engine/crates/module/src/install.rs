@@ -62,6 +62,26 @@ pub fn sessions_dir() -> PathBuf {
         })
 }
 
+/// Moves the folder performance results are kept in to this absolute folder.
+pub const PERF_VAR: &str = "GALAXY_PERF";
+
+/// Where `galaxy-gm perf` keeps the last result of each performance scene on this machine,
+/// to compare the next run with: `GALAXY_PERF` if it is an absolute folder, else
+/// `irudd-galaxy/perf` in the per-user data folder, beside the sessions. Never the repo:
+/// the numbers are this machine's.
+pub fn perf_dir() -> PathBuf {
+    std::env::var_os(PERF_VAR)
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .unwrap_or_else(|| {
+            directories::BaseDirs::new()
+                .map(|d| d.data_local_dir().to_path_buf())
+                .unwrap_or_else(std::env::temp_dir)
+                .join("irudd-galaxy")
+                .join("perf")
+        })
+}
+
 /// Moves the folder the GM keeps its memory of each game in to this absolute folder.
 pub const MEMORY_VAR: &str = "GALAXY_GM_MEMORY";
 

@@ -447,6 +447,7 @@ impl View {
             source: "ui".into(),
             name: found.widget.on.clone()?,
             payload: found.widget.payload.clone(),
+            via: None,
         };
         self.screens
             .ui_cue(galaxy_api::ui::UiAction::Press, &found.widget);

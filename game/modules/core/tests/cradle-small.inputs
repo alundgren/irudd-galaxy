@@ -4,10 +4,10 @@ input = [
   { tick = 1, name = "core.ahead", payload = { down = true } },
   { tick = 11, name = "core.ahead", payload = { down = false } },
   { tick = 60, name = "core.mine" },
-  { tick = 330, name = "core.dock", payload = { station = "core.kiln" } },
-  { tick = 600, name = "core.open", payload = { facility = "core.kiln_cradle" } },
+  { tick = 900, name = "core.dock", payload = { station = "core.kiln" } },
+  { tick = 1800, name = "core.open", payload = { facility = "core.kiln_cradle" } },
 ]
 
 [[note]]
-tick = 690
+tick = 1651
 text = "Cradle at 960x540: the whole ship on its cradle left of the panel, Orrin in view."

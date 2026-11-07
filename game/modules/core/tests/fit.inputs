@@ -1,135 +1,542 @@
-# The fitting loop, headless: the same moves as tests/fit.toml, for sim runs and shots.
-# Drops are given as the events the cradle's targets send (core.fit, core.unfit).
 [[input]]
-tick = 1
+tick = 10
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 856
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1466
+name = "core.open"
+[[input]]
+tick = 1471
+name = "core.sell"
+[[input]]
+tick = 1481
+name = "core.launch"
+[[input]]
+tick = 1491
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 2386
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 2833
+name = "core.open"
+[[input]]
+tick = 2838
+name = "core.sell"
+[[input]]
+tick = 2848
+name = "core.launch"
+[[input]]
+tick = 2858
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 3946
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 4461
+name = "core.open"
+[[input]]
+tick = 4466
+name = "core.sell"
+[[input]]
+tick = 4476
+name = "core.launch"
+[[input]]
+tick = 4486
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 5686
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 6253
+name = "core.open"
+[[input]]
+tick = 6258
+name = "core.sell"
+[[input]]
+tick = 6268
+name = "core.launch"
+[[input]]
+tick = 6278
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 7486
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 8052
+name = "core.open"
+[[input]]
+tick = 8057
+name = "core.sell"
+[[input]]
+tick = 8067
+name = "core.launch"
+[[input]]
+tick = 8077
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 9436
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 10003
+name = "core.open"
+[[input]]
+tick = 10008
+name = "core.sell"
+[[input]]
+tick = 10018
+name = "core.launch"
+[[input]]
+tick = 10028
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 11206
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 11773
+name = "core.open"
+[[input]]
+tick = 11778
+name = "core.sell"
+[[input]]
+tick = 11788
+name = "core.launch"
+[[input]]
+tick = 11798
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 13006
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 13572
+name = "core.open"
+[[input]]
+tick = 13577
+name = "core.sell"
+[[input]]
+tick = 13587
+name = "core.launch"
+[[input]]
+tick = 13597
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 14806
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 15373
+name = "core.open"
+[[input]]
+tick = 15378
+name = "core.sell"
+[[input]]
+tick = 15388
+name = "core.launch"
+[[input]]
+tick = 15398
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 16636
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 17203
+name = "core.open"
+[[input]]
+tick = 17208
+name = "core.sell"
+[[input]]
+tick = 17218
+name = "core.launch"
+[[input]]
+tick = 17229
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 11
+tick = 17239
 name = "core.ahead"
 payload = { down = false }
 [[input]]
-tick = 60
+tick = 17288
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 18540
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 440
+tick = 19112
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 389 }
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 19061 }
 [[input]]
-tick = 470
+tick = 19142
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
-# Too poor for the lens: nothing changes.
 [[input]]
-tick = 480
+tick = 19152
 name = "core.fit"
 source = "ui"
 payload = { socket = "drill", value = "core.lens" }
 [[input]]
-tick = 490
+tick = 19162
 name = "core.open"
 [[input]]
-tick = 500
+tick = 19172
 name = "core.sell"
 [[input]]
-tick = 510
+tick = 19182
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
-# The lens in the wrong socket, then in the drill mount: bought and fitted.
 [[input]]
-tick = 520
+tick = 19192
 name = "core.fit"
 source = "ui"
 payload = { socket = "hold", value = "core.lens" }
 [[input]]
-tick = 530
+tick = 19202
 name = "core.fit"
 source = "ui"
 payload = { socket = "drill", value = "core.lens" }
-# The thrusters need 2 power and 1 is free; an unfitted part can't come off.
 [[input]]
-tick = 540
+tick = 19212
 name = "core.fit"
 source = "ui"
 payload = { socket = "engine", value = "core.thrusters" }
 [[input]]
-tick = 545
+tick = 19217
 name = "core.unfit"
 source = "ui"
 payload = { value = "core.thrusters" }
-# Off into the locker, and on again from it for nothing.
 [[input]]
-tick = 550
+tick = 19222
 name = "core.unfit"
 source = "ui"
 payload = { value = "core.lens" }
 [[input]]
-tick = 560
+tick = 19232
 name = "core.fit"
 source = "ui"
 payload = { socket = "drill", value = "core.lens" }
 [[input]]
-tick = 570
+tick = 39818
 name = "core.launch"
 [[input]]
-tick = 580
+tick = 19252
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 20581
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 21493
+name = "core.open"
+[[input]]
+tick = 21498
+name = "core.sell"
+[[input]]
+tick = 21508
+name = "core.launch"
+[[input]]
+tick = 21518
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 22456
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 23023
+name = "core.open"
+[[input]]
+tick = 23028
+name = "core.sell"
+[[input]]
+tick = 23038
+name = "core.launch"
+[[input]]
+tick = 23048
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 23986
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 24552
+name = "core.open"
+[[input]]
+tick = 24557
+name = "core.sell"
+[[input]]
+tick = 24567
+name = "core.launch"
+[[input]]
+tick = 24577
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 25516
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 26083
+name = "core.open"
+[[input]]
+tick = 26088
+name = "core.sell"
+[[input]]
+tick = 26098
+name = "core.launch"
+[[input]]
+tick = 26108
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 27046
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 27612
+name = "core.open"
+[[input]]
+tick = 27617
+name = "core.sell"
+[[input]]
+tick = 27627
+name = "core.launch"
+[[input]]
+tick = 27637
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 28546
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 29113
+name = "core.open"
+[[input]]
+tick = 29118
+name = "core.sell"
+[[input]]
+tick = 29128
+name = "core.launch"
+[[input]]
+tick = 29138
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 30076
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 30643
+name = "core.open"
+[[input]]
+tick = 30648
+name = "core.sell"
+[[input]]
+tick = 30658
+name = "core.launch"
+[[input]]
+tick = 30668
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 31576
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 32143
+name = "core.open"
+[[input]]
+tick = 32148
+name = "core.sell"
+[[input]]
+tick = 32158
+name = "core.launch"
+[[input]]
+tick = 32168
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 33106
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 33673
+name = "core.open"
+[[input]]
+tick = 33678
+name = "core.sell"
+[[input]]
+tick = 33688
+name = "core.launch"
+[[input]]
+tick = 33698
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 34636
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 35202
+name = "core.open"
+[[input]]
+tick = 35207
+name = "core.sell"
+[[input]]
+tick = 35217
+name = "core.launch"
+[[input]]
+tick = 35227
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 36166
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 36733
+name = "core.open"
+[[input]]
+tick = 36738
+name = "core.sell"
+[[input]]
+tick = 36748
+name = "core.launch"
+[[input]]
+tick = 36758
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 37726
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 38292
+name = "core.open"
+[[input]]
+tick = 38297
+name = "core.sell"
+[[input]]
+tick = 38307
+name = "core.launch"
+[[input]]
+tick = 38317
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 39226
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 39793
+name = "core.open"
+[[input]]
+tick = 39798
+name = "core.sell"
+[[input]]
+tick = 39808
+name = "core.launch"
+[[input]]
+tick = 39828
 name = "core.mine"
 [[input]]
-tick = 760
+tick = 40870
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 900
+tick = 41486
 name = "core.open"
 [[input]]
-tick = 910
+tick = 41496
 name = "core.sell"
 [[input]]
-tick = 920
+tick = 41506
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
 [[input]]
-tick = 930
+tick = 41516
 name = "core.fit"
 source = "ui"
 payload = { socket = "hold", value = "core.pods" }
 [[input]]
-tick = 940
+tick = 41526
 name = "core.launch"
 [[input]]
-tick = 950
+tick = 41536
 name = "core.mine"
 [[input]]
-tick = 1250
+tick = 42950
 name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
-tick = 1400
+tick = 43634
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
-# Nine aboard and the bare hold takes six: the pods stay on.
 [[input]]
-tick = 1410
+tick = 43644
 name = "core.unfit"
 source = "ui"
 payload = { value = "core.pods" }
 [[input]]
-tick = 1420
+tick = 43654
 name = "core.open"
 [[input]]
-tick = 1430
+tick = 43664
 name = "core.sell"
 [[input]]
-tick = 1440
+tick = 43674
 name = "core.open"
 payload = { facility = "core.kiln_cradle" }
 [[input]]
-tick = 1450
+tick = 43684
 name = "core.unfit"
 source = "ui"
 payload = { value = "core.pods" }

@@ -6,7 +6,10 @@ use std::rc::Rc;
 
 use galaxy_api::command::Fields;
 use galaxy_api::{Registry, WorldView};
-use galaxy_module::{ids, module::Module};
+use galaxy_module::{
+    ids,
+    module::{Module, ModuleFiles},
+};
 use mlua::{LuaSerdeExt, Table, Value};
 
 use crate::vm::{Code, LIMITS, Vm};
@@ -124,7 +127,8 @@ impl Reads {
 
 /// One screen function, kept alongside the view, outside the simulation.
 pub struct Screen {
-    module: Module,
+    module: String,
+    files: Rc<ModuleFiles>,
     file: String,
     registry: Registry,
     code: Code,
@@ -137,7 +141,8 @@ pub struct Screen {
 impl Screen {
     pub fn new(module: &Module, file: &str, registry: &Registry) -> Self {
         Self {
-            module: module.clone(),
+            module: module.id().into(),
+            files: Rc::new(module.files.clone()),
             file: file.into(),
             registry: registry.clone(),
             code: Code::default(),
@@ -150,17 +155,19 @@ impl Screen {
     }
 
     /// Rust checks dependencies each frame. Luau runs only on the first call or changed reads.
-    pub fn refresh(&mut self, world: &dyn WorldView) {
+    /// Returns whether the widget tree changed (rather than just its dependencies).
+    pub fn refresh(&mut self, world: &dyn WorldView) -> bool {
         if self.initialized && !self.reads.changed(world) {
-            return;
+            return false;
         }
         self.initialized = true;
         self.calls += 1;
         let reads = RefCell::new(Reads::default());
-        let path = format!("{}:{}/screen", self.module.id(), self.file);
+        let path = format!("{}:{}/screen", self.module, self.file);
         let result = self.call(world, &reads, &path);
         self.reads = reads.into_inner();
         self.problems.clear();
+        let previous = self.tree.take();
         match result {
             Ok(tree) => self.tree = tree,
             Err(e) => {
@@ -168,6 +175,7 @@ impl Screen {
                 self.problems.push(format!("{path}: {e}"));
             }
         }
+        previous != self.tree
     }
 
     fn call(
@@ -176,19 +184,18 @@ impl Screen {
         reads: &RefCell<Reads>,
         path: &str,
     ) -> Result<Option<Widget>, String> {
-        let vm = Vm::new(Rc::new(self.module.files.clone()), &self.code, LIMITS)
-            .map_err(|e| e.to_string())?;
+        let vm = Vm::new(self.files.clone(), &self.code, LIMITS).map_err(|e| e.to_string())?;
         let lua = &vm.lua;
         vm.budgeted(|| {
             lua.scope(|scope| {
                 let ctx = lua.create_table()?;
-                ctx.set("module", self.module.id())?;
+                ctx.set("module", self.module.as_str())?;
                 ctx.set(
                     "get",
                     scope.create_function(|lua, (e, c): (String, String)| {
-                        let e = entity_id(self.module.id(), &e, &self.registry)
+                        let e = entity_id(&self.module, &e, &self.registry)
                             .ok_or_else(|| mlua::Error::runtime("invalid entity ID"))?;
-                        let c = ids::qualify_type(self.module.id(), &c)
+                        let c = ids::qualify_type(&self.module, &c)
                             .ok_or_else(|| mlua::Error::runtime("invalid component ID"))?;
                         let found = world.get(&e, &c);
                         vm.budget.charge(
@@ -196,12 +203,15 @@ impl Screen {
                             1 + found
                                 .map_or(0, |f| f.len() as u64 / crate::meter::RECORDS_PER_STEP),
                         )?;
-                        let fields = found.cloned();
-                        reads.borrow_mut().fields.insert((e, c), fields.clone());
-                        match fields {
+                        reads
+                            .borrow_mut()
+                            .fields
+                            .entry((e, c))
+                            .or_insert_with(|| found.cloned());
+                        match found {
                             None => Ok(Value::Nil),
                             Some(fields) => {
-                                Ok(Value::Table(crate::host::object_to_lua(lua, &fields)?))
+                                Ok(Value::Table(crate::host::object_to_lua(lua, fields)?))
                             }
                         }
                     })?,
@@ -209,7 +219,7 @@ impl Screen {
                 ctx.set(
                     "query",
                     scope.create_function(|lua, c: String| {
-                        let c = ids::qualify_type(self.module.id(), &c)
+                        let c = ids::qualify_type(&self.module, &c)
                             .ok_or_else(|| mlua::Error::runtime("invalid component ID"))?;
                         let found: Vec<String> = world
                             .with_component(&c)
@@ -247,7 +257,7 @@ impl Screen {
                     lua,
                     result,
                     path,
-                    self.module.id(),
+                    &self.module,
                     &self.registry,
                     0,
                     &mut count,

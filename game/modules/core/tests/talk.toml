@@ -4,7 +4,7 @@
 # logged again, and talk never becomes the flight message. Hints retire after use,
 # and name signs show only in their keeper's own room.
 seed = 3
-ticks = 760
+ticks = 1798
 
 [[input]]
 tick = 1
@@ -25,41 +25,41 @@ name = "core.mine"
 tick = 62
 name = "core.mine"
 [[input]]
-tick = 330
+tick = 960
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 450
+tick = 1488
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 396 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 1434 }
 
 # E has not been used yet, so the full hold still says what E does.
 [[expect]]
-tick = 329
-entity = "log1"
+tick = 959
+entity = "log4"
 component = "entry"
 field = "text"
-equals = "Hold full: 6 ore aboard."
+equals = "Hold full: 24 ore aboard."
 
 # Each keeper wears a name sign in their own room: in the exchange Tova wears hers,
 # and Bram, in his office, none.
 [[input]]
-tick = 530
+tick = 1568
 name = "core.open"
 [[input]]
-tick = 533
+tick = 1571
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 530 }
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 1568 }
 [[expect]]
-tick = 539
+tick = 1577
 entity = "lantern_trader"
 component = "engine.life"
 field = "name"
 equals = "Tova Reyes"
 [[expect]]
-tick = 539
+tick = 1577
 entity = "lantern_master"
 component = "engine.life"
 field = "name"
@@ -67,12 +67,12 @@ equals = ""
 
 # The repeat line can't jump ahead of the introduction: the engine refuses it.
 [[input]]
-tick = 555
+tick = 1593
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_trader_talk" }
 [[expect]]
-tick = 556
+tick = 1594
 entity = "lantern_trader_talk"
 component = "engine.talk"
 field = "active"
@@ -80,52 +80,52 @@ equals = false
 
 # The introduction, one line per click.
 [[input]]
-tick = 560
+tick = 1598
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_trader_intro" }
 [[expect]]
-tick = 561
+tick = 1599
 entity = "lantern_trader_intro"
 component = "engine.talk"
 field = "current"
 equals = "core.lantern_trader_intro1"
 [[input]]
-tick = 565
+tick = 1603
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_trader_intro", line = "core.lantern_trader_intro1" }
 [[expect]]
-tick = 566
+tick = 1604
 entity = "lantern_trader_intro"
 component = "engine.talk"
 field = "current"
 equals = "core.lantern_trader_intro2"
 [[input]]
-tick = 570
+tick = 1608
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_trader_intro", line = "core.lantern_trader_intro2" }
 [[input]]
-tick = 575
+tick = 1613
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_trader_intro", line = "core.lantern_trader_intro3" }
 [[expect]]
-tick = 576
+tick = 1614
 entity = "lantern_trader_intro"
 component = "engine.talk"
 field = "seen"
 equals = true
 # The whole introduction is one entry, in reading order, naming speaker and station.
 [[expect]]
-tick = 577
-entity = "log3"
+tick = 1615
+entity = "log6"
 component = "entry"
 field = "text"
-equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the exchange.” “I buy ore, and plate for our galley.” “My prices drop as my stock fills.”"
+equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the exchange.” “I buy ore, and plate for our galley: sheet the Kiln fires from ore.” “My prices drop as my stock fills.”"
 [[expect]]
-tick = 577
+tick = 1615
 entity = "ship"
 component = "pilot"
 field = "message"
@@ -133,111 +133,111 @@ equals = "Docked at Lantern Dock."
 
 # Clicked again, she speaks about the hold aboard instead of repeating herself.
 [[expect]]
-tick = 577
+tick = 1615
 entity = "lantern_trader_now"
 component = "engine.talk_line"
 field = "text"
-equals = "I'll take your 6 ore whenever you like."
+equals = "I'll take your 24 ore whenever you like."
 [[expect]]
-tick = 577
+tick = 1615
 entity = "lantern_master_now"
 component = "engine.talk_line"
 field = "text"
-equals = "The galley still needs 10 plate."
+equals = "The galley still needs 40 plate."
 [[input]]
-tick = 580
+tick = 1618
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_trader_talk" }
 [[input]]
-tick = 585
+tick = 1623
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_trader_talk", line = "core.lantern_trader_now" }
 [[expect]]
-tick = 586
-entity = "log4"
+tick = 1624
+entity = "log7"
 component = "entry"
 field = "text"
-equals = "Tova Reyes at Lantern Dock: “I'll take your 6 ore whenever you like.”"
+equals = "Tova Reyes at Lantern Dock: “I'll take your 24 ore whenever you like.”"
 
 # The same line heard again adds nothing to the log.
 [[input]]
-tick = 590
+tick = 1628
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_trader_talk" }
 [[input]]
-tick = 595
+tick = 1633
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_trader_talk", line = "core.lantern_trader_now" }
 [[expect]]
-tick = 596
+tick = 1634
 entity = "ship"
 component = "pilot"
 field = "logged"
-equals = 4
+equals = 7
 
 # Out to the station and in again: while the cut runs no sign is worn; once it
 # lands, only the exchange's keeper wears hers. After a sale her line follows it.
 [[input]]
-tick = 597
+tick = 1635
 name = "core.close"
 payload = { down = true }
 [[input]]
-tick = 598
+tick = 1636
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 597 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 1635 }
 [[input]]
-tick = 600
+tick = 1638
 name = "core.open"
 [[expect]]
-tick = 600
+tick = 1638
 entity = "lantern_trader"
 component = "engine.life"
 field = "name"
 equals = ""
 [[input]]
-tick = 601
+tick = 1639
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 600 }
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 1638 }
 [[expect]]
-tick = 601
+tick = 1639
 entity = "lantern_master"
 component = "engine.life"
 field = "name"
 equals = ""
 [[expect]]
-tick = 601
+tick = 1639
 entity = "lantern_trader"
 component = "engine.life"
 field = "name"
 equals = "Tova Reyes"
 [[input]]
-tick = 610
+tick = 1648
 name = "core.sell"
 [[expect]]
-tick = 611
+tick = 1649
 entity = "lantern_trader_now"
 component = "engine.talk_line"
 field = "text"
 equals = "Thanks. It's all on the pile already."
 [[input]]
-tick = 620
+tick = 1658
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_trader_talk" }
 [[input]]
-tick = 625
+tick = 1663
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_trader_talk", line = "core.lantern_trader_now" }
 [[expect]]
-tick = 626
-entity = "log6"
+tick = 1664
+entity = "log9"
 component = "entry"
 field = "text"
 equals = "Tova Reyes at Lantern Dock: “Thanks. It's all on the pile already.”"
@@ -245,48 +245,48 @@ equals = "Tova Reyes at Lantern Dock: “Thanks. It's all on the pile already.�
 # Talk to the office keeper in his office and leave mid-introduction: launching ends
 # the talk unseen.
 [[input]]
-tick = 680
+tick = 1718
 name = "core.open"
 payload = { facility = "core.lantern_office" }
 [[input]]
-tick = 683
+tick = 1721
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 680 }
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 1718 }
 [[input]]
-tick = 690
+tick = 1728
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_master_intro" }
 [[input]]
-tick = 695
+tick = 1733
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
 [[expect]]
-tick = 696
+tick = 1734
 entity = "lantern_master_intro"
 component = "engine.talk"
 field = "active"
 equals = true
 [[input]]
-tick = 700
+tick = 1738
 name = "core.launch"
 [[expect]]
-tick = 702
+tick = 1740
 entity = "lantern_master_intro"
 component = "engine.talk"
 field = "active"
 equals = false
 [[expect]]
-tick = 702
+tick = 1740
 entity = "lantern_master_intro"
 component = "engine.talk"
 field = "seen"
 equals = false
 # Mining was used three times, so the launch message no longer explains Space.
 [[expect]]
-tick = 702
+tick = 1740
 entity = "ship"
 component = "pilot"
 field = "message"

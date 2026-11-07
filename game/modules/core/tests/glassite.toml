@@ -1,9 +1,11 @@
-# Glassite's crystals break off as it is mined: the ship turns north-east, flies to
-# glassite1 and mines it out. Its five units come aboard and the emptied rock is left as
-# a few pebbles with warm glowing caps (ore.empty). The order then moves on to glassite2,
-# so the checks are taken at tick 320, after glassite1's last unit and before the next.
+# Glassite's crystals break off as it is mined: the ship turns north-east, flies the
+# long way out to the glassite drift and mines glassite1 out. Its eight units come aboard
+# and the emptied rock is left as a few pebbles with warm glowing caps (ore.empty). The
+# order then moves on to glassite2, so the checks are taken at tick 1000, after
+# glassite1's last unit and before the next. On the way in, the old stone ring beside the
+# drift wakes as it comes in sight (scripts/rumour.luau): the first log line, once.
 seed = 7
-ticks = 400
+ticks = 1001
 
 [[input]]
 tick = 1
@@ -11,7 +13,7 @@ name = "left"
 payload = { down = true }
 
 [[input]]
-tick = 6
+tick = 7
 name = "left"
 payload = { down = false }
 
@@ -21,57 +23,71 @@ name = "ahead"
 payload = { down = true }
 
 [[input]]
-tick = 100
+tick = 600
 name = "ahead"
 payload = { down = false }
 
 [[input]]
-tick = 150
+tick = 660
 name = "mine"
 
 [[expect]]
-tick = 152
+tick = 662
 entity = "ship"
 component = "pilot"
 field = "target"
 equals = "core.glassite1"
 
 [[expect]]
-tick = 320
+tick = 1000
 entity = "ship"
 component = "hold"
 field = "glassite"
-equals = 5
+equals = 8
 
 [[expect]]
-tick = 320
+tick = 1000
 entity = "glassite1"
 component = "ore"
 field = "left"
 equals = 0
 
 [[expect]]
-tick = 320
+tick = 1000
 entity = "glassite1"
 component = "engine.model"
 field = "model"
 equals = "core.glassite_pebbles"
 
 [[expect]]
-tick = 320
+tick = 1000
 entity = "glassite1"
 component = "engine.model"
 field = "morph"
 equals = 1.0
 
 [[expect]]
-tick = 320
+tick = 1000
 entity = "log1"
 component = "entry"
 field = "text"
-equals = "Rock cut down to pebbles. 1 more rock holds glassite."
+equals = "Lilac rocks by a lone buoy: the glassite drift. Beside them lies a ring of old stone, and its groove lights as you pass."
 
 [[expect]]
-tick = 320
+tick = 1000
+entity = "glassite_ring"
+component = "engine.model"
+field = "model"
+equals = "core.stone_ring_lit"
+
+[[expect]]
+tick = 1000
+entity = "log2"
+component = "entry"
+field = "text"
+equals = "Rock cut down to pebbles. 3 more rocks hold glassite."
+
+[[expect]]
+tick = 1000
 facts = "mined"
-equals = 5
+equals = 8

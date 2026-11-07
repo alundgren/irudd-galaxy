@@ -66,7 +66,7 @@ impl Scripted {
     /// `session` with `script`'s inputs, each checked against it, and its hot-loads read.
     pub fn new(session: Session, script: &InputsFile) -> Result<Scripted, String> {
         if script.needs_window() {
-            return Err("clicks, drags and key presses ([[click]], [[pointer]], [[key]]) need a window: run them with galaxy play, then galaxy-gm film <session>/recording.json draws them".into());
+            return Err("clicks, drags and key presses ([[click]], [[pointer]], [[key]]) are resolved against a played screen: run them with galaxy play --headless --ticks <n> (no window, fast), then galaxy-gm film <session>/recording.json draws them".into());
         }
         for input in &script.inputs {
             session

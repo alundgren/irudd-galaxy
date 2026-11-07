@@ -1,4 +1,9 @@
 //! Bubbles share screen layout, paint and input; focus uses the same posed meshes as play.
+mod focus;
+pub(crate) use focus::FocusCache;
+#[cfg(test)]
+mod measure;
+
 use crate::{View, rooms};
 use galaxy_api::engine::*;
 use galaxy_mesh::MeshData;
@@ -275,6 +280,7 @@ impl View {
                 .as_object()
                 .unwrap()
                 .clone(),
+            via: None,
         })
     }
 
@@ -508,63 +514,74 @@ impl View {
         let model = text(&world.component(speaker, MODEL).unwrap().fields, "model");
         let range=self.assets.parts.get(model).and_then(|p|p.iter().find(|p|p.name==part))
             .ok_or_else(||format!("speaker `{speaker}` has no focus mesh part `{part}`; name a part or set engine.focus.part empty"))?;
-        let mut focus = g.mesh.clone();
-        focus
-            .indices
-            .retain(|i| range.vertices.contains(&(*i as usize)));
-        let mut lo = Vec2::splat(f32::MAX);
-        let mut hi = Vec2::splat(f32::MIN);
-        for v in &focus.vertices[range.vertices.clone()] {
-            let p = g.transform.transform_point3(Vec3::from(v.position));
-            let clip = camera.view_proj(size.x / size.y) * p.extend(1.0);
-            let screen = camera
-                .world_to_screen(p, size)
-                .ok_or_else(|| format!("speaker `{speaker}` focus `{part}` is off screen"))?;
-            if clip.z < 0.0
-                || clip.z > clip.w
-                || screen.x < 0.0
-                || screen.y < 0.0
-                || screen.x >= size.x
-                || screen.y >= size.y
-            {
-                return Err(format!("speaker `{speaker}` focus `{part}` is off screen"));
-            }
-            lo = lo.min(screen);
-            hi = hi.max(screen);
-        }
-        let mut pixels = 0;
-        for y in lo.y.floor() as i32..=hi.y.ceil() as i32 {
-            for x in lo.x.floor() as i32..=hi.x.ceil() as i32 {
-                let point = Vec2::new(x as f32 + 0.5, y as f32 + 0.5);
-                let (o, d) = camera.screen_ray(point, size);
-                let Some(t) = focus.raycast(
-                    g.inverse.transform_point3(o),
-                    g.inverse.transform_vector3(d),
-                ) else {
-                    continue;
-                };
-                pixels += 1;
-                if let Some(w) = self.screens.hit(point) {
-                    return Err(format!(
-                        "speaker `{speaker}` focus `{part}` is covered by {}",
-                        w.path
-                    ));
+        let key = focus::Key::new(
+            speaker,
+            part,
+            range.vertices.clone(),
+            camera,
+            size,
+            &geometry,
+            &self.screens,
+        );
+        self.focus_cache.check(key, || {
+            let mut focus = g.mesh.clone();
+            focus
+                .indices
+                .retain(|i| range.vertices.contains(&(*i as usize)));
+            let mut lo = Vec2::splat(f32::MAX);
+            let mut hi = Vec2::splat(f32::MIN);
+            for v in &focus.vertices[range.vertices.clone()] {
+                let p = g.transform.transform_point3(Vec3::from(v.position));
+                let clip = camera.view_proj(size.x / size.y) * p.extend(1.0);
+                let screen = camera
+                    .world_to_screen(p, size)
+                    .ok_or_else(|| format!("speaker `{speaker}` focus `{part}` is off screen"))?;
+                if clip.z < 0.0
+                    || clip.z > clip.w
+                    || screen.x < 0.0
+                    || screen.y < 0.0
+                    || screen.x >= size.x
+                    || screen.y >= size.y
+                {
+                    return Err(format!("speaker `{speaker}` focus `{part}` is off screen"));
                 }
-                for other in &geometry {
-                    if other.hit(o, d).is_some_and(|near| near + 0.001 < t) {
+                lo = lo.min(screen);
+                hi = hi.max(screen);
+            }
+            let mut pixels = 0;
+            for y in lo.y.floor() as i32..=hi.y.ceil() as i32 {
+                for x in lo.x.floor() as i32..=hi.x.ceil() as i32 {
+                    let point = Vec2::new(x as f32 + 0.5, y as f32 + 0.5);
+                    let (o, d) = camera.screen_ray(point, size);
+                    let Some(t) = focus.raycast(
+                        g.inverse.transform_point3(o),
+                        g.inverse.transform_vector3(d),
+                    ) else {
+                        continue;
+                    };
+                    pixels += 1;
+                    if let Some(w) = self.screens.hit(point) {
                         return Err(format!(
-                            "speaker `{speaker}` focus `{part}` is covered by geometry of `{}`",
-                            other.id
+                            "speaker `{speaker}` focus `{part}` is covered by {}",
+                            w.path
                         ));
+                    }
+                    for other in &geometry {
+                        if other.hit(o, d).is_some_and(|near| near + 0.001 < t) {
+                            return Err(format!(
+                                "speaker `{speaker}` focus `{part}` is covered by geometry of `{}`",
+                                other.id
+                            ));
+                        }
                     }
                 }
             }
-        }
-        if pixels == 0 {
-            return Err(format!(
-                "speaker `{speaker}` focus `{part}` has no visible front-facing pixels"
-            ));
-        }
-        Ok(())
+            if pixels == 0 {
+                return Err(format!(
+                    "speaker `{speaker}` focus `{part}` has no visible front-facing pixels"
+                ));
+            }
+            Ok(())
+        })
     }
 }

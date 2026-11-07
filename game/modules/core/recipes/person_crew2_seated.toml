@@ -1,0 +1,9 @@
+about = "A miner at a meal: an olive work coat and a dark cap, seated"
+palette = { main = "#6f7a3a", trim = "#3b3550", accent = "#2f9d86", skin = "#e0b48a", hair = "#7a4a2a", hat = "#3b3550" }
+[[part]]
+name = "body"
+use = "figure_seated"
+[[part]]
+name = "face"
+use = "head_glazier"
+at = [0, 0, -0.18]

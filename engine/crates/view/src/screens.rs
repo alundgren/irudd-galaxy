@@ -145,9 +145,7 @@ impl Screens {
         let mut placed = Vec::new();
         let mut screens = 0;
         for screen in &mut self.functions {
-            let calls = screen.calls;
-            screen.refresh(world);
-            if calls != screen.calls {
+            if screen.refresh(world) {
                 self.measure.clear();
             }
             self.problems.extend(screen.problems.clone());
@@ -306,6 +304,7 @@ impl Screens {
             source: "ui".into(),
             name: name.clone(),
             payload: w.payload.clone(),
+            via: None,
         })?;
         self.ui_cue(UiAction::Press, w);
         Some(input)

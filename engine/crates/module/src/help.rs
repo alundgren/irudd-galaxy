@@ -287,7 +287,7 @@ pub fn overview(tool: Tool) -> String {
                 ),
                 None if *p == "live" => (
                     "live <command>".to_owned(),
-                    "Read or hot-load a running galaxy play: `galaxy-gm live --help`.".to_owned(),
+                    "Read, play or hot-load a running game: `galaxy-gm live --help`.".to_owned(),
                 ),
                 None => unreachable!("the overview names commands in the table: {p}"),
             })
@@ -401,9 +401,8 @@ pub use gm::TOPICS;
 /// `galaxy-gm guide`: which command does what, by task, for both binaries.
 pub fn guide() -> String {
     let mut s = String::from(
-        "What do you want to do? Each line names the command; `<command> --help` says more, \
-         and `galaxy-gm guide <topic>` walks through a topic with examples. Running on a \
-         schedule with nobody watching? Follow galaxy-gm guide unattended.\n\n",
+        "What do you want to do? Each line names the command; `<command> --help` says more \
+         and `galaxy-gm guide <topic>` shows examples. Unattended: galaxy-gm guide unattended.\n\n",
     );
     // Topics follow each other without a blank line: each starts with its `(guide <name>)`
     // title, and the whole list has to stay short enough to read at a glance.
@@ -493,12 +492,40 @@ static GAME: &[Command] = &[
                 recording.json (written at every note and when the window closes), save.db \
                 (the world at the end) and notes/0001.png (the frame shown at each note). F8 \
                 pauses on the current tick and opens a note box over that frame; Enter keeps \
-                the note, Esc drops it. `galaxy-gm notes` lists the notes later.",
+                the note, Esc drops it. `galaxy-gm notes` lists the notes later. \
+                --headless plays a bot with no window as fast as the machine goes: a frame \
+                a tick, its clicks, drags, keys, zooms and notes resolved against the same \
+                screen layout a window of --size at --scale has, with the same recording \
+                and world.",
         args: &[
             ("--modules <dir>", "a module folder, or a folder of modules"),
             (
                 "--seed <n>",
                 "the world's seed; 1 by default; cannot combine with --load",
+            ),
+            (
+                "--headless",
+                "no window, audio device or live socket: each tick runs as soon as the last \
+                 is drawn, time is the world's, and only notes draw pixels (they need a GPU). \
+                 Needs --ticks; no --watch",
+            ),
+            (
+                "--scale <factor>",
+                "the UI scale, 0.5 to 4 (1.25 is 125% display scaling): logical pixels are \
+                 physical / scale, in place of the display's, so a bot lays out the same on \
+                 every machine; 1 headless when not set",
+            ),
+            (
+                "--fast-to <tick>",
+                "a window plays up to this tick as fast as it goes and undrawn, through the \
+                 same ticks and frames headless runs, then at real speed; frame times count \
+                 from there. The screen is as the route left it (zoom, pointer, scroll), \
+                 which a --load save would not keep",
+            ),
+            (
+                "--hold",
+                "with --fast-to: the --inputs script stops at that tick, so the window holds \
+                 the moment it reached",
             ),
             (
                 "--load <save>",
@@ -555,10 +582,24 @@ static GAME: &[Command] = &[
             ("tick, hash", "the last tick and the world's hash there"),
             ("session", "the session folder"),
             (
-                "frames, size",
-                "total rendered frames and final physical pixel dimensions",
+                "frames, size, scale",
+                "total frames (headless: one a tick, plus the first) and final physical \
+                 pixel dimensions and UI scale",
+            ),
+            (
+                "view, fast_to",
+                "how far the camera sees at the end (after any zooms), and --fast-to",
+            ),
+            (
+                "headless, wall_ms, speed",
+                "whether it ran headless, the wall time the session took, and game seconds \
+                 a wall second",
             ),
             ("notes", "how many notes were taken"),
+            (
+                "note_problems",
+                "each kept note's number and tick with the problems its frame showed",
+            ),
             (
                 "live",
                 "served (true or false), the pid galaxy-gm live --game takes, or why it was \
@@ -568,7 +609,7 @@ static GAME: &[Command] = &[
                 "frame_time",
                 "fps and frames, then interval_ms (frame to frame), sim_ms, scene_ms and \
                  draw_ms, each with median, p95, p99 and max in milliseconds after the first \
-                 10 frames; resize_interval_ms is the same for the two frames after each \
+                 10 frames (null headless: its frames take no real time); resize_interval_ms is the same for the two frames after each \
                  window resize (null when there was none) and resize_frames counts them",
             ),
             (
@@ -654,8 +695,9 @@ static GAME: &[Command] = &[
             (
                 "--inputs <file>",
                 "inputs and zooms by tick (`galaxy-gm fields inputs`). Clicks and drags \
-                 ([[click]], [[pointer]]) are refused: they need a window, so run them with \
-                 galaxy play, then galaxy-gm film its recording",
+                 ([[click]], [[pointer]]) are refused: they are resolved against a played \
+                 screen, so run them with galaxy play --headless, then galaxy-gm film its \
+                 recording",
             ),
             ("--size <w>x<h>", "in pixels; 1280x720 by default"),
             (

@@ -156,11 +156,15 @@ at = [0.7, -0.2, 0]
 use = "table"
 [[part]]
 name = "stool"
-at = [1.5, -0.6, 0]
+at = [1.55, -0.15, 0]
 use = "stool"
 [[part]]
 name = "stool.2"
-at = [1.6, 0.5, 0]
+at = [0.1, 0.4, 0]
+use = "stool"
+[[part]]
+name = "stool.3"
+at = [-0.1, -0.7, 0]
 use = "stool"
 [[part]]
 name = "lamp"
@@ -194,6 +198,17 @@ at = [-0.9, 1.6, 0]
 [[marker]]
 name = "spot.table"
 at = [0.6, -2.5, 0]
+# Where people sit to eat once the galley is open: one crew on the stool at the right
+# of the table, one at its back left, and a guest (the skipper) at its front left.
+[[marker]]
+name = "spot.crew_a"
+at = [1.55, -0.15, 0]
+[[marker]]
+name = "spot.crew_b"
+at = [0.1, 0.4, 0]
+[[marker]]
+name = "spot.seat"
+at = [-0.1, -0.7, 0]
 # Where a visitor (the grower with greens) stands, clear of the keeper at the hatch.
 [[marker]]
 name = "spot.greens"

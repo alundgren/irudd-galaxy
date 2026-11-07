@@ -1,0 +1,73 @@
+# Click and wait (rules.HEAT): parked as in cutting.toml, one click on the seam (rock5) and
+# no more. The seam warms and cuts fast, then glazes and the beam skates for the rest of
+# the hold: still cutting, still filling it, 26 seconds from the click against 17 for
+# moving the beam to the spall and back. Nothing is lost: the hold fills all the same,
+# and the seam cools back to cold within a few seconds of the beam letting go.
+seed = 7
+ticks = 1080
+
+[[input]]
+tick = 1
+name = "core.mine"
+payload = { rock = "core.rock10" }
+[[input]]
+tick = 146
+name = "core.cancel"
+payload = { down = true }
+[[input]]
+tick = 160
+name = "core.right"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 176
+name = "core.right"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 180
+name = "core.mine"
+source = "ui"
+payload = { rock = "core.rock5" }
+[[expect]]
+tick = 330
+entity = "rock5"
+component = "engine.model"
+field = "look"
+equals = "core.rock_glazed"
+[[expect]]
+tick = 900
+entity = "rock5"
+component = "engine.model"
+field = "look"
+equals = "core.rock_glazed"
+[[expect]]
+tick = 900
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 930
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 23
+[[expect]]
+tick = 960
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 24
+[[expect]]
+tick = 1000
+entity = "rock5"
+component = "ore"
+field = "heat"
+at_most = 5.0
+[[expect]]
+tick = 1080
+entity = "rock5"
+component = "engine.model"
+field = "look"
+equals = "core.rock"

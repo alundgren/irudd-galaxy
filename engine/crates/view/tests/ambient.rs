@@ -195,6 +195,7 @@ fn the_hold_stays_on_the_rock_through_six_cuts() {
         source: "keyboard".into(),
         name: "ambient.order_mine".into(),
         payload,
+        via: None,
     };
     s.step(&[mine]).unwrap();
     let shapes = galaxy_sim::shape::Shapes::of(s.modules());

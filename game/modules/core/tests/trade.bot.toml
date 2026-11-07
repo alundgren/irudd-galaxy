@@ -1,4 +1,6 @@
 inputs = "tests/trade-play.inputs"
-ticks = 4150
+ticks = 8594
 size = [1280, 720]
+# The UI scale the route was written at: 125% display scaling, on any machine.
+scale = 1.25
 seed = 1

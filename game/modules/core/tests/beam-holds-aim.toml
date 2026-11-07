@@ -1,0 +1,76 @@
+# A click's turn settles the nose on the rock, and the beam holds as the rock shrinks
+# (rules.SETTLE, cutter.holds). As the playtester found it: a scripted order flies the ship
+# to a glassite crystal (glassite2) and is cancelled so she coasts to a stop some 4.3
+# units from its centre, well inside the cutter's reach; D turns the nose 90 degrees away.
+# A click on the crystal turns her back onto it, and the nose settles near its centre
+# rather than at the edge of the aim (it used to stop there, some 40 degrees off the
+# centre, and the beam slipped off after one unit as the crystal shrank). No key is held,
+# and the beam cuts the crystal down to pebbles.
+seed = 7
+ticks = 1040
+
+[[input]]
+tick = 1
+name = "core.mine"
+payload = { rock = "core.glassite2" }
+[[input]]
+tick = 669
+name = "core.cancel"
+payload = { down = true }
+[[input]]
+tick = 720
+name = "core.right"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 735
+name = "core.right"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 760
+name = "core.mine"
+source = "ui"
+payload = { rock = "core.glassite2" }
+[[expect]]
+tick = 790
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 790
+entity = "ship"
+component = "pilot"
+field = "target"
+equals = "core.glassite2"
+[[expect]]
+tick = 790
+entity = "ship"
+component = "engine.position"
+field = "angle"
+at_least = -0.3
+[[expect]]
+tick = 790
+entity = "ship"
+component = "engine.position"
+field = "angle"
+at_most = -0.05
+[[expect]]
+tick = 900
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 1030
+entity = "glassite2"
+component = "ore"
+field = "left"
+equals = 0
+[[expect]]
+tick = 1030
+entity = "ship"
+component = "hold"
+field = "glassite"
+equals = 6

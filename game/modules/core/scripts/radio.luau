@@ -152,7 +152,7 @@ local function panel(ctx, ui, radio)
         control("radio_toggle", "switch", radio.on and "Off" or "On", 68, radio.on and "Turn the radio off" or "Turn the radio on", "toggle"),
         control("radio_next", "next", "Next · R", 100, "The next channel in range, then off", "next"),
     }
-    return ui.panel { id = "radio", look = kit.LOOK.radio, align = "top-left", x = layout.M, y = layout.M,
+    return kit.radio(ui, { id = "radio", align = "top-left", x = layout.M, y = layout.M,
         width = layout.RADIO, gap = 4, children = {
             ui.row { id = "radio_top", gap = 8, children = {
                 ui.column { id = "radio_tuned", width = inner - 76 - 68 - 100 - 12 - 8, gap = 0, children = {
@@ -162,7 +162,7 @@ local function panel(ctx, ui, radio)
                 ui.row { id = "radio_buttons", gap = 6, children = controls },
             } },
             ui.text { id = "radio_ticker", width = inner, text = ticker, size = kit.SIZE.small, cue = "flash" },
-        } }
+        } })
 end
 
 return {

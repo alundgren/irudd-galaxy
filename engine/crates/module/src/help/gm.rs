@@ -363,8 +363,9 @@ pub static COMMANDS: &[Command] = &[
             (
                 "facts",
                 "each: seq, tick, kind, by (input from keyboard, script <module> <file> \
-              on <event>, engine <service>, start of <module>, hot-load of <module>) and \
-              payload",
+              on <event>, engine <service>, start of <module>, hot-load of <module>; \
+              input from keyboard via live, with via: live, for what galaxy-gm live input \
+              pressed) and payload",
             ),
             (
                 "log",
@@ -513,6 +514,76 @@ pub static COMMANDS: &[Command] = &[
     },
     Command {
         tool: Tool::Gm,
+        path: "live input",
+        synopsis: "[<step>...] [--follow <file>] [--game <pid|session>]",
+        answers: "Play the running game by hand from another process: hold keys down for as \
+                  long as you say, several at once, and move and click the pointer.",
+        about: "Steps reach the game the way its window's own keyboard and mouse do, on \
+                the ticks they name, without the window needing focus: the game sees the \
+                same events, sources and hash, and the recording marks each input via \
+                live (live history --inputs, galaxy-gm recording <rec> inputs and its \
+                summary's inputs_via), so a session played this way says so, and it \
+                replays, audits and films like any other. Steps: down <key>, up <key>, \
+                hold <key> <seconds> (down now, up after; the steps after it run \
+                meanwhile), tap <key> (0.1 s), wait <seconds>, move <x> <y>, click <x> \
+                <y> (logical pixels from the window's top left). Keys are manifest key \
+                names (w, space, shift, up, 1, f3, mouse_right) or mouse_left; Esc and F8 \
+                are the window's own and stay there; a real mouse moving over the window \
+                moves the pointer too. Steps given as arguments (or joined \
+                with ;) run as one timeline and the command returns once they have run. \
+                Without steps it reads lines from stdin, or with --follow <file> lines \
+                added to that file, running each line as it arrives, until a line end: \
+                so you can hold W, look with live shot or live state from another shell, \
+                then send up w. Everything still held when the command ends, or when its \
+                connection closes because it was killed, is let go. While an F8 note is \
+                open it is refused (kind runtime); an input runs at most 300 seconds.",
+        args: &[
+            (
+                "<step>",
+                "steps run as one timeline, such as \"hold w 2\" \"hold a 0.5\" or \
+                 \"tap e; wait 1; click 640 360\"",
+            ),
+            (
+                "--follow <file>",
+                "run each line added to this file as it arrives, until a line end; the \
+                 file may not exist yet; add lines (echo \"down w\" >> file), don't \
+                 rewrite it",
+            ),
+            (
+                "--game <pid|session>",
+                "which running game, by its pid or session folder name; needed only when \
+             several run and none is clearly meant (the error lists them)",
+            ),
+        ],
+        output: &[
+            (
+                "from_tick, to_tick, seconds",
+                "the first and last tick the steps ran over, and the seconds between them \
+                 (hold w 2 is 2)",
+            ),
+            (
+                "steps",
+                "each step taken: the tick it took effect on and the step (down w, up w, \
+                 move 640 360)",
+            ),
+            (
+                "released_at_end",
+                "keys the steps left down, let go when they ended",
+            ),
+            (
+                "unbound",
+                "keys no running module binds: holding them sent nothing",
+            ),
+            ("hash", "the world's hash after the last tick"),
+        ],
+        writes: "",
+        example: "galaxy-gm live input \"hold w 2\" \"hold a 0.5\"",
+        next: "galaxy-gm live state or live shot to see where it got you; live history \
+               --inputs lists what it pressed, each by input from keyboard via live.",
+        topic: "live",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "look",
         synopsis: "<recording> (--note <n> | --tick <n>) [--point <x,y>] [--size <w>x<h>]",
         answers: "What is under a point of a recorded frame; is its hover readable?",
@@ -570,7 +641,7 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "test",
         synopsis: "<module> [--only <text>]",
-        answers: "Run Luau tests, scenarios and declared rendered bots; report each result.",
+        answers: "Run Luau tests, scenarios and declared bots; report each result.",
         about: "A Luau test file returns a table of named functions; one passes if it returns \
                 without an error (assert(cond, \"why\") fails it). Tests run in the scripts' \
                 sandbox and budgets, require(\"../scripts/name\") sees the module's files, and \
@@ -578,15 +649,20 @@ pub static COMMANDS: &[Command] = &[
                 [[input]] entries as in an inputs file (a plain name is the module's own event) \
                 and [[expect]] entries on component fields or fact counts after a tick; script \
                 failures during it fail it too. The modules beside it are loaded, as for check. \
-                tests/*.bot.toml explicitly opens a window: inputs (module-relative file), ticks, \
-                size = [1280, 720] (physical pixels), optional seed (default 1). No resize or hot_load. \
-                It runs the matching galaxy play and replays its recording. Missing GPU/window is \
-                status unavailable, never a pass. Any failure exits 5 with kind tests_failed.",
+                tests/*.bot.toml declares a bot: inputs (module-relative file), ticks, \
+                size = [1280, 720] (physical pixels), optional seed (default 1) and scale (the UI \
+                scale, default 1; 1.25 lays 1280x720 out as 1024x576). No resize or hot_load. \
+                It runs the matching galaxy play --headless, as fast as the machine goes and \
+                several side by side, and replays its recording; bots never open a window. A \
+                missing GPU (notes need one) is status unavailable, never a pass. Performance \
+                scenes (tests/*.perf.toml) are not run: galaxy-gm perf runs them. Any failure \
+                exits 5 with kind tests_failed.",
         args: &[
             ("<module>", "a module folder (with a manifest.toml)"),
             (
                 "--only <text>",
-                "run only the tests whose file or name contains this text",
+                "a whole file name or path (trade.bot.toml) runs that file alone; other text \
+                 runs the tests whose file or name contains it",
             ),
         ],
         output: &[
@@ -614,17 +690,68 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "bots",
-                "file, passed, status, requested_size, size, frames, frame_time (fps and interval_ms median/p95/p99/max), replay.identical, session; failure explains any unavailable or failed run",
+                "file, passed, status, requested_size, size, scale, frames, wall_ms, speed (game \
+                 seconds a wall second), problems, note_problems, resting_clicks, \
+                 replay.identical, hash, session; failure explains any unavailable or failed run",
             ),
             (
                 "notes",
-                "modules beside it that could not be read; no tests found",
+                "modules beside it that could not be read; no tests found; how much game time \
+                 the bots played and how long it took",
             ),
         ],
         writes: "declared bots keep a play session with recording, save and note pictures",
         example: "galaxy-gm test game/modules/core",
         next: "Fix the module or the test; galaxy-gm fields inputs lists the inputs a \
                scenario can send, galaxy-gm guide tests shows all formats.",
+        topic: "tests",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "perf",
+        synopsis: "<module> [--only <text>]",
+        answers: "How fast does each performance scene draw in a window, and what changed?",
+        about: "Run it once per finished PR, on a quiet machine with no builds running: the \
+                numbers are this machine's, and anything else running moves them. A performance \
+                scene is tests/<name>.perf.toml: an optional route (inputs, module-relative), at \
+                (the tick real time starts on: the window plays the route to it fast and \
+                undrawn, so the screen is as the route left it, zoom included), seconds (how long the window plays at real speed, 1 to 600; the route's \
+                later inputs go on playing), hold = true (the route stops at at, so the window \
+                holds that moment: an open talk, a menu), size = [1280, 720] (physical pixels), scale (UI \
+                scale, default 1) and seed (default 1). Scenes run one at a time in a window. Each \
+                reports the window's frame times and the change from the last result of that \
+                scene, kept in the per-user data folder (GALAXY_PERF moves it), never in the \
+                module. Nothing fails on a number: there are no budgets. galaxy-gm test never \
+                runs these. A scene that can't play (no window or GPU, a wrong declaration) \
+                exits 5 with kind perf_failed.",
+        args: &[
+            ("<module>", "a module folder (with a manifest.toml)"),
+            (
+                "--only <text>",
+                "a whole file name (busy.perf.toml) runs that scene alone; other text runs the \
+                 scenes whose file contains it",
+            ),
+        ],
+        output: &[
+            ("ok", "every scene played"),
+            ("module, build", "the module and this engine build"),
+            ("kept", "the folder this machine's last results are kept in"),
+            (
+                "scenes",
+                "file, status (measured, failed or unavailable), at, seconds, hold, size, scale, \
+                 adapter, frames, frame_time (fps; interval_ms, sim_ms, scene_ms and draw_ms, \
+                 each median, p95, p99 and max after the first 10 frames), previous (build, when \
+                 in Unix seconds, frame_time; null the first time), change (this run minus the \
+                 last, in ms; positive is slower), change_note when the last run is not like for \
+                 like; failure explains a scene that did not play",
+            ),
+            ("failures", "a line for each scene that did not play"),
+            ("notes", "when to run it; no scenes found"),
+        ],
+        writes: "each scene's result in the per-user perf folder, replacing the last one",
+        example: "galaxy-gm perf game/modules/core",
+        next: "Compare change with what the PR touched; galaxy-gm film films a moment to see \
+               what moves.",
         topic: "tests",
     },
     Command {
@@ -1165,13 +1292,16 @@ pub static COMMANDS: &[Command] = &[
             (
                 "summary",
                 "build, seed, modules and versions, ticks (start, end), seconds, \
-              counts of inputs, notes, zooms and hot-loads, inputs_by_name, end_hash",
+              counts of inputs, notes, zooms and hot-loads, inputs_by_name, inputs_via \
+              (inputs that came another way than the window: live for galaxy-gm live \
+              input), end_hash",
             ),
             (
                 "rows",
                 "timeline: `0:01.0 (tick 31) order drift.ship: dock drift.berth (from \
               drift.order_dock down); arrived at 0:04.3`; inputs: \
-              `tick 31 t 1.03 keyboard drift.order_dock down`; orders: \
+              `tick 31 t 1.03 keyboard drift.order_dock down` (`keyboard via live` when \
+              galaxy-gm live input pressed it); orders: \
               `tick 31 t 1.03 order drift.ship: dock drift.berth` or `arrived ...`; zooms: \
               the view height the wheel set",
             ),
@@ -1628,17 +1758,30 @@ pub static TOPICS: &[Topic] = &[
                 (the module's own name, or a full ID), component and field with equals, \
                 at_least or at_most (absent = true without a field), or facts = \"<event>\" \
                 with a count. tests/<name>.bot.toml declares a rendered run: inputs = \
-                \"tests/run.inputs\", ticks = 300, size = [1280, 720], optional seed = 1 (one key per line). \
+                \"tests/run.inputs\", ticks = 300, size = [1280, 720], optional seed = 1 and \
+                scale = 1.25 (the UI scale; one key per line). \
                 Inputs are module-relative, use full event IDs, and cannot resize or hot-load. \
-                galaxy-gm test opens a window only for declared bots; --only filters their file names. \
-                bots reports physical size, frames, fps, interval_ms median/p95/p99/max and replay.identical. \
-                Missing GPU/window reports status unavailable and exits 5, never a pass. \
+                galaxy-gm test plays bots headless, as fast as the machine goes, with the \
+                same recording and world a window gives; --only filters their file names (a \
+                whole name runs that file alone). bots reports \
+                physical size, resting_clicks, problems, note_problems, wall_ms, speed and \
+                replay.identical; bots never measure frame times. A missing GPU (notes need \
+                one) reports status unavailable and exits 5, never a pass. \
+                tests/<name>.perf.toml is a \
+                performance scene: optional inputs, at (the tick the window starts on), seconds, \
+                hold (the route stops at at), size and scale; galaxy-gm perf plays each in a window at real speed and reports \
+                frame times and the change since the last run on this machine. Run it once per \
+                finished PR, on a quiet machine with no builds running. \
                 galaxy-gm what-if \
                 runs a recorded session (galaxy play, or galaxy sim run --record) again on \
                 changed modules and names the first tick where the world differs and the \
                 entities, fields and facts that differ.",
         tasks: &[
             ("Run a module's tests and scenario runs", "gm test"),
+            (
+                "Measure frame times in a window, once per finished PR on a quiet machine",
+                "gm perf",
+            ),
             (
                 "What a module change does to a recorded session: the first tick that differs",
                 "gm what-if",
@@ -1665,7 +1808,11 @@ pub static TOPICS: &[Topic] = &[
                 turns it off). galaxy-gm live reads the game through it: status, state, \
                 history, watch, shot. Reads never change the world or its hash. live load \
                 hot-loads changed modules between two ticks and records it like play --watch, \
-                so the session still replays. Each command picks the one running game, or the \
+                so the session still replays. live input plays it by hand from another \
+                process: keys held down for as long as you say, several at once, and the \
+                pointer, through the same path as the window's keyboard and mouse (no focus \
+                needed), recorded via live so a session played that way says so; what it \
+                holds is let go when it ends or dies. Each command picks the one running game, or the \
                 one running the modules it loads, or the one playing modules in the working \
                 folder; otherwise it lists them (kind several_games) and --game <pid or \
                 session> picks one. With no game running, kind no_game.",
@@ -1676,20 +1823,38 @@ pub static TOPICS: &[Topic] = &[
             ("A value over ticks", "gm live watch"),
             ("What the window shows", "gm live shot"),
             ("Load changed modules without restarting", "gm live load"),
+            ("Hold keys, move and click, by hand", "gm live input"),
         ],
-        recipes: &[Recipe {
-            title: "Edit a running game",
-            steps: &[
-                "galaxy play --modules <modules>",
-                "galaxy-gm live status",
-                "galaxy-gm live state --entity <being>",
-                "Edit the module's script (a different spot to walk to), then:",
-                "galaxy-gm live load",
-                "galaxy-gm live watch --entity <being> --component engine.position --field x --ticks 90",
-                "galaxy-gm live shot --out now.png",
-                "Close the window, then: galaxy sim replay <session>/recording.json",
-            ],
-        }],
+        recipes: &[
+            Recipe {
+                title: "Play a running game by hand from another process",
+                steps: &[
+                    "galaxy play --modules <modules>",
+                    "Hold W for 2 seconds while holding A for the first 0.5 seconds:",
+                    "galaxy-gm live input \"hold w 2\" \"hold a 0.5\"",
+                    "galaxy-gm live state --entity <ship>",
+                    "Hold a key while you look: galaxy-gm live input --follow steps.txt (in \
+                     the background), then echo \"down w\" >> steps.txt, galaxy-gm live shot \
+                     --out now.png, echo \"up w\" >> steps.txt, and echo end >> steps.txt",
+                    "galaxy-gm live history --inputs --last 10 (each by input from keyboard \
+                     via live)",
+                    "Close the window, then: galaxy sim replay <session>/recording.json",
+                ],
+            },
+            Recipe {
+                title: "Edit a running game",
+                steps: &[
+                    "galaxy play --modules <modules>",
+                    "galaxy-gm live status",
+                    "galaxy-gm live state --entity <being>",
+                    "Edit the module's script (a different spot to walk to), then:",
+                    "galaxy-gm live load",
+                    "galaxy-gm live watch --entity <being> --component engine.position --field x --ticks 90",
+                    "galaxy-gm live shot --out now.png",
+                    "Close the window, then: galaxy sim replay <session>/recording.json",
+                ],
+            },
+        ],
     },
     Topic {
         name: "hovers",
@@ -1780,7 +1945,8 @@ pub static TOPICS: &[Topic] = &[
                 F8 pauses and opens a note box over the frame on screen; Enter keeps the note \
                 with its tick, the world's hash and the camera. A bot plays an inputs file \
                 through the same window loop (--inputs), and its [[note]] entries are taken \
-                like F8 notes. Resume with galaxy play --modules <modules> --load save.db; \
+                like F8 notes; --headless plays the same bot with no window, as fast as the \
+                machine goes, to the same recording and world. Resume with galaxy play --modules <modules> --load save.db; \
                 use the saving build and unchanged module files. --ticks and inputs use absolute \
                 world ticks, including on resume. The first tick after a resume (play --load, \
                 --continue, sim load) starts with the recorded input engine.resumed (source \

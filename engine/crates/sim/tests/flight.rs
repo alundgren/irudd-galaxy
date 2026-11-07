@@ -26,6 +26,7 @@ fn key(event: &str, down: bool) -> Input {
         source: "keyboard".into(),
         name: format!("drift.{event}"),
         payload,
+        via: None,
     }
 }
 

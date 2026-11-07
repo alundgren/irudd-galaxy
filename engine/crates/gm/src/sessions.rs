@@ -364,10 +364,13 @@ pub fn recording(
                         && (names.is_empty() || names.iter().any(|n| i.name.contains(n))) =>
                 {
                     Some(format!(
-                        "tick {} t {:.2} {} {}",
+                        "tick {} t {:.2} {}{} {}",
                         i.tick,
                         seconds(i.tick),
                         i.source,
+                        i.via
+                            .as_ref()
+                            .map_or(String::new(), |v| format!(" via {v}")),
                         changes::input(i)
                     ))
                 }
@@ -438,10 +441,14 @@ pub fn recording(
 fn summary(rec: &Recording, out: &mut Value) {
     let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
     let mut names: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut vias: BTreeMap<&str, usize> = BTreeMap::new();
     for e in &rec.events {
         let kind = match e {
             RecEvent::Input(i) => {
                 *names.entry(i.name.as_str()).or_default() += 1;
+                if let Some(via) = &i.via {
+                    *vias.entry(via.as_str()).or_default() += 1;
+                }
                 "inputs"
             }
             RecEvent::Note { .. } => "notes",
@@ -471,6 +478,9 @@ fn summary(rec: &Recording, out: &mut Value) {
     out["end_hash"] = json!(rec.end.hash);
     out["counts"] = json!(counts);
     out["inputs_by_name"] = json!(names);
+    // Inputs that did not come from the window itself (`live`: galaxy-gm live input), so
+    // an evaluator can say the session was driven that way.
+    out["inputs_via"] = json!(vias);
     out["next"] = json!(
         "galaxy-gm recording <rec> timeline: what the player did, in order; inputs | orders | zooms list each kind"
     );

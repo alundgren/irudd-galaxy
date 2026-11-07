@@ -1,6 +1,8 @@
 # The fitting loop by real clicks and drags (tests/fit-play.inputs), with thirteen notes.
 # size is physical pixels: at 125% display scaling this is the 1024x576 logical window.
 inputs = "tests/fit-play.inputs"
-ticks = 2340
+ticks = 44694
 size = [1280, 720]
+# The UI scale the route was written at: 125% display scaling, on any machine.
+scale = 1.25
 seed = 1

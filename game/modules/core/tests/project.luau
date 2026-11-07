@@ -20,6 +20,13 @@ return {
         assert(not project.wanted(job(project.ASKED), project.ASKED, {}, 6, false), "gift open: she waits")
     end,
 
+    her_galley_is_lived_in_before_she_asks_for_more = function()
+        assert(not project.lived(true, 3, 3, false), "the docking that saw it open: she waits")
+        assert(project.lived(true, 4, 3, false), "flown out and back, a counted visit: she asks")
+        assert(project.lived(false, 0, 0, false), "no galley of hers standing: nothing to wait on")
+        assert(project.lived(true, 3, 3, true), "an ask already said stays said (a save from before)")
+    end,
+
     the_glassite_offer_needs_enough_glassite = function()
         assert(not project.wanted(job(project.ACCEPTED), project.ACCEPTED, { glassite = 3 }, 6, true), "3 is short")
         assert(project.wanted(job(project.ACCEPTED), project.ACCEPTED, { glassite = 4 }, 6, true), "4 will do")

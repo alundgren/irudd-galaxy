@@ -98,7 +98,14 @@ tick = 95
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Point your nose at the rock to cut it: A or D turns."
+equals = "The rock is in reach, but off your nose."
+# The keys that turn onto it are their own part, beside the line (scripts/notice.luau).
+[[expect]]
+tick = 95
+entity = "ship"
+component = "pilot"
+field = "press"
+equals = "A or D · turn onto the rock"
 # Back on the rock with Space still held: cutting again.
 [[expect]]
 tick = 115
@@ -106,9 +113,9 @@ entity = "ship"
 component = "pilot"
 field = "mining"
 equals = true
-# One unit before the turn; the next comes a whole second of beam time after it,
-# however that second was broken up (on at the 150 tick), and the click's beam cuts a
-# third.
+# One unit before the turn; the beam time before and after it adds up, however it was
+# broken up, and the click's beam carries on in the same cold stone (rules.HEAT: it cuts
+# slowly until it warms), so a second unit has come loose by the 189th tick.
 [[expect]]
 tick = 149
 entity = "ship"
@@ -120,7 +127,7 @@ tick = 189
 entity = "ship"
 component = "hold"
 field = "ore"
-equals = 3
+equals = 2
 # Space let go: off.
 [[expect]]
 tick = 150
@@ -165,4 +172,11 @@ tick = 240
 entity = "ship"
 component = "pilot"
 field = "message"
+equals = ""
+# How docking works is a lesson of its own, with no message beside it.
+[[expect]]
+tick = 240
+entity = "ship"
+component = "pilot"
+field = "lesson"
 equals = "Fly into a station's berth ring, the glowing ring off its dock, and the clamps take you in."

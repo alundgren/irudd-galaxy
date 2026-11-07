@@ -1,0 +1,9 @@
+about = "A dock hand at a meal: a dusty blue work coat and a brick red cap, seated"
+palette = { main = "#4f6d8f", trim = "#3b3550", accent = "#c98f4a", skin = "#b07a58", hair = "#2a1e1a", hat = "#c9533b" }
+[[part]]
+name = "body"
+use = "figure_seated"
+[[part]]
+name = "face"
+use = "head_glazier"
+at = [0, 0, -0.18]

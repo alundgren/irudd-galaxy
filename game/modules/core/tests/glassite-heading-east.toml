@@ -1,0 +1,97 @@
+# Sefa's lead is followable (start.toml, glassite_lead): "Fly north from our berth, a touch
+# east. It's far." Docked at Cinder Kiln and launched from its berth, the ship turns by
+# keys alone to 27 degrees east of north, 12 degrees east of what her words give, and flies
+# straight on by keys: no orders, no Dock or Mine. It comes to where the eastern shards
+# (glassite_shard4) lie well inside the view: at cruise the view shows about 64 units each side
+# of the ship and 41 ahead and behind, and the expectation keeps a margin of 15 and 11.
+seed = 7
+ticks = 1503
+
+[[input]]
+tick = 1
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 600
+name = "core.launch"
+
+[[input]]
+tick = 640
+name = "core.right"
+payload = { down = true }
+
+[[input]]
+tick = 652
+name = "core.right"
+payload = { down = false }
+
+[[input]]
+tick = 660
+name = "core.ahead"
+payload = { down = true }
+
+# Her words, which this heading comes from.
+[[expect]]
+tick = 1
+entity = "glassite_lead2"
+component = "engine.talk_line"
+field = "text"
+equals = "Fly north from our berth, a touch east. It's far."
+
+[[expect]]
+tick = 601
+entity = "ship"
+component = "engine.position"
+field = "x"
+equals = 206
+
+[[expect]]
+tick = 601
+entity = "ship"
+component = "engine.position"
+field = "y"
+equals = -255
+
+[[expect]]
+tick = 1502
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = 378
+
+[[expect]]
+tick = 1502
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = 474
+
+[[expect]]
+tick = 1502
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = 232
+
+[[expect]]
+tick = 1502
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_most = 286
+
+# What is seen there, where the box above is drawn round.
+[[expect]]
+tick = 1502
+entity = "glassite_shard4"
+component = "engine.position"
+field = "x"
+equals = 426
+
+[[expect]]
+tick = 1502
+entity = "glassite_shard4"
+component = "engine.position"
+field = "y"
+equals = 262
