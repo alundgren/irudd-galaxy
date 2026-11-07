@@ -108,8 +108,43 @@ same way as live screen readability: the problems panel while it lasts, play's r
 (every problem seen in the session, first seen first) and stderr with its tick. It reads
 the world and never writes it, so replays and hashes are unchanged; because it is part of
 the scene, F8, audit and film draw the same panel and notes still audit pixel-identically.
-It costs about a millisecond of scene time on frames where a line shows. `check` turns it
-off while it stages lines, as it runs the same test itself.
+`check` turns it off while it stages lines, as it runs the same test itself.
+
+Each view keeps the most recent focus verdict together with the exact inputs to that
+pixel test (`view/src/talk/focus.rs`). A frame still builds its visible posed meshes and
+screen hit geometry. The snapshot compares float bits, not hashes or world ticks: the
+camera (including projection), logical viewport, speaker and named focus vertex range,
+every visible mesh's ID, vertex positions, indices and transforms, and the complete
+ordered screen hit hierarchy (kind, diagnostic path, rectangle, clip and hidden flag).
+Only an identical snapshot reuses the verdict. Missing parts and models are checked
+before reuse. Both success and failure are cached; the talk/line prefix is rebuilt for
+the current line.
+
+This is not a once-per-line check: camera shake or zoom, a fractional movement or morph,
+a changed or hot-loaded mesh, an arriving or departing prop, and opening, scrolling,
+clipping or hiding a screen all change the snapshot on the very frame they change the
+visibility test's inputs. Changes to fields the test never reads, such as paint colour,
+need no retest. The original per-pixel algorithm still runs on a cache miss, including
+the first query, so those frames retain its cost. Memory is bounded to one input and
+verdict per view. The cache is not saved or recorded; a fresh audit or film recomputes
+the same verdict from its frame's inputs. Tests compare reused verdicts with forced-fresh
+pixel tests across geometry, camera, viewport, interpolation, morph, asset, UI clipping,
+hierarchy and paint-order changes.
+
+For headless runtime measurements, set `GALAXY_FOCUS_MODULE` to a module folder,
+`GALAXY_FOCUS_INPUTS` to an inputs/clicks route, `GALAXY_FOCUS_BEFORE` to its pre-talk tick,
+and `GALAXY_FOCUS_TICK` to a tick holding an active line (seed 1, 1280x720). From `engine/`:
+
+```sh
+cargo xtask cargo test -p galaxy-view --lib talk_cost_probe --release -- --ignored --nocapture
+```
+
+The probe resolves clicks and arrivals headlessly, then measures 600 repeated held-world
+scenes after five warmup frames: before talk, active talk, and a measurement control with
+live focus disabled. It also reports screen layout, geometry preparation and focus costs,
+the number of full pixel evaluations and Luau rebuilds, and the world hashes. Its isolated
+focus samples include the first cold query. Optional `GALAXY_FOCUS_INPUT_EXPORT` writes
+the resolved inputs so installed builds can replay and film exactly the same route.
 
 ## Reconstruction and evidence
 
