@@ -20,11 +20,16 @@ fn play_dir() -> PathBuf {
 /// Plays the fixture headless at 1280x720 physical pixels and 125% scale; the report, and
 /// the session folder's recording.
 fn play(sessions: &Path, extra: &[&str]) -> (Value, Option<Recording>) {
+    play_route(sessions, "headless-inputs.toml", extra)
+}
+
+/// [`play`] with another route from `tests/play`.
+fn play_route(sessions: &Path, route: &str, extra: &[&str]) -> (Value, Option<Recording>) {
     let out = Command::new(env!("CARGO_BIN_EXE_engine-galaxy"))
         .args(["play", "--headless", "--modules"])
         .arg(play_dir().join("headless"))
         .arg("--inputs")
-        .arg(play_dir().join("headless-inputs.toml"))
+        .arg(play_dir().join(route))
         .args(["--size", "1280x720", "--physical-size", "--scale", "1.25"])
         .args(extra)
         .env("GALAXY_SESSIONS", sessions)
@@ -151,10 +156,65 @@ fn a_headless_bot_clicks_a_moving_widget_skips_a_resting_one_and_presses_keys() 
     assert_eq!(same(&recording_again.unwrap()), same(&recording));
 }
 
+/// A performance scene's window plays its route up to `--fast-to` in the same process, as
+/// headless plays it, so what the route set on the screen is still set when real time
+/// starts: here its zoom, which a save would lose. `--hold` stops the route there.
+#[test]
+fn a_route_played_to_a_tick_keeps_its_zoom_and_hold_stops_the_route_there() {
+    let sessions = tempfile::tempdir().unwrap();
+    let zooms = |r: &Recording| -> Vec<(u64, f32)> {
+        r.events
+            .iter()
+            .filter_map(|e| match e {
+                RecEvent::Zoom { tick, view } => Some((*tick, *view)),
+                _ => None,
+            })
+            .collect()
+    };
+    let close = |a: &Value, b: f32| (a.as_f64().unwrap() - f64::from(b)).abs() < 1e-3;
+    let zoomed_in = 60.0 * 0.88_f32.powf(2.0);
+
+    let (on, recording) = play_route(
+        sessions.path(),
+        "headless-zoom-inputs.toml",
+        &["--ticks", "40", "--fast-to", "20"],
+    );
+    let recording = recording.unwrap_or_else(|| panic!("{on}"));
+    assert_eq!(on["fast_to"], 20);
+    let zoomed_out = zoomed_in * 0.88_f32.powf(-4.0);
+    assert!(close(&on["view"], zoomed_out), "{}", on["view"]);
+    assert_eq!(zooms(&recording).len(), 2);
+    assert_eq!(
+        inputs(&recording),
+        [(25, "headless.catch".into(), Value::Null)]
+    );
+
+    let (held, recording) = play_route(
+        sessions.path(),
+        "headless-zoom-inputs.toml",
+        &["--ticks", "40", "--fast-to", "20", "--hold"],
+    );
+    let recording = recording.unwrap_or_else(|| panic!("{held}"));
+    assert!(
+        close(&held["view"], zoomed_in),
+        "the zoom the route left at tick 20"
+    );
+    assert_eq!(
+        zooms(&recording).iter().map(|z| z.0).collect::<Vec<_>>(),
+        [5]
+    );
+    assert!(inputs(&recording).is_empty(), "nothing after tick 20");
+}
+
 #[test]
 fn headless_play_needs_ticks_and_refuses_watching() {
     let sessions = tempfile::tempdir().unwrap();
-    for extra in [&[][..], &["--ticks", "10", "--watch"]] {
+    for extra in [
+        &[][..],
+        &["--ticks", "10", "--watch"],
+        &["--ticks", "10", "--hold"],
+        &["--ticks", "10", "--fast-to", "10"],
+    ] {
         let (report, _) = play(sessions.path(), extra);
         assert_eq!(report["kind"], "usage", "{report}");
     }

@@ -2,7 +2,7 @@
 tally = { caught = 0, spent = 0 }
 [entities.camera]
 "engine.position" = {}
-"engine.camera" = { view = 60 }
+"engine.camera" = { view = 60, min_view = 20, max_view = 120 }
 # Moves 12 units a second, so the button riding on it is far from where it started. Low on
 # the screen, clear of the other play fixtures.
 [entities.marker]

@@ -20,20 +20,20 @@ use serde_json::{Value, json};
 /// Options `test` takes.
 pub const OPTIONS: &[&str] = &["only"];
 
-/// What `--only <text>` keeps, of tests in `files`: when the text is a whole file's name
-/// or path (`trade.bot.toml`, `tests/trade.bot.toml`), that file alone; otherwise each test
-/// whose file or name contains it. Called with a file and a test name.
-pub fn only_filter<'a>(
-    only: Option<&'a str>,
-    mut files: impl Iterator<Item = &'a str>,
-) -> impl Fn(&str, &str) -> bool + 'a {
-    fn names(file: &str, text: &str) -> bool {
-        file == text || file.rsplit('/').next() == Some(text)
-    }
-    let exact = only.is_some_and(|o| files.any(|f| names(f, o)));
+/// Whether `--only` text names a whole test file (`trade.bot.toml`, `tests/fit.luau`): a
+/// name, then a test file's extension. `.bot.toml` or `trade` are parts of names.
+pub fn names_a_file(only: &str) -> bool {
+    let last = only.rsplit('/').next().unwrap_or(only);
+    (last.ends_with(".toml") || last.ends_with(".luau")) && !last.starts_with('.')
+}
+
+/// What `--only <text>` keeps: when the text names a whole file ([`names_a_file`]), that
+/// file alone, by path or file name, whether or not the module has it; otherwise each test
+/// whose file or name contains the text. Called with a file and a test name.
+pub fn only_filter(only: Option<&str>) -> impl Fn(&str, &str) -> bool + '_ {
     move |file: &str, name: &str| match only {
         None => true,
-        Some(o) if exact => names(file, o),
+        Some(o) if names_a_file(o) => file == o || file.rsplit('/').next() == Some(o),
         Some(o) => file.contains(o) || name.contains(o),
     }
 }
@@ -59,7 +59,7 @@ pub fn run(dir: &Path, only: Option<&str>) -> Result<Output, Failure> {
     }
     let context: Vec<String> = all.iter().map(|m| m.id().to_owned()).collect();
     all.push(module.clone());
-    let keep = only_filter(only, module.files.0.keys().map(String::as_str));
+    let keep = only_filter(only);
 
     let mut failures = Vec::new();
     let tests: Vec<Value> = testrun::run_luau_tests(&module)
@@ -132,7 +132,8 @@ pub fn run(dir: &Path, only: Option<&str>) -> Result<Output, Failure> {
     let passed = tests.len() + scenarios.len() + bots.len() - failed;
     if tests.is_empty() && scenarios.is_empty() && bots.is_empty() {
         notes.push(match only {
-            Some(o) => format!("no test's file is `{o}`, or its file or name contains it"),
+            Some(o) if names_a_file(o) => format!("the module has no test file `{o}`"),
+            Some(o) => format!("no test's file or name contains `{o}`"),
             None => "the module has no tests: add tests/<name>.luau (Luau tests) or \
                      tests/<name>.toml (scenario runs); galaxy-gm guide tests shows both"
                 .to_owned(),
@@ -227,7 +228,7 @@ fn run_bots<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::only_filter;
+    use super::{names_a_file, only_filter};
 
     #[test]
     fn only_a_whole_file_name_keeps_that_file_alone() {
@@ -237,19 +238,31 @@ mod tests {
             "tests/fit.luau",
         ];
         let keeps = |only: &str| {
-            let keep = only_filter(Some(only), files.iter().copied());
+            let keep = only_filter(Some(only));
             files.iter().filter(|f| keep(f, "")).count()
         };
         assert_eq!(keeps("trade.bot.toml"), 1);
         assert_eq!(keeps("tests/trade.bot.toml"), 1);
+        // A whole name stays whole when the file is gone: nothing else runs in its place.
+        let without = &files[1..];
+        let keep = only_filter(Some("trade.bot.toml"));
+        assert!(
+            !without.iter().any(|f| keep(f, "")),
+            "mixed-trade is not trade"
+        );
+        assert!(!only_filter(Some("tests/trade.bot.toml"))(
+            "tests/mixed-trade.bot.toml",
+            ""
+        ));
+        assert!(names_a_file("fit.luau") && !names_a_file(".bot.toml") && !names_a_file("fit"));
         assert_eq!(
             keeps("trade"),
             2,
             "a part of a name still matches every file with it"
         );
         assert_eq!(keeps(".bot.toml"), 2);
-        let keep = only_filter(Some("sells_ore"), files.iter().copied());
+        let keep = only_filter(Some("sells_ore"));
         assert!(keep("tests/fit.luau", "sells_ore_first") && !keep("tests/fit.luau", "buys"));
-        assert!(only_filter(None, files.iter().copied())("anything", ""));
+        assert!(only_filter(None)("anything", ""));
     }
 }

@@ -714,8 +714,8 @@ pub static COMMANDS: &[Command] = &[
         about: "Run it once per finished PR, on a quiet machine with no builds running: the \
                 numbers are this machine's, and anything else running moves them. A performance \
                 scene is tests/<name>.perf.toml: an optional route (inputs, module-relative), at \
-                (the tick the window starts on; the route plays headless to it and is saved \
-                there), seconds (how long the window plays at real speed, 1 to 600; the route's \
+                (the tick real time starts on: the window plays the route to it fast and \
+                undrawn, so the screen is as the route left it, zoom included), seconds (how long the window plays at real speed, 1 to 600; the route's \
                 later inputs go on playing), hold = true (the route stops at at, so the window \
                 holds that moment: an open talk, a menu), size = [1280, 720] (physical pixels), scale (UI \
                 scale, default 1) and seed (default 1). Scenes run one at a time in a window. Each \

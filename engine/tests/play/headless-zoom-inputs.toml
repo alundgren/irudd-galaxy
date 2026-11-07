@@ -1,0 +1,11 @@
+# Played by crates/galaxy/tests/headless.rs with --fast-to 20, with and without --hold:
+# a zoom in before tick 20, then a click and a zoom out after it.
+[[zoom]]
+tick = 5
+steps = 2.0
+[[click]]
+tick = 25
+widget = "catch"
+[[zoom]]
+tick = 30
+steps = -4.0

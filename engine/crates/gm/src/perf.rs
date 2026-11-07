@@ -3,12 +3,12 @@
 //! change since the last run on this machine. Not a test: `galaxy-gm test` never runs them,
 //! and no number fails a scene. Run it once per finished change, on a quiet machine.
 //!
-//! A scene is a moment: a route (optional) played headless and fast to tick `at`
-//! ([`crate::bot`]'s `galaxy play --headless`), saved there, then resumed in a window for
-//! `seconds`, the route's later inputs still playing, or none with `hold`, so the window
-//! holds that moment (an open talk, a menu). Measuring starts after the window's
-//! warm-up frames, as in `galaxy play`. The last result of each scene is kept in
-//! [`install::perf_dir`], never in the module.
+//! A scene is a moment: a route (optional) that one window plays fast and undrawn up to
+//! tick `at` (`galaxy play --fast-to`), so the screen is as the route left it (zoom,
+//! pointer, scroll), then at real speed for `seconds`, the route's later inputs still
+//! playing, or none with `hold`, so the window holds that moment (an open talk, a menu).
+//! Measuring starts after the window's warm-up frames, as in `galaxy play`. The last result
+//! of each scene is kept in [`install::perf_dir`], never in the module.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -44,7 +44,7 @@ const STATS: [&str; 4] = ["median", "p95", "p99", "max"];
 struct Scene {
     /// The route to the moment and on through it; none plays the module's start.
     inputs: Option<PathBuf>,
-    /// The tick the window starts on: the route plays headless up to it.
+    /// The tick real time starts on: the window plays the route up to it, fast and undrawn.
     #[serde(default)]
     at: u64,
     /// The route stops at `at`: the window holds that moment instead of playing on.
@@ -88,7 +88,7 @@ pub fn run(dir: &Path, only: Option<&str>) -> Result<CliOutput, Failure> {
         Some(parent) if discover::modules_in(parent).len() > 1 => parent.to_path_buf(),
         _ => dir.clone(),
     };
-    let keep = crate::test::only_filter(only, module.files.0.keys().map(String::as_str));
+    let keep = crate::test::only_filter(only);
     let store = install::perf_dir().join(module.id());
     let galaxy = crate::bot::galaxy();
     let scenes: Vec<Value> = module
@@ -121,7 +121,10 @@ pub fn run(dir: &Path, only: Option<&str>) -> Result<CliOutput, Failure> {
     let mut notes = vec![format!("run {WHEN}")];
     if scenes.is_empty() {
         notes.push(match only {
-            Some(o) => format!("no performance scene's file is `{o}` or contains it"),
+            Some(o) if crate::test::names_a_file(o) => {
+                format!("the module has no performance scene `{o}`")
+            }
+            Some(o) => format!("no performance scene's file contains `{o}`"),
             None => "the module has no performance scenes: add tests/<name>.perf.toml; \
                      galaxy-gm guide tests shows one"
                 .to_owned(),
@@ -178,55 +181,32 @@ fn run_scene(
         report["scale"] = json!(scene.scale);
         std::fs::create_dir_all(&work).map_err(|e| format!("{}: {e}", work.display()))?;
         let sessions = work.join("sessions");
-        let common = [
-            "--modules".to_owned(),
+        // One window plays the route from the start: a save carries the world but not
+        // the screen (zoom, pointer, scroll), so the moment is reached in the same process.
+        let mut window = vec![
+            "play".to_owned(),
+            "--modules".into(),
             modules_dir.display().to_string(),
             "--size".into(),
             format!("{}x{}", scene.size[0], scene.size[1]),
             "--physical-size".into(),
             "--scale".into(),
             scene.scale.to_string(),
+            "--seed".into(),
+            scene.seed.to_string(),
+            "--ticks".into(),
+            end.to_string(),
+            "--no-live".into(),
         ];
-        let route: Vec<String> = scene
-            .inputs
-            .iter()
-            .flat_map(|inputs| {
-                [
-                    "--inputs".to_owned(),
-                    module.manifest.dir.join(inputs).display().to_string(),
-                ]
-            })
-            .collect();
-        let mut window = vec!["play".to_owned()];
-        window.extend(common.iter().cloned());
-        if !scene.hold {
-            window.extend(route.iter().cloned());
+        if let Some(inputs) = &scene.inputs {
+            window.push("--inputs".into());
+            window.push(module.manifest.dir.join(inputs).display().to_string());
         }
-        window.extend(["--ticks".into(), end.to_string(), "--no-live".into()]);
         if scene.at > 0 {
-            // To the moment fast, headless, then the window resumes it.
-            let save = work.join("start.db");
-            let mut reach = vec!["play".to_owned(), "--headless".into()];
-            reach.extend(common.iter().cloned());
-            reach.extend(route.iter().cloned());
-            reach.extend([
-                "--ticks".into(),
-                scene.at.to_string(),
-                "--seed".into(),
-                scene.seed.to_string(),
-                "--save".into(),
-                save.display().to_string(),
-            ]);
-            let reached = launch(&reach, &sessions)?;
-            play_report(&reached).map_err(|(e, unavailable)| {
-                if unavailable {
-                    report["status"] = json!("unavailable");
-                }
-                format!("playing to tick {}: {e}", scene.at)
-            })?;
-            window.extend(["--load".into(), save.display().to_string()]);
-        } else {
-            window.extend(["--seed".into(), scene.seed.to_string()]);
+            window.extend(["--fast-to".into(), scene.at.to_string()]);
+        }
+        if scene.hold {
+            window.push("--hold".into());
         }
         let output = launch(&window, &sessions)?;
         let play = play_report(&output).map_err(|(e, unavailable)| {
@@ -368,7 +348,7 @@ mod tests {
     }
 
     #[test]
-    fn a_scene_reaches_its_moment_headless_holds_it_in_a_window_and_compares_with_the_last_run() {
+    fn a_scene_plays_its_route_to_the_moment_in_one_window_and_compares_with_the_last_run() {
         let dir = tempfile::tempdir().unwrap();
         let module = module(dir.path());
         let store = dir.path().join("perf");
@@ -387,22 +367,20 @@ mod tests {
         );
         assert_eq!(first["status"], "measured", "{first}");
         assert_eq!(first["previous"], Value::Null);
-        // First to tick 160 headless, saving there; then the window from that save.
-        assert!(calls[0].contains(&"--headless".to_owned()));
+        // One window plays the route from the start, fast and undrawn to tick 160, so what
+        // the route set on the screen (its zoom) is still set; no save hands it over.
+        let has = |c: &Vec<String>, flag: &str| c.contains(&flag.to_owned());
         let at =
             |c: &Vec<String>, flag: &str| c[c.iter().position(|a| a == flag).unwrap() + 1].clone();
-        assert_eq!(at(&calls[0], "--ticks"), "160");
-        assert!(!calls[1].contains(&"--headless".to_owned()));
-        assert_eq!(at(&calls[1], "--load"), at(&calls[0], "--save"));
-        assert_eq!(
-            at(&calls[1], "--ticks"),
-            "1060",
-            "30 seconds on from tick 160"
-        );
-        assert_eq!(at(&calls[1], "--scale"), "1.25");
-        assert!(calls[0].contains(&"--inputs".to_owned()));
+        assert_eq!(calls.len(), 1);
+        let window = &calls[0];
+        assert!(!has(window, "--headless") && !has(window, "--load"));
+        assert_eq!(at(window, "--fast-to"), "160");
+        assert_eq!(at(window, "--ticks"), "1060", "30 seconds on from tick 160");
+        assert_eq!(at(window, "--scale"), "1.25");
+        assert_eq!(at(window, "--seed"), "1");
         assert!(
-            calls[1].contains(&"--inputs".to_owned()),
+            has(window, "--inputs") && !has(window, "--hold"),
             "the route plays on"
         );
         assert!(store.join("busy.perf.json").is_file());
@@ -420,8 +398,8 @@ mod tests {
                 Ok(exited(0, &played(16.0)))
             },
         );
-        assert!(held[0].contains(&"--inputs".to_owned()));
-        assert!(!held[1].contains(&"--inputs".to_owned()));
+        assert_eq!(held.len(), 1);
+        assert!(has(&held[0], "--inputs") && has(&held[0], "--hold"));
 
         let second = run_scene(
             &module,

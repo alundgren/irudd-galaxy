@@ -7,6 +7,8 @@
 //! as presentation only. `play --headless` runs the same loop with no window, audio device
 //! or live socket, a frame a tick as fast as the machine goes, so a bot's clicks, drags,
 //! keys, zooms and notes play exactly as in a window (`engine/docs/tests-and-what-if.md`).
+//! `--fast-to <tick>` has a window play that way, undrawn, up to the tick, then at real
+//! speed: how a performance scene reaches its moment with the screen the route left.
 //! `shot` runs a session headless for some ticks and writes one frame as a PNG; `galaxy
 //! film` ([`crate::film`]) writes every frame. Both report frame times.
 //!
@@ -67,6 +69,8 @@ pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--reduced-motion",
     "--headless",
     "--scale",
+    "--fast-to",
+    "--hold",
 ];
 pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--modules",
@@ -333,6 +337,9 @@ struct App {
     scripted_resizes: BTreeMap<u64, Vec<(u32, u32)>>,
     /// Frames still to count as resize frames since the window last changed size.
     resize_frames: u32,
+    /// Whether the window is playing up to `--fast-to`: ticks and frames as fast as they
+    /// go, undrawn and without one-shot sounds.
+    fast: bool,
     watcher: Option<ModuleWatcher>,
     dirs: BTreeMap<String, PathBuf>,
     hot_load_failures: Vec<Value>,
@@ -347,6 +354,8 @@ struct App {
     last: Instant,
     times: Times,
     frames: u64,
+    /// The frame real time started after (`--fast-to`); frame times count from the one after.
+    measured_from: u64,
     error: Option<Failure>,
     /// The session folder: recording, save and note frames.
     dir: PathBuf,
@@ -716,6 +725,14 @@ impl App {
         if self.running.is_none() {
             return;
         }
+        if self
+            .options
+            .fast_to
+            .is_some_and(|to| self.session.world.tick < to)
+        {
+            self.fast_forward(event_loop);
+            return;
+        }
         let ticks = self.pace.advance(dt);
         let sim_start = Instant::now();
         for _ in 0..ticks {
@@ -745,19 +762,80 @@ impl App {
                 return;
             }
         };
-        // The first frame's interval is the time since the window opened.
-        if self.frames > 1 {
+        // The first frame's interval is the time since the window opened (or, after
+        // `--fast-to`, since the last undrawn frame).
+        let measured = self.frames > self.measured_from + 1;
+        if measured {
             if self.recent.len() == RECENT_FRAMES {
                 self.recent.pop_front();
             }
             self.recent.push_back(dt * 1000.0);
         }
-        if self.frames > 1 && self.times.interval.len() < 1_000_000 {
+        if measured && self.times.interval.len() < 1_000_000 {
             self.times.push(dt * 1000.0, sim_ms, scene_ms, draw_ms);
             if self.resize_frames > 0 {
                 self.resize_frames -= 1;
                 self.times.resize.push(dt * 1000.0);
             }
+        }
+        if self.done() {
+            event_loop.exit();
+            return;
+        }
+        if let Some(window) = self.running.as_ref().and_then(|r| r.window.as_ref()) {
+            window.request_redraw();
+        }
+    }
+
+    /// A window frame's worth of `--fast-to`: ticks, each with its frame built as headless
+    /// builds it (bot actions resolved, UI sounds and presentation recorded) but not drawn,
+    /// for up to a frame's time so the window stays responsive. One process plays the
+    /// route to the moment, so everything the route set on the screen (zoom, pointer,
+    /// scroll, a glide in progress) is as it left it. At the tick, real time starts:
+    /// pacing, the presentation clock and frame times all count from there.
+    fn fast_forward(&mut self, event_loop: &ActiveEventLoop) {
+        const CHUNK: std::time::Duration = std::time::Duration::from_millis(30);
+        let to = self.options.fast_to.unwrap_or(0);
+        let chunk = Instant::now();
+        self.fast = true;
+        // The first frame shows the start, as headless builds it before its first tick.
+        if self.frames == 0
+            && let Err(e) = self.present(1.0, 0.0)
+        {
+            self.error = Some(e);
+            self.fast = false;
+            event_loop.exit();
+            return;
+        }
+        while self.session.world.tick < to && !self.at_end() && chunk.elapsed() < CHUNK {
+            match self.step() {
+                Ok(true) => {}
+                Ok(false) => {
+                    self.fast = false;
+                    event_loop.exit();
+                    return;
+                }
+                Err(e) => {
+                    self.error = Some(e);
+                    self.fast = false;
+                    event_loop.exit();
+                    return;
+                }
+            }
+        }
+        self.fast = false;
+        if self.session.world.tick >= to || self.at_end() {
+            let now = Instant::now();
+            self.pace.reset();
+            self.times = Times::default();
+            self.recent.clear();
+            self.last = now;
+            self.started = now
+                .checked_sub(std::time::Duration::from_secs_f64(
+                    self.session.world.tick as f64 / f64::from(TICKS_PER_SECOND),
+                ))
+                .unwrap_or(now);
+            self.measured_from = self.frames;
         }
         if self.done() {
             event_loop.exit();
@@ -778,14 +856,20 @@ impl App {
     fn headless(&mut self) -> Result<(), Failure> {
         // The first frame shows the start, as a window's does before its first tick.
         self.present(1.0, 0.0)?;
-        while !self.done() {
-            if !self.tick()? {
-                break;
-            }
-            let time = self.session.world.tick as f32 / TICKS_PER_SECOND as f32;
-            self.present(1.0, time)?;
-        }
+        while !self.done() && self.step()? {}
         Ok(())
+    }
+
+    /// A tick and its frame as fast as they go, as `--headless` and a window playing up to
+    /// `--fast-to` both run them: the frame built at the tick's end (`alpha` 1), at the
+    /// world's time. False when a scripted Esc quits.
+    fn step(&mut self) -> Result<bool, Failure> {
+        if !self.tick()? {
+            return Ok(false);
+        }
+        let time = self.session.world.tick as f32 / TICKS_PER_SECOND as f32;
+        self.present(1.0, time)?;
+        Ok(true)
     }
 
     /// Runs the next tick with the inputs due: what the window or live connections sent,
@@ -854,8 +938,20 @@ impl App {
             inputs.push(input);
         }
         self.session.step(&inputs).map_err(Failure::runtime)?;
-        self.audio_output
-            .send(self.audio.update(&self.session.world));
+        let mut sounds = self.audio.update(&self.session.world);
+        if self.fast {
+            // Loops, music and ambience follow the world; a burst of one-shots would not.
+            sounds.retain(|a| {
+                !matches!(
+                    a,
+                    galaxy_audio::Action::Play {
+                        bus: galaxy_audio::Bus::Sound,
+                        ..
+                    }
+                )
+            });
+        }
+        self.audio_output.send(sounds);
         if let Some(live) = &mut self.live {
             live.after_tick(&self.session.world);
         }
@@ -937,14 +1033,14 @@ impl App {
             sounds.extend(played);
             self.session.record_ui_sound(cue);
         }
-        if !sounds.is_empty() {
+        if !sounds.is_empty() && !self.fast {
             self.audio_output.send(sounds);
         }
         gather(&mut self.problems, &r.view, self.session.world.tick);
         let scene_ms = ms_since(scene_start);
         let draw_start = Instant::now();
-        // Headless, nobody sees the frame: only a note draws it.
-        if let (Some(_), Some(renderer)) = (&r.window, &mut r.renderer) {
+        // Headless, or playing up to `--fast-to`, nobody sees the frame: only a note draws it.
+        if let (Some(_), Some(renderer), false) = (&r.window, &mut r.renderer, self.fast) {
             renderer
                 .render(&scene)
                 .map_err(|e| Failure::runtime(format!("drawing failed: {e}")))?;
@@ -1418,6 +1514,16 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
         notes,
         zooms,
     };
+    // --hold: the route stops at --fast-to.
+    if let (true, Some(to)) = (options.hold, options.fast_to) {
+        result.keys.retain(|(t, _)| *t <= to);
+        result.inputs.retain(|t, _| *t <= to);
+        result.clicks.retain(|t, _| *t <= to);
+        result.pointers.retain(|t, _| *t <= to);
+        result.notes.retain(|t, _| *t <= to);
+        result.zooms.retain(|t, _| *t <= to);
+        result.resizes.retain(|t, _| *t <= to);
+    }
     if options.load.is_some() {
         let tick = session.world.tick;
         result.inputs.retain(|t, _| *t > tick);
@@ -1452,6 +1558,18 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         return Err(usage(
             "--headless runs as fast as it can, so it needs --ticks <n> to know where to stop",
         ));
+    }
+    if options.hold && options.fast_to.is_none() {
+        return Err(usage(
+            "--hold stops the --inputs script at --fast-to <tick>; give the tick",
+        ));
+    }
+    if let (Some(to), Some(end)) = (options.fast_to, options.ticks)
+        && to >= end
+    {
+        return Err(usage(format!(
+            "--fast-to {to} plays up to that tick before real time starts; --ticks {end} ends before it"
+        )));
     }
     if options.headless && options.watch {
         return Err(usage(
@@ -1552,6 +1670,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         scripted_zooms: script.zooms,
         scripted_resizes: script.resizes,
         resize_frames: 0,
+        fast: false,
         watcher,
         dirs,
         hot_load_failures: Vec::new(),
@@ -1562,6 +1681,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         last: Instant::now(),
         times: Times::default(),
         frames: 0,
+        measured_from: 0,
         error: None,
         dir,
         note: None,
@@ -1628,6 +1748,9 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "speed": (game_seconds / (wall_ms / 1000.0).max(1e-3) * 10.0).round() / 10.0,
         "size": app.running.as_ref().map(|r| r.size),
         "scale": app.running.as_ref().map(|r| r.scale),
+        // How far the camera sees at the end, after the route's zooms.
+        "view": app.running.as_ref().and_then(|r| r.view.eye.view),
+        "fast_to": app.options.fast_to,
         // Headless frames take no real time, so there are no frame times to report.
         "frame_time": if headless { Value::Null } else { app.times.report() },
         "adapter": app.running.as_ref().and_then(|r| r.renderer.as_ref()).map(Renderer::adapter_info),

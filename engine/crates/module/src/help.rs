@@ -516,6 +516,18 @@ static GAME: &[Command] = &[
                  every machine; 1 headless when not set",
             ),
             (
+                "--fast-to <tick>",
+                "a window plays up to this tick as fast as it goes and undrawn, through the \
+                 same ticks and frames headless runs, then at real speed; frame times count \
+                 from there. The screen is as the route left it (zoom, pointer, scroll), \
+                 which a --load save would not keep",
+            ),
+            (
+                "--hold",
+                "with --fast-to: the --inputs script stops at that tick, so the window holds \
+                 the moment it reached",
+            ),
+            (
                 "--load <save>",
                 "resume a save made by this build; module files changed since are carried \
                  over when the saved world still fits them. Records from the saved world; \
@@ -573,6 +585,10 @@ static GAME: &[Command] = &[
                 "frames, size, scale",
                 "total frames (headless: one a tick, plus the first) and final physical \
                  pixel dimensions and UI scale",
+            ),
+            (
+                "view, fast_to",
+                "how far the camera sees at the end (after any zooms), and --fast-to",
             ),
             (
                 "headless, wall_ms, speed",

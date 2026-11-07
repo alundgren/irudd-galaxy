@@ -127,7 +127,8 @@ the entities and only the facts and causes added since.
 `tests/<name>.bot.toml` declares a bot: a route of clicks, drags, keys, zooms and notes
 played through `galaxy play`, checked to the end and replayed. Ordinary `.toml` tests stay
 headless scenarios. `--only` filters bot file names too, and a whole file name
-(`--only trade.bot.toml`) runs that file alone, never `mixed-trade.bot.toml` beside it.
+(`--only trade.bot.toml`) runs that file alone, never `mixed-trade.bot.toml` beside it,
+and runs nothing when the module has no such file.
 Example (inside a module):
 
 ```toml
@@ -230,10 +231,13 @@ scale = 1.25
 seed = 1
 ```
 
-**How it runs** (`crates/gm/src/perf.rs`). With `at` above 0, the route plays headless and
-fast to that tick and is saved there (`galaxy play --headless --save`). A window then loads
-the save and plays `seconds` at real speed, the route's later inputs still playing, so a
-scene can go on through a busy stretch. With `hold`, the window gets none of the route
+**How it runs** (`crates/gm/src/perf.rs`). One window plays the scene from the start. With
+`at` above 0 it plays the route up to that tick as fast as it goes and undrawn
+(`galaxy play --fast-to`), each tick and frame as headless runs them, then `seconds` at
+real speed, the route's later inputs still playing, so a scene can go on through a busy
+stretch. The same process reaches the moment, so the screen is as the route left it:
+its zoom, pointer and scroll positions, a glide in progress. A save would not do: it holds
+the world, not the screen, and a window loading it starts at the default zoom. With `hold`, the window gets none of the route
 after `at`: it holds that moment (an open talk, a menu), which the route would soon have
 left. Scenes run one at a time. Each reports
 `frame_time`: fps, then interval_ms (frame to frame), sim_ms, scene_ms and draw_ms, each as

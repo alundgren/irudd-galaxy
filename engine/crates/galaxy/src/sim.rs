@@ -47,6 +47,11 @@ pub(crate) struct Options {
     /// `--scale <factor>`: the UI scale (logical = physical / scale) instead of the
     /// display's.
     pub scale: Option<f32>,
+    /// `--fast-to <tick>`: a window plays up to this tick as fast as it goes, undrawn, then
+    /// at real speed, its frame times counted from there.
+    pub fast_to: Option<u64>,
+    /// `--hold`: the `--inputs` script stops at `--fast-to`, so the window holds that moment.
+    pub hold: bool,
     pub state: bool,
     /// `--out`: where a picture goes.
     pub out: Option<PathBuf>,
@@ -98,6 +103,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 | "--all"
                 | "--no-live"
                 | "--headless"
+                | "--hold"
                 | "--physical-size"
                 | "--reduced-motion"
                 | "--continue"
@@ -113,6 +119,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 "--all" => options.all = true,
                 "--no-live" => options.no_live = true,
                 "--headless" => options.headless = true,
+                "--hold" => options.hold = true,
                 "--physical-size" => options.physical_size = true,
                 "--reduced-motion" => options.reduced_motion = true,
                 "--continue" => options.continue_save = true,
@@ -133,6 +140,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
             "--modules" => options.modules = Some(value),
             "--seed" => options.seed = Some(number(&value)?),
             "--ticks" => options.ticks = Some(number(&value)?),
+            "--fast-to" => options.fast_to = Some(number(&value)?),
             "--inputs" => options.inputs = Some(path(&value)),
             "--save" => options.save = Some(path(&value)),
             "--load" => options.load = Some(path(&value)),
