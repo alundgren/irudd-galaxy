@@ -116,6 +116,9 @@ pub fn run(path: &Path, opts: &Opts) -> Result<Output, Failure> {
             view.reload(None, replay.session.modules());
         }
     }
+    if let Some(n) = note {
+        replay.at_note(n).map_err(Failure::runtime)?;
+    }
     if expected_hash.is_some_and(|hash| hash != replay.session.world.hash()) {
         return Err(Failure::new(
             galaxy_module::failure::code::REJECTED,

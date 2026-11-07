@@ -326,11 +326,20 @@ pub struct Replay<'a> {
     inputs: BTreeMap<u64, Vec<Input>>,
     // Keep file snapshots and edits in acceptance order. A style snapshot can contain
     // code from an earlier world reload whose recorded tick is one greater than its own,
-    // and an edit made after a reload needs the reloaded modules. The flag marks an edit
-    // made after a note on its tick, which waits until readers have seen that note.
-    loads: VecDeque<(&'a RecEvent, bool)>,
+    // and an edit made after a reload needs the reloaded modules.
+    loads: VecDeque<Queued<'a>>,
     /// The last step replaced module assets, including presentation-only styles.
     pub modules_changed: bool,
+}
+
+/// A hot-load or edit waiting in a replay, with where it stands among the notes.
+#[derive(Clone, Copy)]
+struct Queued<'a> {
+    event: &'a RecEvent,
+    /// How many notes the recording took before it was made.
+    notes_before: usize,
+    /// An edit made after a note on its own tick: it waits for that note to be read.
+    after_note: bool,
 }
 
 impl<'a> Replay<'a> {
@@ -346,12 +355,19 @@ impl<'a> Replay<'a> {
         let mut loads = VecDeque::new();
         let mut noted = std::collections::BTreeSet::new();
         for event in &rec.events {
+            let queued = |after_note| Queued {
+                event,
+                notes_before: noted.len(),
+                after_note,
+            };
             match event {
                 RecEvent::Input(input) => inputs.entry(input.tick).or_default().push(input.clone()),
-                RecEvent::HotLoad { .. } => loads.push_back((event, false)),
-                RecEvent::Edit { tick, .. } => loads.push_back((event, noted.contains(tick))),
+                RecEvent::HotLoad { .. } => loads.push_back(queued(false)),
+                RecEvent::Edit { tick, .. } => {
+                    loads.push_back(queued(noted.iter().any(|(t, _)| t == tick)));
+                }
                 RecEvent::Note { tick, .. } => {
-                    noted.insert(*tick);
+                    noted.insert((*tick, noted.len()));
                 }
                 RecEvent::Zoom { .. } | RecEvent::Presentation { .. } | RecEvent::UiSound(_) => {}
             }
@@ -363,8 +379,16 @@ impl<'a> Replay<'a> {
             loads,
             modules_changed: false,
         };
-        replay.apply_loads(false)?;
+        replay.apply_loads(false, None)?;
         Ok(replay)
+    }
+
+    /// Brings the world to the moment note `number` (counting from 1, in recording order)
+    /// was taken, once its tick has run: the edits made on that tick before it are made,
+    /// those after it wait. A reader checking several notes on one tick calls it for each
+    /// in turn, so each sees the world it was taken on.
+    pub fn at_note(&mut self, number: usize) -> Result<(), String> {
+        self.apply_loads(false, Some(number))
     }
 
     /// The inputs recorded for `tick`.
@@ -385,10 +409,10 @@ impl<'a> Replay<'a> {
         }
         let tick = self.session.world.tick + 1;
         self.modules_changed = false;
-        self.apply_loads(true)?;
+        self.apply_loads(true, None)?;
         self.session
             .step(self.inputs.get(&tick).map_or(&[][..], Vec::as_slice))?;
-        self.apply_loads(false)?;
+        self.apply_loads(false, None)?;
         Ok(true)
     }
 
@@ -401,19 +425,23 @@ impl<'a> Replay<'a> {
     pub fn finish(&mut self) -> Result<bool, String> {
         self.modules_changed = false;
         if self.session.world.tick >= self.rec.end.tick {
-            self.apply_loads(true)?;
+            self.apply_loads(true, None)?;
         }
         Ok(self.modules_changed)
     }
 
     /// Applies the hot-loads and edits now due, in the order they were made: a world
     /// hot-load just before its tick runs, a style load and an edit once their tick has
-    /// run. An edit made after a note on its tick waits until the next step (or
-    /// [`Replay::finish`]), so readers checking that tick's notes see the world the note
-    /// saw. One not yet due holds back those made after it.
-    fn apply_loads(&mut self, before_step: bool) -> Result<(), String> {
-        while let Some((event, after_note)) = self.loads.front().copied() {
-            match event {
+    /// run. An edit made after a note on its tick waits for [`Replay::at_note`] of a later
+    /// note, the next step or [`Replay::finish`], so a reader checking that tick's notes
+    /// sees the world each one saw. With `note`, only what was made before that note.
+    /// One not yet due holds back those made after it.
+    fn apply_loads(&mut self, before_step: bool, note: Option<usize>) -> Result<(), String> {
+        while let Some(queued) = self.loads.front().copied() {
+            if note.is_some_and(|n| queued.notes_before >= n) {
+                break;
+            }
+            match queued.event {
                 RecEvent::HotLoad {
                     tick,
                     module: id,
@@ -441,7 +469,10 @@ impl<'a> Replay<'a> {
                     source,
                     edits,
                 } => {
-                    let held = after_note && !before_step && *tick == self.session.world.tick;
+                    let held = queued.after_note
+                        && note.is_none()
+                        && !before_step
+                        && *tick == self.session.world.tick;
                     if *tick > self.session.world.tick || held {
                         break;
                     }
@@ -459,26 +490,32 @@ impl<'a> Replay<'a> {
 
 /// Runs a recording again from its start, with its own module files, and compares the end.
 pub fn replay(rec: &Recording) -> Result<(Session, Replayed), String> {
-    let mut notes: BTreeMap<u64, Vec<&String>> = BTreeMap::new();
+    // Each tick's notes with their numbers, in the order they were taken.
+    let mut notes: BTreeMap<u64, Vec<(usize, &String)>> = BTreeMap::new();
+    let mut number = 0;
     for event in &rec.events {
         if let RecEvent::Note { tick, text, .. } = event {
-            notes.entry(*tick).or_default().push(text);
+            number += 1;
+            notes.entry(*tick).or_default().push((number, text));
         }
     }
     let mut run = Replay::new(rec)?;
     let mut seen = Vec::new();
-    let mut note = |session: &Session| {
-        for text in notes.get(&session.world.tick).into_iter().flatten() {
+    let mut note = |run: &mut Replay| -> Result<(), String> {
+        let tick = run.session.world.tick;
+        for (number, text) in notes.get(&tick).into_iter().flatten() {
+            run.at_note(*number)?;
             seen.push(NoteAt {
-                tick: session.world.tick,
+                tick,
                 text: (*text).clone(),
-                hash: session.world.hash(),
+                hash: run.session.world.hash(),
             });
         }
+        Ok(())
     };
-    note(&run.session);
+    note(&mut run)?;
     while run.step()? {
-        note(&run.session);
+        note(&mut run)?;
     }
     let session = run.session;
     let hash = session.world.hash();

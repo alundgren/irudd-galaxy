@@ -110,3 +110,30 @@ fn notes_keep_their_world_around_edits_on_their_tick() {
     assert_eq!(notes.len(), 2);
     assert!(notes.iter().all(|n| n["identical"] == true), "{out}");
 }
+
+/// Notes either side of a live edit on one tick, as F8, an edit and F8 again before the
+/// next tick make them.
+#[test]
+fn notes_either_side_of_an_edit_on_one_tick_both_audit() {
+    let tmp = tempfile::tempdir().unwrap();
+    let edit = |text: &str| galaxy_sim::edit::Edit::parse_text(text).unwrap();
+    let mut session = Session::new(stroll(), 3).unwrap();
+    session.start_recording(BuildStamp::current());
+    for tick in 1..=40 {
+        session.step(&[]).unwrap();
+        if tick == 30 {
+            session.note("before live edit", None, None);
+            session
+                .edit("live", &[edit("set stroll.w1 stroll.walker steps=40")])
+                .unwrap();
+            session.note("after live edit", None, None);
+        }
+    }
+    let path = tmp.path().join("recording.json");
+    session.recording().unwrap().write(&path).unwrap();
+    let (code, out) = audit(&path);
+    assert_eq!(code, 0, "{out}");
+    let notes = out["notes"].as_array().unwrap();
+    assert_eq!(notes.len(), 2);
+    assert!(notes.iter().all(|n| n["identical"] == true), "{out}");
+}

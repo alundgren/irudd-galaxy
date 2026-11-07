@@ -168,8 +168,10 @@ after an edit is marked with no new field, and an unedited world's hash is uncha
 replay (and so audit, film, look, what-if and the recording views) keeps edits and
 hot-loads in one queue in the order they were made, and makes each edit through the same
 `Session::edit` once its tick has run, so the world, its facts and its hash come back the
-same. An edit made after an F8 note on its tick waits until readers have checked that
-note, so an audit sees the world the note saw. A recording written right after a live
+same. Notes, edits and inputs keep the order they happened in within a tick: a replay
+brings the world to each note in turn (`Replay::at_note`), making only the edits taken
+before it, so audit, look, film and what-if see the world each note was taken on, even
+with an F8 note either side of a live edit. A recording written right after a live
 edit replays to it. Recordings and saves
 without edits read, replay and hash exactly as before; the recording and save format
 numbers are unchanged.

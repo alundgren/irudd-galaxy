@@ -57,8 +57,8 @@ struct Plan<'a> {
     zooms: Vec<(u64, Zoom)>,
     source: Value,
     probes_only: bool,
-    /// Each note's tick and the world's hash it kept.
-    kept: Vec<(u64, String)>,
+    /// Each note's tick, the world's hash it kept and its number (from 1).
+    kept: Vec<(u64, String, usize)>,
 }
 
 pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
@@ -82,15 +82,17 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
         })
         .collect();
     // The world's hash at each note, to check the film shows the world the player had.
-    let kept: Vec<(u64, String)> = rec
+    let kept: Vec<(u64, String, usize)> = rec
         .events
         .iter()
-        .filter_map(|e| match e {
+        .filter(|e| matches!(e, RecEvent::Note { .. }))
+        .enumerate()
+        .filter_map(|(i, e)| match e {
             RecEvent::Note {
                 tick,
                 hash: Some(h),
                 ..
-            } => Some((*tick, h.clone())),
+            } => Some((*tick, h.clone(), i + 1)),
             _ => None,
         })
         .collect();
@@ -307,24 +309,29 @@ fn film_with(plan: &Plan, drawer: &Drawer, out: &Path) -> Result<(Value, bool), 
     // on): is the replayed world the one the note kept? Checked on the note's own tick, which
     // a frame need not land on at a low --fps; a film drawn by
     // another build is also held to its own frame on that tick, where it has one.
-    let mut inside: Vec<&(u64, String)> = plan
+    let mut inside: Vec<&(u64, String, usize)> = plan
         .kept
         .iter()
-        .filter(|(tick, _)| (plan.from..=plan.to).contains(tick))
+        .filter(|(tick, _, _)| (plan.from..=plan.to).contains(tick))
         .collect();
-    inside.sort_by_key(|(tick, _)| *tick);
+    inside.sort_by_key(|(tick, _, number)| (*tick, *number));
     let mut checked = Vec::new();
     if !inside.is_empty() {
         let mut replay = Replay::new(plan.rec)
             .map_err(|e| bad(format!("the recording can't run on this engine: {e}")))?;
-        for (tick, hash) in inside {
+        let mut first_at = None;
+        for (tick, hash, number) in inside {
             while replay.session.world.tick < *tick {
                 if !replay.step().map_err(Failure::runtime)? {
                     break;
                 }
             }
+            replay.at_note(*number).map_err(Failure::runtime)?;
             let mut identical = replay.session.world.hash() == *hash;
-            if matches!(drawer, Drawer::Other(_))
+            // A frame shows the world its tick ended on, which the tick's first note saw.
+            let first = first_at.replace(*tick) != Some(*tick);
+            if first
+                && matches!(drawer, Drawer::Other(_))
                 && let Some(f) = manifest.frames.iter().find(|f| f.tick == *tick)
             {
                 identical &= f.hash == *hash;

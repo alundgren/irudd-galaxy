@@ -595,3 +595,29 @@ fn a_note_taken_before_an_edit_on_its_tick_replays_to_the_world_it_saw() {
     assert_ne!(report.notes[1].hash, edited);
     assert_eq!(report.notes[1].hash, s.world.hash());
 }
+
+/// Two notes on one tick with a live edit between them, the recording ending there or a
+/// tick later: each note replays to the world it was taken on, and the end is the same.
+#[test]
+fn notes_either_side_of_an_edit_on_one_tick_each_replay_to_their_own_world() {
+    for more in [true, false] {
+        let mut s = Session::new(purse(), 1).unwrap();
+        s.start_recording(BuildStamp::current());
+        s.step(&[]).unwrap();
+        let before = s.world.hash();
+        s.note("before live edit", None, None);
+        s.edit("live", &[edit("set purse.buyer purse.wallet coins=5")])
+            .unwrap();
+        let after = s.world.hash();
+        s.note("after live edit", None, None);
+        if more {
+            s.step(&[]).unwrap();
+        }
+        let rec = s.recording().unwrap();
+        let (again, report) = replay(&rec).unwrap();
+        assert!(report.identical, "{report:?}");
+        assert_eq!(again.world, s.world);
+        let hashes: Vec<&str> = report.notes.iter().map(|n| n.hash.as_str()).collect();
+        assert_eq!(hashes, [before.as_str(), after.as_str()], "more: {more}");
+    }
+}
