@@ -7,7 +7,7 @@
 //! - `modules`: the exact module files the session started with;
 //! - `seed` and `start`: the world it started from, whole;
 //! - `events`, in order: inputs (tick, source, name, payload), hot-loads (tick, module and
-//!   its exact new files), notes (tick, text, the world's hash then, and from a played
+//!   its exact new files), edits (tick, source and the edits, `crate::edit`), notes (tick, text, the world's hash then, and from a played
 //!   session the camera and the frame that was shown) and zooms (the view height the
 //!   player's wheel set, on the tick it was turned; presentation only, so a replay of the
 //!   world ignores them and a film of the session uses them), screen presentation
@@ -140,6 +140,13 @@ pub enum RecEvent {
         files: ModuleFiles,
         #[serde(default)]
         presentation_only: bool,
+    },
+    /// An edit of the world from outside its rules, made once `tick` had run and before
+    /// the next (`Session::edit`): where it came from, and the edits with full IDs.
+    Edit {
+        tick: u64,
+        source: String,
+        edits: Vec<crate::edit::Edit>,
     },
     /// A note on the world as it was after `tick`.
     Note {
@@ -317,8 +324,9 @@ pub struct Replay<'a> {
     pub session: Session,
     rec: &'a Recording,
     inputs: BTreeMap<u64, Vec<Input>>,
-    // Keep file snapshots in acceptance order. A style snapshot can contain code
-    // from an earlier world reload whose recorded tick is one greater than its own.
+    // Keep file snapshots and edits in acceptance order. A style snapshot can contain
+    // code from an earlier world reload whose recorded tick is one greater than its own,
+    // and an edit made after a reload needs the reloaded modules.
     loads: VecDeque<&'a RecEvent>,
     /// The last step replaced module assets, including presentation-only styles.
     pub modules_changed: bool,
@@ -338,7 +346,7 @@ impl<'a> Replay<'a> {
         for event in &rec.events {
             match event {
                 RecEvent::Input(input) => inputs.entry(input.tick).or_default().push(input.clone()),
-                RecEvent::HotLoad { .. } => loads.push_back(event),
+                RecEvent::HotLoad { .. } | RecEvent::Edit { .. } => loads.push_back(event),
                 RecEvent::Note { .. }
                 | RecEvent::Zoom { .. }
                 | RecEvent::Presentation { .. }
@@ -395,27 +403,49 @@ impl<'a> Replay<'a> {
         Ok(self.modules_changed)
     }
 
+    /// Applies the hot-loads and edits now due, in the order they were made: a world
+    /// hot-load just before its tick runs, a style load and an edit once their tick has
+    /// run. One not yet due holds back those made after it.
     fn apply_loads(&mut self, before_step: bool) -> Result<(), String> {
-        while let Some(RecEvent::HotLoad {
-            tick,
-            module: id,
-            files,
-            presentation_only,
-        }) = self.loads.front().copied()
-        {
-            let due = self.session.world.tick + u64::from(before_step && !presentation_only);
-            if *tick > due {
-                break;
+        while let Some(event) = self.loads.front().copied() {
+            match event {
+                RecEvent::HotLoad {
+                    tick,
+                    module: id,
+                    files,
+                    presentation_only,
+                } => {
+                    let due =
+                        self.session.world.tick + u64::from(before_step && !presentation_only);
+                    if *tick > due {
+                        break;
+                    }
+                    let module = module_from(id, files)?;
+                    let result = if *presentation_only {
+                        self.session.hot_load_style(module)
+                    } else {
+                        self.session.hot_load_world(module)
+                    };
+                    result.map_err(|e| {
+                        format!("the hot-load of `{id}` at tick {tick} failed: {e}")
+                    })?;
+                    self.modules_changed = true;
+                }
+                RecEvent::Edit {
+                    tick,
+                    source,
+                    edits,
+                } => {
+                    if *tick > self.session.world.tick {
+                        break;
+                    }
+                    self.session
+                        .edit(source, edits)
+                        .map_err(|e| format!("the edit after tick {tick} failed: {e}"))?;
+                }
+                _ => unreachable!("only hot-loads and edits are queued"),
             }
-            let module = module_from(id, files)?;
-            let result = if *presentation_only {
-                self.session.hot_load_style(module)
-            } else {
-                self.session.hot_load_world(module)
-            };
-            result.map_err(|e| format!("the hot-load of `{id}` at tick {tick} failed: {e}"))?;
             self.loads.pop_front();
-            self.modules_changed = true;
         }
         Ok(())
     }

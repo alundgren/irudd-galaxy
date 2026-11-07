@@ -4,6 +4,7 @@
 //! - [`services`]: per-tick engine work (motion, the floor height under things);
 //! - [`session`]: modules, scripts and the world, stepped one fixed tick at a time, and
 //!   hot-loading;
+//! - [`edit`]: editing the world from outside its rules (tests, agents, live), recorded;
 //! - [`save`]: SQLite saves that list the modules they ran with;
 //! - [`recording`]: session recordings and replay;
 //! - [`scenario`]: inputs files and scenario tests;
@@ -14,6 +15,7 @@
 
 pub mod changes;
 pub mod collide;
+pub mod edit;
 pub mod flight;
 pub mod keys;
 pub mod life;

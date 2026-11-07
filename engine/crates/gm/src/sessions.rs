@@ -454,6 +454,7 @@ fn summary(rec: &Recording, out: &mut Value) {
             RecEvent::Note { .. } => "notes",
             RecEvent::Zoom { .. } => "zooms",
             RecEvent::HotLoad { .. } => "hot_loads",
+            RecEvent::Edit { .. } => "edits",
             RecEvent::Presentation { .. } => "presentation",
             RecEvent::UiSound(_) => "ui_sounds",
         };
@@ -481,6 +482,19 @@ fn summary(rec: &Recording, out: &mut Value) {
     // Inputs that did not come from the window itself (`live`: galaxy-gm live input), so
     // an evaluator can say the session was driven that way.
     out["inputs_via"] = json!(vias);
+    // Changes from outside the rules, the start world's included: edits and debug events.
+    out["edited"] = json!(
+        galaxy_sim::edit::edits(&rec.start)
+            + rec
+                .events
+                .iter()
+                .filter(|e| match e {
+                    RecEvent::Edit { .. } => true,
+                    RecEvent::Input(i) => i.source == galaxy_api::engine::DEBUG_SOURCE,
+                    _ => false,
+                })
+                .count()
+    );
     out["next"] = json!(
         "galaxy-gm recording <rec> timeline: what the player did, in order; inputs | orders | zooms list each kind"
     );
@@ -536,6 +550,30 @@ fn timeline(rec: &Recording, from: u64, to: u64) -> Result<(Vec<String>, bool), 
                     .push(format!("note {n}: {text:?}"));
             }
             RecEvent::Zoom { tick, view } => zooms.push((*tick, *view)),
+            RecEvent::Edit {
+                tick,
+                source,
+                edits,
+            } => {
+                let text = edits
+                    .iter()
+                    .map(galaxy_sim::edit::Edit::text)
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                let line = format!("edit from {source}: {text}");
+                // An edit on the tick the replay starts from was made before it ran.
+                if *tick <= replay.session.world.tick {
+                    if (from..=to).contains(tick) {
+                        lines.push(Line {
+                            tick: *tick,
+                            text: line,
+                            then: None,
+                        });
+                    }
+                } else {
+                    notes.entry(*tick).or_default().push(line);
+                }
+            }
             _ => {}
         }
     }

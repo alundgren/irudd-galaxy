@@ -31,6 +31,8 @@ pub const MAX_HISTORY: usize = 500;
 pub const MAX_INPUT_TICKS: u64 = 9000;
 /// The most steps one `input` takes.
 pub const MAX_STEPS: usize = 1000;
+/// The most edits one `edit` makes.
+pub const MAX_EDITS: usize = 1000;
 /// The left mouse button, as `input` names it beside the manifest key names (which name
 /// the right one `mouse_right`).
 pub const MOUSE_LEFT: &str = "mouse_left";
@@ -180,6 +182,17 @@ pub enum Op {
     /// path as the window's own: answered once they have passed. What the connection
     /// still holds when it closes is let go.
     Input { steps: Vec<Step>, ticks: u64 },
+    /// Edits the world between two ticks, as one batch: names may be written as `state`
+    /// takes them (a unique part of an ID), the game makes them full. Recorded, so the
+    /// session still replays.
+    Edit { edits: Vec<galaxy_sim::edit::Edit> },
+    /// Sends one of a module's debug-only events on the next tick, as an input with source
+    /// `debug` (the event may be named by a unique last part). Recorded like any input.
+    Debug {
+        event: String,
+        #[serde(default)]
+        payload: serde_json::Map<String, Value>,
+    },
 }
 
 /// One step of an `input`: what happens, `at` ticks after the input started. A step at
@@ -239,6 +252,8 @@ impl Op {
             Op::Shot { .. } => "shot",
             Op::Load { .. } => "load",
             Op::Input { .. } => "input",
+            Op::Edit { .. } => "edit",
+            Op::Debug { .. } => "debug",
         }
     }
 
@@ -314,6 +329,29 @@ impl Op {
                 }
                 dirs.iter()
                     .try_for_each(|d| text("the module folder", &d.to_string_lossy()))
+            }
+            Op::Edit { edits } => {
+                if edits.is_empty() || edits.len() > MAX_EDITS {
+                    return Err(format!(
+                        "an edit makes 1 to {MAX_EDITS} changes; this one makes {}",
+                        edits.len()
+                    ));
+                }
+                for edit in edits {
+                    edit.action()?;
+                    for name in [&edit.component, &edit.place, &edit.spot]
+                        .into_iter()
+                        .flatten()
+                        .chain([&edit.entity])
+                    {
+                        text("a name", name)?;
+                    }
+                }
+                Ok(())
+            }
+            Op::Debug { event, payload } => {
+                text("an event", event)?;
+                text("a payload", &Value::Object(payload.clone()).to_string())
             }
             Op::Input { steps, ticks } => {
                 if *ticks == 0 || *ticks > MAX_INPUT_TICKS {

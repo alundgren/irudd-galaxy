@@ -60,11 +60,12 @@ pub struct Scripted {
     pub session: Session,
     inputs: BTreeMap<u64, Vec<Input>>,
     loads: BTreeMap<u64, Vec<Module>>,
+    edits: galaxy_sim::scenario::DueEdits,
 }
 
 impl Scripted {
     /// `session` with `script`'s inputs, each checked against it, and its hot-loads read.
-    pub fn new(session: Session, script: &InputsFile) -> Result<Scripted, String> {
+    pub fn new(mut session: Session, script: &InputsFile) -> Result<Scripted, String> {
         if script.needs_window() {
             return Err("clicks, drags and key presses ([[click]], [[pointer]], [[key]]) are resolved against a played screen: run them with galaxy play --headless --ticks <n> (no window, fast), then galaxy-gm film <session>/recording.json draws them".into());
         }
@@ -80,10 +81,18 @@ impl Scripted {
                 .or_default()
                 .push(Module::read(dir).map_err(|f| f.message)?);
         }
+        let mut edits = galaxy_sim::scenario::DueEdits::new(
+            &script.edits,
+            session.world.tick,
+            "inputs",
+            &session,
+        )?;
+        edits.apply(&mut session)?;
         Ok(Scripted {
             session,
             inputs: script.by_tick(),
             loads,
+            edits,
         })
     }
 }
@@ -105,6 +114,7 @@ impl Stepper for Scripted {
         }
         self.session
             .step(self.inputs.get(&tick).map_or(&[][..], Vec::as_slice))?;
+        self.edits.apply(&mut self.session)?;
         Ok(hot)
     }
 

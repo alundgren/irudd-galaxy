@@ -57,7 +57,8 @@ permit, so engine and slice builds queue for each other. Never plain `cargo buil
   `docs/model-generator.md`, `docs/music-generation.md`, `docs/audio-tools.md`,
   `docs/gm-unattended.md` (scheduled GM runs: memory, continuing save, handover),
   `docs/effects.md` (beams, particles, halos and camera feel), `docs/sky-depth.md`
-  (backdrop layers and distant landmarks).
+  (backdrop layers and distant landmarks), `docs/world-edits.md` (setting any state for
+  tests, agents and live play, recorded).
 - **Exit codes and error kinds** are one table for both binaries, kept in
   `crates/module/src/failure.rs` and `docs/exit-codes.md` together.
 - **Determinism.** The simulation is deterministic: fixed tick, seeded randomness,

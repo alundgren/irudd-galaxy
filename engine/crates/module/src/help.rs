@@ -544,7 +544,8 @@ static GAME: &[Command] = &[
             ),
             (
                 "--size <w>x<h>",
-                "open the window at exactly this size in logical pixels, not maximized;                  without it the window opens maximized and un-maximizes to 1280x720",
+                "open the window at exactly this size in logical pixels, not maximized; \
+                 without it the window opens maximized and un-maximizes to 1280x720",
             ),
             (
                 "--watch",
@@ -867,6 +868,10 @@ static GAME: &[Command] = &[
                 "hot_loads, watch_failures",
                 "modules hot-loaded, and those refused",
             ),
+            (
+                "edits",
+                "each [[edit]] tick made: its source, entities and components",
+            ),
             ("log", "what scripts printed"),
             (
                 "state",
@@ -1101,7 +1106,7 @@ mod tests {
             );
         }
         let g = guide();
-        assert!(g.lines().count() < 90, "the guide stays short:\n{g}");
+        assert!(g.lines().count() < 92, "the guide stays short:\n{g}");
     }
 
     #[test]

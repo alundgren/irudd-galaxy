@@ -383,3 +383,93 @@ fn a_resumed_window_records_the_saved_start_and_final_tick_note() {
     assert_eq!(code, 0, "{replay}");
     assert_eq!(replay["identical"], true);
 }
+
+/// An inputs file's edits are made by `sim run` and by a headless `play` alike, recorded,
+/// and replayed to the same world.
+#[test]
+fn inputs_file_edits_run_record_and_replay_the_same_in_sim_and_play() {
+    let tmp = tempfile::tempdir().unwrap();
+    let rec = tmp.path().join("session.json");
+    let (code, run) = galaxy(&[
+        "sim",
+        "run",
+        "--modules",
+        "tests/edits",
+        "--ticks",
+        "10",
+        "--inputs",
+        "tests/edits/inputs.toml",
+        "--record",
+        path(&rec),
+    ]);
+    assert_eq!(code, 0, "{run}");
+    let ticks: Vec<&Value> = run["edits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| &e["tick"])
+        .collect();
+    assert_eq!(ticks, [0, 1, 4], "{run}");
+    let (code, replayed) = galaxy(&["sim", "replay", path(&rec)]);
+    assert_eq!(code, 0, "{replayed}");
+    assert_eq!(replayed["identical"], true);
+
+    let sessions = tmp.path().join("sessions");
+    let out = Command::new(env!("CARGO_BIN_EXE_engine-galaxy"))
+        .args([
+            "play",
+            "--headless",
+            "--modules",
+            "tests/edits",
+            "--ticks",
+            "10",
+            "--inputs",
+            "tests/edits/inputs.toml",
+        ])
+        .current_dir(engine())
+        .env_remove("GALAXY_INSTALL_ROOT")
+        .env("GALAXY_SESSIONS", &sessions)
+        .output()
+        .unwrap();
+    let played: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{played}");
+    assert_eq!(
+        played["hash"], run["hash"],
+        "play makes the same edits as sim run"
+    );
+    let session = std::fs::read_dir(&sessions)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let recording = session.join("recording.json");
+    let text = std::fs::read_to_string(&recording).unwrap();
+    assert_eq!(text.matches("\"type\":\"edit\"").count(), 3);
+    let (code, replayed) = galaxy(&["sim", "replay", path(&recording)]);
+    assert_eq!(code, 0, "{replayed}");
+    assert_eq!(replayed["identical"], true);
+
+    // A mistyped edit is refused before anything runs, naming what is wrong.
+    let bad = tmp.path().join("bad.toml");
+    std::fs::write(
+        &bad,
+        "[[edit]]\nentity = 'purse.buyer'\ncomponent = 'purse.wallet'\nset = { gold = 1 }\n",
+    )
+    .unwrap();
+    let (code, refused) = galaxy(&[
+        "sim",
+        "run",
+        "--modules",
+        "tests/edits",
+        "--ticks",
+        "1",
+        "--inputs",
+        path(&bad),
+    ]);
+    assert_eq!(code, 4, "{refused}");
+    assert!(
+        refused["error"].as_str().unwrap().contains("gold"),
+        "{refused}"
+    );
+}

@@ -35,6 +35,7 @@ enum Run<'a> {
     Scripted {
         session: Session,
         inputs: BTreeMap<u64, Vec<Input>>,
+        edits: galaxy_sim::scenario::DueEdits,
     },
     Recorded(Replay<'a>),
 }
@@ -49,11 +50,16 @@ impl Run<'_> {
 
     fn step(&mut self) -> Result<(), Failure> {
         match self {
-            Run::Scripted { session, inputs } => {
+            Run::Scripted {
+                session,
+                inputs,
+                edits,
+            } => {
                 let tick = session.world.tick + 1;
                 session
                     .step(&inputs.remove(&tick).unwrap_or_default())
-                    .map_err(Failure::runtime)
+                    .map_err(Failure::runtime)?;
+                edits.apply(session).map_err(Failure::bad_input)
             }
             Run::Recorded(replay) => replay.step().map(|_| ()).map_err(Failure::runtime),
         }
@@ -134,14 +140,19 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
     let mut run = match &recording {
         Some(rec) => Run::Recorded(Replay::new(rec).map_err(Failure::bad_input)?),
         None => {
-            let session =
+            let mut session =
                 Session::new(modules.clone(), scenario.seed).map_err(Failure::bad_input)?;
             for i in &input.inputs {
                 session.check_input(i).map_err(Failure::bad_input)?;
             }
+            let mut edits =
+                galaxy_sim::scenario::DueEdits::new(&input.edits, 0, "inputs", &session)
+                    .map_err(Failure::bad_input)?;
+            edits.apply(&mut session).map_err(Failure::bad_input)?;
             Run::Scripted {
                 session,
                 inputs: input.by_tick(),
+                edits,
             }
         }
     };

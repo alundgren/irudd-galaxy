@@ -130,6 +130,9 @@ pub const CAMERA_FEEL: &str = "engine.camera_feel";
 /// The engine's event kinds (in the `engine` namespace).
 /// - `start`: once, on the first tick of a new world.
 /// - `hot_loaded`: a module was hot-loaded (`module`, `version`).
+/// - `edited`: the world was edited from outside its rules (`galaxy_sim::edit`), between
+///   two ticks: `source` (`scenario`, `inputs`, `live`), `entities` and `components`, the
+///   full IDs each edit named, in order, each once.
 /// - `resumed`: a save was resumed (`galaxy play --load`/`--continue`, `sim load`),
 ///   recorded as input with source `resume` on the first tick after the save; no payload.
 /// - `script_failed`: a handler call was aborted and its writes discarded (`module`,
@@ -146,10 +149,11 @@ pub const CAMERA_FEEL: &str = "engine.camera_feel";
 /// - `contact`: two bodies started touching at least as fast as a module's manifest
 ///   `contact_speed` (`entity`, the one that moves more; `other`; `speed`, the closing
 ///   speed in units a second). Recorded only when a loaded module sets `contact_speed`.
-pub const EVENTS: [&str; 13] = [
+pub const EVENTS: [&str; 14] = [
     "clock_advanced",
     "start",
     "hot_loaded",
+    "edited",
     "resumed",
     "script_failed",
     "arrived",
@@ -164,9 +168,13 @@ pub const EVENTS: [&str; 13] = [
 
 pub const START: &str = "engine.start";
 pub const HOT_LOADED: &str = "engine.hot_loaded";
+pub const EDITED: &str = "engine.edited";
 pub const RESUMED: &str = "engine.resumed";
 /// The input source of [`RESUMED`].
 pub const RESUME_SOURCE: &str = "resume";
+/// The input source of a module's debug-only events (`debug` in its manifest), the only
+/// source that may send them.
+pub const DEBUG_SOURCE: &str = "debug";
 pub const ARRIVED: &str = "engine.arrived";
 pub const CONTACT: &str = "engine.contact";
 pub const SCRIPT_FAILED: &str = "engine.script_failed";

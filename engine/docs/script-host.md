@@ -22,7 +22,9 @@ return {
 
 Handlers run on events (facts recorded on the previous tick, and inputs on this one) and
 on the slow cadence. Engine events tell scripts about the session: `engine.start` once in
-a new world, `engine.hot_loaded` after a module changed, and `engine.resumed` on the first
+a new world, `engine.hot_loaded` after a module changed, `engine.edited` on the tick after the world
+was edited from outside its rules (`world-edits.md`: a scenario's start state, `galaxy-gm
+live edit`), where a module re-derives what it keeps, and `engine.resumed` on the first
 tick after a save resumed (`saves-and-replay.md`), where a module cues its music again. Nothing runs every frame: per-frame work (motion, the floor height,
 flight, walking and collision) is engine services in Rust. A script may `require("./name")`
 the module's other `.luau` files. A module's `tests/*.luau` run in the same sandbox and
