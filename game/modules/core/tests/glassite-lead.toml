@@ -642,7 +642,7 @@ tick = 9727
 entity = "kiln_master_now"
 component = "engine.talk_line"
 field = "text"
-equals = "The field still holds 113 ore."
+equals = "The field still holds 125 ore."
 
 [[expect]]
 tick = 9727
