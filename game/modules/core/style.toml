@@ -747,6 +747,38 @@ speed_jitter = 0.8
 spread = 360.0
 drag = 0.2
 
+# The old ring in the glassite, once woken (scripts/rumour.luau): a few lilac motes rise
+# off its groove and fade, and a soft lilac breath goes out from it as it wakes.
+[particles.ring_motes]
+shape = "dot"
+blend = "add"
+color = "#e2c4ff"
+end_color = "#6b4aa0"
+size = 0.3
+end_size = 0.1
+life = 3.0
+life_jitter = 0.5
+rate = 4.0
+speed = 1.4
+speed_jitter = 0.6
+spread = 360.0
+drag = 0.3
+
+[particles.ring_wake]
+shape = "puff"
+blend = "add"
+color = "#e2c4ff"
+end_color = "#7a5ab0"
+count = 28
+life = 1.6
+life_jitter = 0.3
+speed = 6.0
+speed_jitter = 0.4
+spread = 360.0
+size = 0.9
+end_size = 2.2
+drag = 1.6
+
 [screen]
 # The core's screen kit (direction doc 1.5, 4 and 9). Each kind of thing has its own
 # look, so a glance tells status from place from speech from receipt:
