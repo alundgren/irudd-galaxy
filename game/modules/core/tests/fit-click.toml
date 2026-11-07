@@ -1,433 +1,233 @@
-# Fitting by clicks at Cinder Kiln's cradle (fit.toml's route up to the sale): Choose
-# picks a part up and changes nothing, choosing it again puts it back, and Fit here or
-# Take it off here sends the same event a drop does, under the same verdicts. A fit or a
-# removal ends the choice, and so does leaving the room. The panel itself is
-# tests/cradle-panel.luau.
+# Fitting by clicks at Cinder Kiln's cradle: Choose picks a part up and changes nothing,
+# choosing it again puts it back, and Fit here or Take it off here sends the same event a
+# drop does, under the same verdicts. A fit or a removal ends the choice, and so does
+# leaving the room. While a part is chosen the cradle keeper's name sign hides: the
+# preview box stands where Orrin's walk to the ship passes, so his sign would sit under it
+# at 960x540, and the panel names him meanwhile; Put back, or a fit, and the sign is worn
+# again. Everything done in the station's rooms is logged at the station, one visit with
+# its docking. The panel itself is tests/cradle-panel.luau.
+#
+# Starts beside Cinder Kiln's berth with a hold of ore and 2,879 credits: docked and the
+# hold sold, the lens is in reach.
 seed = 7
-ticks = 19242
-
-# Ore runs at Cinder Kiln until one hold more pays for the lens.
+ticks = 140
+[[edit]]
+entity = "ship"
+component = "pilot"
+set = { credits = 2879 }
+[[edit]]
+entity = "ship"
+component = "hold"
+set = { ore = 24 }
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = 200, y = -249 }
 [[input]]
-tick = 10
-name = "core.mine"
-source = "script"
-
-[[input]]
-tick = 856
+tick = 1
 name = "core.dock"
 source = "script"
 payload = { station = "core.kiln" }
-
+[[expect]]
+tick = 50
+facts = "core.docked"
+equals = 1
 [[input]]
-tick = 1466
+tick = 50
 name = "core.open"
-
 [[input]]
-tick = 1471
+tick = 60
 name = "core.sell"
-
 [[input]]
-tick = 1481
-name = "core.launch"
-
-[[input]]
-tick = 1491
-name = "core.mine"
-source = "script"
-
-[[input]]
-tick = 2386
-name = "core.dock"
-source = "script"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 2833
+tick = 70
 name = "core.open"
-
+payload = { facility = "core.kiln_cradle" }
 [[input]]
-tick = 2838
-name = "core.sell"
-
-[[input]]
-tick = 2848
-name = "core.launch"
-
-[[input]]
-tick = 2858
-name = "core.mine"
-source = "script"
-
-[[input]]
-tick = 3946
-name = "core.dock"
-source = "script"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 4461
-name = "core.open"
-
-[[input]]
-tick = 4466
-name = "core.sell"
-
-[[input]]
-tick = 4476
-name = "core.launch"
-
-[[input]]
-tick = 4486
-name = "core.mine"
-source = "script"
-
-[[input]]
-tick = 5686
-name = "core.dock"
-source = "script"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 6253
-name = "core.open"
-
-[[input]]
-tick = 6258
-name = "core.sell"
-
-[[input]]
-tick = 6268
-name = "core.launch"
-
-[[input]]
-tick = 6278
-name = "core.mine"
-source = "script"
-
-[[input]]
-tick = 7486
-name = "core.dock"
-source = "script"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 8052
-name = "core.open"
-
-[[input]]
-tick = 8057
-name = "core.sell"
-
-[[input]]
-tick = 8067
-name = "core.launch"
-
-[[input]]
-tick = 8077
-name = "core.mine"
-source = "script"
-
-[[input]]
-tick = 9436
-name = "core.dock"
-source = "script"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 10003
-name = "core.open"
-
-[[input]]
-tick = 10008
-name = "core.sell"
-
-[[input]]
-tick = 10018
-name = "core.launch"
-
-[[input]]
-tick = 10028
-name = "core.mine"
-source = "script"
-
-[[input]]
-tick = 11206
-name = "core.dock"
-source = "script"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 11773
-name = "core.open"
-
-[[input]]
-tick = 11778
-name = "core.sell"
-
-[[input]]
-tick = 11788
-name = "core.launch"
-
-[[input]]
-tick = 11798
-name = "core.mine"
-source = "script"
-
-[[input]]
-tick = 13006
-name = "core.dock"
-source = "script"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 13572
-name = "core.open"
-
-[[input]]
-tick = 13577
-name = "core.sell"
-
-[[input]]
-tick = 13587
-name = "core.launch"
-
-[[input]]
-tick = 13597
-name = "core.mine"
-source = "script"
-
-[[input]]
-tick = 14806
-name = "core.dock"
-source = "script"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 15373
-name = "core.open"
-
-[[input]]
-tick = 15378
-name = "core.sell"
-
-[[input]]
-tick = 15388
-name = "core.launch"
-
-[[input]]
-tick = 15398
-name = "core.mine"
-source = "script"
-
-[[input]]
-tick = 16636
-name = "core.dock"
-source = "script"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 17203
-name = "core.open"
-
-[[input]]
-tick = 17208
-name = "core.sell"
-
-[[input]]
-tick = 17218
-name = "core.launch"
-# The route goes on.
-[[input]]
-tick = 17229
-name = "core.ahead"
-payload = { down = true }
-[[input]]
-tick = 17239
-name = "core.ahead"
-payload = { down = false }
-[[input]]
-tick = 17288
-name = "core.mine"
-[[input]]
-tick = 18540
-name = "core.dock"
-payload = { station = "core.kiln" }
-[[input]]
-tick = 19112
+tick = 73
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 19061 }
+payload = { entity = "core.ship", place = "core.kiln_cradle_room", start_tick = 70 }
+
+# Settled in the cradle: Orrin wears his sign.
+[[expect]]
+tick = 75
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = "Orrin Vale"
+
+# Chosen by a click: nothing changes yet, the preview shows first, and his sign goes.
 [[input]]
-tick = 19142
-name = "core.open"
-payload = { facility = "core.kiln_cradle" }
-# Too poor for the lens: nothing changes.
-[[input]]
-tick = 19152
-name = "core.fit"
-source = "ui"
-payload = { socket = "drill", value = "core.lens" }
-[[input]]
-tick = 19162
-name = "core.open"
-[[input]]
-tick = 19172
-name = "core.sell"
-[[input]]
-tick = 19182
-name = "core.open"
-payload = { facility = "core.kiln_cradle" }
-# Chosen by a click: nothing changes yet, the preview shows first.
-[[input]]
-tick = 19192
+tick = 80
 name = "core.choose"
 source = "ui"
 payload = { value = "core.lens" }
-
 [[expect]]
-tick = 19193
+tick = 81
 entity = "ship"
 component = "pilot"
 field = "chosen_part"
 equals = "core.lens"
-
 [[expect]]
-tick = 19193
+tick = 81
 entity = "lens"
 component = "part"
 field = "owned"
 equals = false
+[[expect]]
+tick = 81
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = ""
 
-# Put back: chosen again, it is let go.
+# Put back: chosen again, it is let go, and the sign is back.
 [[input]]
-tick = 19197
+tick = 85
 name = "core.choose"
 source = "ui"
 payload = { value = "core.lens" }
-
 [[expect]]
-tick = 19198
+tick = 86
 entity = "ship"
 component = "pilot"
 field = "chosen_part"
 equals = ""
+[[expect]]
+tick = 86
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = "Orrin Vale"
 
-# Chosen, then Fit here: the same event a drop sends, bought and fitted, and the choice is done.
+# Chosen, then Fit here: the same event a drop sends, bought and fitted, and the choice is
+# done, so the sign is worn again.
 [[input]]
-tick = 19202
+tick = 90
 name = "core.choose"
 source = "ui"
 payload = { value = "core.lens" }
-
+[[expect]]
+tick = 91
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = ""
 [[input]]
-tick = 19207
+tick = 95
 name = "core.fit"
 source = "ui"
 payload = { socket = "drill", value = "core.lens" }
-
 [[expect]]
-tick = 19208
+tick = 96
 entity = "lens"
 component = "part"
 field = "fitted"
 equals = true
-
 [[expect]]
-tick = 19208
+tick = 96
 entity = "lens"
 component = "part"
 field = "owned"
 equals = true
-
 [[expect]]
-tick = 19208
+tick = 96
 entity = "ship"
 component = "pilot"
 field = "chosen_part"
 equals = ""
+[[expect]]
+tick = 96
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = "Orrin Vale"
 
 # The thrusters, chosen: Fit here is refused on power, as a drop is, and nothing changes.
 [[input]]
-tick = 19212
+tick = 100
 name = "core.choose"
 source = "ui"
 payload = { value = "core.thrusters" }
-
 [[input]]
-tick = 19217
+tick = 105
 name = "core.fit"
 source = "ui"
 payload = { socket = "engine", value = "core.thrusters" }
-
 [[expect]]
-tick = 19218
+tick = 106
 entity = "thrusters"
 component = "part"
 field = "fitted"
 equals = false
-
 [[expect]]
-tick = 19218
+tick = 106
 entity = "ship"
 component = "pilot"
 field = "chosen_part"
 equals = "core.thrusters"
 
-# The lens, chosen where it is fitted, then Take it off here: into the locker.
+# The lens, chosen where it is fitted, then Take it off here: into the locker, the choice
+# done and the sign worn again.
 [[input]]
-tick = 19222
+tick = 110
 name = "core.choose"
 source = "ui"
 payload = { value = "core.lens" }
-
 [[expect]]
-tick = 19223
+tick = 111
 entity = "ship"
 component = "pilot"
 field = "chosen_part"
 equals = "core.lens"
-
+[[expect]]
+tick = 111
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = ""
 [[input]]
-tick = 19227
+tick = 115
 name = "core.unfit"
 source = "ui"
 payload = { value = "core.lens" }
-
 [[expect]]
-tick = 19228
+tick = 116
 entity = "lens"
 component = "part"
 field = "fitted"
 equals = false
-
 [[expect]]
-tick = 19228
+tick = 116
 entity = "ship"
 component = "pilot"
 field = "chosen_part"
 equals = ""
+[[expect]]
+tick = 116
+entity = "kiln_fitter"
+component = "engine.life"
+field = "name"
+equals = "Orrin Vale"
 
 # Leaving the room lets a choice go.
 [[input]]
-tick = 19232
+tick = 120
 name = "core.choose"
 source = "ui"
 payload = { value = "core.pods" }
-
 [[expect]]
-tick = 19233
+tick = 121
 entity = "ship"
 component = "pilot"
 field = "chosen_part"
 equals = "core.pods"
-
 [[input]]
-tick = 19237
+tick = 125
 name = "core.close"
 payload = { down = true }
-
 [[expect]]
-tick = 19238
+tick = 126
 entity = "ship"
 component = "pilot"
 field = "chosen_part"
@@ -436,22 +236,26 @@ equals = ""
 # Everything done in the station's rooms (the sale at the exchange, the fit and the
 # removal at the cradle) is logged at the station, so it is one visit with its docking.
 [[expect]]
-tick = 19242
-entity = "log82"
+tick = 140
+entity = "log1"
 component = "entry"
 field = "at"
 equals = "core.kiln"
-
 [[expect]]
-tick = 19242
-entity = "log83"
+tick = 140
+entity = "log2"
 component = "entry"
 field = "at"
 equals = "core.kiln"
-
 [[expect]]
-tick = 19242
-entity = "log84"
+tick = 140
+entity = "log3"
+component = "entry"
+field = "at"
+equals = "core.kiln"
+[[expect]]
+tick = 140
+entity = "log4"
 component = "entry"
 field = "at"
 equals = "core.kiln"

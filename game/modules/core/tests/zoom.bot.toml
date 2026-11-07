@@ -1,5 +1,7 @@
+# Trader labels at full zoom in and out, by the scroll wheel (tests/zoom-play.inputs): the
+# only bot that zooms, from a set state.
 inputs = "tests/zoom-play.inputs"
-ticks = 1850
+ticks = 590
 size = [1280, 720]
 # The UI scale the route was written at: 125% display scaling, on any machine.
 scale = 1.25

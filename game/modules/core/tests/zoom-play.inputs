@@ -1,8 +1,12 @@
-# Trader labels at every zoom: zoomed fully in, turn south and fly out to Little Mercy's
-# lane as she comes along it from Lantern Dock, so her label yields while it would sit on
-# the HUD and is drawn once she is beside the ship; then zoomed fully out, where she is
-# named, and a Dock order to Cinder Kiln, where she and Quiet Lamp lie moored without
-# labels once she has flown on there. Six notes.
+# Trader labels at every zoom, by the scroll wheel: zoomed fully in, the ship flies south
+# across Little Mercy's lane as she comes along it from Lantern Dock, so her label yields
+# while it would sit on the HUD and is drawn once she is beside the ship; then zoomed
+# fully out, where she is named, and off Cinder Kiln, where she and Quiet Lamp lie moored
+# without labels. Six notes.
+#
+# The state between is set by edits: once Mercy is under way, she and the ship are set
+# where the route out to her lane brings them; later the ship is set just off Cinder
+# Kiln's berth, and both traders moored off the Kiln.
 [[input]]
 tick = 1
 name = "core.right"
@@ -14,39 +18,105 @@ steps = 20.0
 tick = 16
 name = "core.right"
 payload = { down = false }
+[[edit]]
+tick = 200
+entity = "core.mercy"
+component = "engine.position"
+set = { x = -33.52, y = -249.26 }
+[[edit]]
+tick = 200
+entity = "core.ship"
+component = "engine.position"
+set = { x = 0.0, y = -185.67, angle = -1.5707963267948966 }
+[[edit]]
+tick = 200
+entity = "core.ship"
+component = "engine.motion"
+set = { vx = 0.0, vy = -20.0 }
 [[input]]
-tick = 370
+tick = 200
 name = "core.ahead"
 payload = { down = true }
 [[note]]
-tick = 657
+tick = 201
 text = "Zoomed fully in: Little Mercy is still off screen, so no label of hers is drawn."
 [[note]]
-tick = 737
+tick = 280
 text = "Zoomed in, she passes below the ship: her label would sit on the message, so it yields."
 [[note]]
-tick = 753
+tick = 296
 text = "Zoomed in, she is beside the ship: named, clear of the orders, status and message."
 [[input]]
-tick = 777
+tick = 320
 name = "core.ahead"
 payload = { down = false }
 [[zoom]]
-tick = 797
+tick = 340
 steps = -40.0
-[[input]]
-tick = 807
-name = "core.dock"
-payload = { station = "core.kiln" }
 [[note]]
-tick = 837
+tick = 380
 text = "Zoomed fully out: Little Mercy named as she flies on towards Cinder Kiln."
+[[edit]]
+tick = 390
+entity = "core.ship"
+component = "engine.position"
+set = { x = 200.0, y = -249.0 }
+[[edit]]
+tick = 390
+entity = "core.ship"
+component = "engine.motion"
+set = { vx = 0.0, vy = 0.0 }
+[[edit]]
+tick = 390
+entity = "core.mercy"
+component = "engine.position"
+set = { x = 216.0, y = -277.0, angle = 1.5707963267948966 }
+[[edit]]
+tick = 390
+entity = "core.mercy"
+component = "engine.motion"
+put = {}
+[[edit]]
+tick = 390
+entity = "core.mercy"
+component = "engine.steer"
+put = {}
+[[edit]]
+tick = 390
+entity = "core.mercy"
+component = "core.trader"
+set = { leg = "out", moored = true, since = 390 }
+[[edit]]
+tick = 390
+entity = "core.lamp"
+component = "engine.position"
+set = { x = 227.0, y = -263.0, angle = 3.141592653589793 }
+[[edit]]
+tick = 390
+entity = "core.lamp"
+component = "engine.motion"
+put = {}
+[[edit]]
+tick = 390
+entity = "core.lamp"
+component = "engine.steer"
+put = {}
+[[edit]]
+tick = 390
+entity = "core.lamp"
+component = "core.trader"
+set = { leg = "out", moored = true, since = 390 }
 [[input]]
-tick = 1720
+tick = 391
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 460
 name = "core.launch"
 [[note]]
-tick = 1760
+tick = 500
 text = "Zoomed out off Cinder Kiln: Little Mercy and Quiet Lamp lie moored by it and wear no labels."
 [[note]]
-tick = 1840
+tick = 580
 text = "Zoomed out with nothing pressed, coasting off Cinder Kiln: nothing jitters."

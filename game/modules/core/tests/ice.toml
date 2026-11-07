@@ -1,64 +1,57 @@
-# Each rock yields its own ware: the ship turns west, flies the long way out to the ice
-# drift and presses Space, and the nearest rock is ice3, a small pale floe. The order cuts
-# it down and moves on through the drift until 24 ice fill the hold, none of it ore.
+# Each rock yields its own ware: out at the ice drift, Space finds the nearest rock, ice3,
+# a small pale floe. The order cuts it down and moves on through the drift until the hold
+# is full of ice, none of it ore.
+#
+# Starts where the long flight west leaves the ship, at the drift's edge, with 20 ice
+# aboard and ice3 down to its last two units.
 seed = 7
-ticks = 1560
-
+ticks = 260
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = -380.03, y = -0.015, angle = -3.0368728984701323 }
+[[edit]]
+entity = "ship"
+component = "hold"
+set = { ice = 20 }
+[[edit]]
+entity = "ice3"
+component = "ore"
+set = { left = 2 }
 [[input]]
 tick = 1
-name = "left"
-payload = { down = true }
-
-[[input]]
-tick = 31
-name = "left"
-payload = { down = false }
-
-[[input]]
-tick = 35
-name = "ahead"
-payload = { down = true }
-
-[[input]]
-tick = 600
-name = "ahead"
-payload = { down = false }
-
-[[input]]
-tick = 660
 name = "mine"
-
 [[expect]]
-tick = 662
+tick = 2
 entity = "ship"
 component = "pilot"
 field = "target"
 equals = "core.ice3"
-
 [[expect]]
+tick = 260
 entity = "ship"
 component = "hold"
 field = "ice"
 equals = 24
-
 [[expect]]
+tick = 260
 entity = "ship"
 component = "hold"
 field = "ore"
 equals = 0
-
 [[expect]]
+tick = 260
 entity = "ice3"
 component = "ore"
 field = "left"
 equals = 0
-
 [[expect]]
+tick = 260
 entity = "ship"
 component = "pilot"
 field = "message"
 equals = "Hold full: 24 ice aboard."
-
 [[expect]]
+tick = 260
 facts = "mined"
-equals = 24
+equals = 4

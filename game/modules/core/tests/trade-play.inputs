@@ -3,7 +3,7 @@
 # galley is built, her gift of a ration taken, rations bought at the galley and sold at
 # the Kiln.
 # Rooms glide open, so a click after opening or leaving one waits for the glide. 12 notes.
-# (back-talk.inputs and the routes after it meet her only once the galley stands.)
+# The route for galley-talk.perf.toml; no bot plays it.
 
 # The flights between are scripted Mine and Dock orders, which fly themselves;
 # hand-mining.inputs flies them by hand.

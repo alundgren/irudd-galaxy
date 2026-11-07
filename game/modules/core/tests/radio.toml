@@ -1,43 +1,23 @@
-# The radio tunes itself without flickering. A new game finds Lantern Dock's channel
-# in its first second and starts its music once. Mining a whole hold at the first rocks,
-# the radio keeps Lantern Dock: no second cue, no switch. On the long flight out to
-# Cinder Kiln its channel takes over once, when it has been clearly stronger for a few
-# seconds. Docking there stops the music; flying off tunes straight back to the Kiln's
-# own channel with one cue, its signal Strong. Flying back across to Lantern Dock, the
-# Kiln's channel holds over the field and Lantern Dock's takes over once, on the way in.
-# The order is cancelled short of the berth's ring, where the clamps would take her in,
-# and the ship coasts to a stop about 15 units off the berth.
+# The radio tunes itself without flickering. A new game finds Lantern Dock's channel in
+# its first second and starts its music once. Mining at the first rocks, the radio keeps
+# Lantern Dock: no second cue, no switch. On the way in to Cinder Kiln its channel takes
+# over once, when it has been clearly stronger for a few seconds. Docking there stops the
+# music; flying off tunes straight back to the Kiln's own channel with one cue, its signal
+# Strong. Back over the field, where both come in about evenly, the Kiln's channel holds;
+# by Lantern Dock's berth, Lantern Dock's takes over once.
+#
+# Starts as a new game with 18 ore aboard, so the hold fills at the first rocks in a few
+# seconds; the ship is then set partway out to the Kiln, back over the field and 15 units
+# off Lantern Dock's berth (outside its ring) with [[edit]] entries.
 seed = 7
-ticks = 2840
-
+ticks = 1130
+[[edit]]
+entity = "ship"
+component = "hold"
+set = { ore = 18 }
 [[input]]
 tick = 90
 name = "mine"
-payload = { down = true }
-
-[[input]]
-tick = 1230
-name = "dock"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 2040
-name = "ahead"
-payload = { down = true }
-
-[[input]]
-tick = 2041
-name = "ahead"
-payload = { down = false }
-
-[[input]]
-tick = 2100
-name = "dock"
-payload = { station = "core.lantern" }
-
-[[input]]
-tick = 2655
-name = "cancel"
 payload = { down = true }
 
 # The first second out, far out at the field: Lantern Dock, Fair, its music cued once.
@@ -47,14 +27,12 @@ entity = "ship"
 component = "radio"
 field = "channel"
 equals = "core.lantern_radio"
-
 [[expect]]
 tick = 61
 entity = "ship"
 component = "radio"
 field = "level"
 equals = 2
-
 [[expect]]
 tick = 61
 facts = "radio_lantern"
@@ -63,94 +41,155 @@ equals = 1
 # A whole hold mined at the first rocks: still Lantern Dock, cued once, and the Kiln
 # never cued.
 [[expect]]
-tick = 1220
+tick = 300
 entity = "ship"
 component = "hold"
 field = "ore"
 equals = 24
-
 [[expect]]
-tick = 1220
+tick = 300
 entity = "ship"
 component = "radio"
 field = "channel"
 equals = "core.lantern_radio"
-
 [[expect]]
-tick = 1220
+tick = 300
 facts = "radio_lantern"
 equals = 1
-
 [[expect]]
-tick = 1220
+tick = 300
 facts = "radio_kiln"
 equals = 0
 
+# Set partway out to the Kiln, where both channels still come in about evenly, and sent
+# in: the Kiln's channel takes over once on the way, not straight away.
+[[edit]]
+tick = 300
+entity = "ship"
+component = "engine.position"
+set = { x = 60, y = -110 }
+[[input]]
+tick = 301
+name = "dock"
+payload = { station = "core.kiln" }
+[[expect]]
+tick = 360
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.lantern_radio"
+[[expect]]
+tick = 410
+facts = "radio_kiln"
+equals = 0
+[[expect]]
+tick = 450
+facts = "radio_kiln"
+equals = 1
+
 # Docked at Cinder Kiln, the music stops once.
 [[expect]]
-tick = 2020
+tick = 670
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.kiln"
-
 [[expect]]
-tick = 2020
+tick = 670
 facts = "radio_off"
 equals = 1
 
 # Flown off at the Kiln: straight to its channel, cued once more, Strong.
+[[input]]
+tick = 680
+name = "ahead"
+payload = { down = true }
+[[input]]
+tick = 681
+name = "ahead"
+payload = { down = false }
 [[expect]]
-tick = 2099
+tick = 739
 entity = "ship"
 component = "radio"
 field = "channel"
 equals = "core.kiln_radio"
-
 [[expect]]
-tick = 2099
+tick = 739
 entity = "ship"
 component = "radio"
 field = "level"
 equals = 3
-
 [[expect]]
-tick = 2099
+tick = 739
 facts = "radio_kiln"
 equals = 2
-
 [[expect]]
-tick = 2099
+tick = 739
 facts = "radio_lantern"
 equals = 1
 
-# Stopped by Lantern Dock's berth: Lantern Dock took over once, Strong.
+# Back over the field, where Lantern Dock's channel is a little stronger but not clearly:
+# the Kiln's holds.
+[[edit]]
+tick = 740
+entity = "ship"
+component = "engine.position"
+set = { x = 0, y = 0 }
+[[edit]]
+tick = 740
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0.0, vy = 0.0 }
 [[expect]]
-tick = 2839
+tick = 950
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.kiln_radio"
+[[expect]]
+tick = 950
+facts = "radio_lantern"
+equals = 1
+
+# Stopped 15 units off Lantern Dock's berth, outside its ring: Lantern Dock takes over
+# once, Strong, and the ship stays in the reach.
+[[edit]]
+tick = 950
+entity = "ship"
+component = "engine.position"
+set = { x = -170, y = -198 }
+[[edit]]
+tick = 950
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0.0, vy = 0.0 }
+[[expect]]
+tick = 1010
+facts = "radio_lantern"
+equals = 1
+[[expect]]
+tick = 1130
 entity = "ship"
 component = "radio"
 field = "channel"
 equals = "core.lantern_radio"
-
 [[expect]]
-tick = 2839
+tick = 1130
 facts = "radio_lantern"
 equals = 2
-
 [[expect]]
-tick = 2839
+tick = 1130
 facts = "radio_kiln"
 equals = 2
-
 [[expect]]
-tick = 2839
+tick = 1130
 entity = "ship"
 component = "radio"
 field = "level"
 equals = 3
-
 [[expect]]
-tick = 2839
+tick = 1130
 entity = "ship"
 component = "engine.location"
 field = "place"

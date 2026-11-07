@@ -3,74 +3,85 @@
 # on, by keys alone, at glassite_shard1's centre. It knocks against the shard (a contact
 # and a bump) and is turned aside round it, not passed through, then flies on past it.
 seed = 7
-ticks = 1501
+ticks = 961
 
+# Starts just off Cinder Kiln's berth, docking, with the shard turned as far as the
+# route there leaves it (it spins; the knock depends on its turn).
+[[edit]]
+entity = "glassite_shard1"
+component = "engine.position"
+set = { angle = 0.6283185307179585 }
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = 200, y = -249 }
 [[input]]
 tick = 1
 name = "core.dock"
+source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 600
+tick = 60
 name = "core.launch"
 
 [[input]]
-tick = 640
+tick = 100
 name = "core.right"
 payload = { down = true }
 
 [[input]]
-tick = 649
+tick = 109
 name = "core.right"
 payload = { down = false }
 
 [[input]]
-tick = 660
+tick = 120
 name = "core.ahead"
 payload = { down = true }
 
 # On course for the shard's centre, not yet there.
 [[expect]]
-tick = 1380
+tick = 840
 entity = "ship"
 component = "engine.position"
 field = "x"
 at_least = 279
 
 [[expect]]
-tick = 1380
+tick = 840
 entity = "ship"
 component = "engine.position"
 field = "x"
 at_most = 282
 
 [[expect]]
-tick = 1380
+tick = 840
 facts = "bump"
 equals = 0
 
 # It meets the shard: a knock, not a pass through.
 [[expect]]
-tick = 1440
+tick = 900
 facts = "engine.contact"
 at_least = 1
 
 [[expect]]
-tick = 1440
+tick = 900
 facts = "bump"
 equals = 1
 
 # Turned aside east of the straight line it was on (about x 288 there), and not held:
 # it flies on past.
 [[expect]]
-tick = 1460
+tick = 920
 entity = "ship"
 component = "engine.position"
 field = "x"
 at_least = 291
 
 [[expect]]
-tick = 1500
+tick = 960
 entity = "ship"
 component = "engine.position"
 field = "y"
