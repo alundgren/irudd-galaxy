@@ -31,7 +31,7 @@ end
 function rumour.needs(need, ware, cargo, giver, found, heard)
     local first = need .. " " .. ware .. " for " .. giver .. "'s " .. cargo
     if found then return first .. ", from round that old ring." end
-    if heard then return first .. ". North of our berth, by the lone buoy." end
+    if heard then return first .. ". North, a touch east, by the lone buoy." end
     return nil
 end
 

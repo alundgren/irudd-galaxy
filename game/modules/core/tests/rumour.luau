@@ -14,7 +14,7 @@ return {
     end,
     needs_keeps_the_landmark_once_heard = function()
         assert(rumour.needs(8, "glassite", "panes", "Ines", false, true)
-            == "8 glassite for Ines's panes. North of our berth, by the lone buoy.")
+            == "8 glassite for Ines's panes. North, a touch east, by the lone buoy.")
     end,
     needs_remembers_the_find = function()
         -- Been out there (heard or not): she doesn't send the player again.

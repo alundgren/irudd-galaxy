@@ -1,0 +1,77 @@
+# The loose glassite shards are solid (start.toml, glassite_shard1 to 4). Launched from
+# Cinder Kiln's berth, the ship turns by keys to 9 degrees east of north and flies straight
+# on, by keys alone, at glassite_shard1's centre. It knocks against the shard (a contact
+# and a bump) and is turned aside round it, not passed through, then flies on past it.
+seed = 7
+ticks = 1501
+
+[[input]]
+tick = 1
+name = "core.dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 600
+name = "core.launch"
+
+[[input]]
+tick = 640
+name = "core.right"
+payload = { down = true }
+
+[[input]]
+tick = 649
+name = "core.right"
+payload = { down = false }
+
+[[input]]
+tick = 660
+name = "core.ahead"
+payload = { down = true }
+
+# On course for the shard's centre, not yet there.
+[[expect]]
+tick = 1380
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = 279
+
+[[expect]]
+tick = 1380
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = 282
+
+[[expect]]
+tick = 1380
+facts = "bump"
+equals = 0
+
+# It meets the shard: a knock, not a pass through.
+[[expect]]
+tick = 1440
+facts = "engine.contact"
+at_least = 1
+
+[[expect]]
+tick = 1440
+facts = "bump"
+equals = 1
+
+# Turned aside east of the straight line it was on (about x 288 there), and not held:
+# it flies on past.
+[[expect]]
+tick = 1460
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = 291
+
+[[expect]]
+tick = 1500
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = 280
