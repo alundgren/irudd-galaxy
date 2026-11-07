@@ -1,0 +1,652 @@
+# The first strand of the rumour web (scripts/rumour.luau), end to end: greenhouse.toml's
+# route to Ines's ask accepted, then to Cinder Kiln, where Sefa, met, says where the
+# glassite grows (north of the berth, a lone buoy, lilac rocks). From her berth the ship
+# flies north to the drift on a scripted Mine of glassite1, and the old stone ring there
+# wakes as it comes in sight: 25.8 seconds of flight from launching after her lead.
+# Back at the Kiln, she takes the glassite for Ines's panes, then asks what the player saw; told,
+# she half answers and leaves the rest open. Mags, met after, has heard of it from her.
+seed = 7
+ticks = 9728
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 960
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1737
+name = "core.open"
+[[input]]
+tick = 1742
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1747
+name = "core.sell"
+[[input]]
+tick = 1757
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1777
+name = "core.launch"
+[[input]]
+tick = 1787
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2638
+name = "core.open"
+[[input]]
+tick = 2648
+name = "core.sell"
+[[input]]
+tick = 2658
+name = "core.launch"
+[[input]]
+tick = 2663
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2708
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 2713
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+[[input]]
+tick = 2718
+name = "core.close"
+[[input]]
+tick = 2778
+name = "core.launch"
+[[input]]
+tick = 2788
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 3626
+name = "core.open"
+[[input]]
+tick = 3636
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 3656
+name = "core.launch"
+[[input]]
+tick = 3666
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 4517
+name = "core.open"
+[[input]]
+tick = 4527
+name = "core.sell"
+[[input]]
+tick = 4547
+name = "core.launch"
+[[input]]
+tick = 4557
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 5395
+name = "core.open"
+[[input]]
+tick = 5405
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 5425
+name = "core.launch"
+[[input]]
+tick = 5435
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 6126
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6059 }
+[[input]]
+tick = 6286
+name = "core.open"
+[[input]]
+tick = 6296
+name = "core.sell"
+# The galley stands; nothing of the greenhouse shows yet.
+[[input]]
+tick = 6316
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 6319
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6316 }
+
+# Not offered before her introduction is heard; the story comes first.
+[[input]]
+tick = 6321
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_intro" }
+[[input]]
+tick = 6322
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
+[[input]]
+tick = 6323
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
+[[input]]
+tick = 6324
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
+[[input]]
+tick = 6326
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_gift" }
+[[input]]
+tick = 6327
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift1" }
+# Take it.
+[[input]]
+tick = 6328
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift2", choice = "core.lantern_cook_gift_take" }
+[[input]]
+tick = 6329
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift3" }
+# Out and back before Ines asks for more: a counted docking at Lantern Dock after the
+# galley opened (project.lived), then into her galley again.
+[[input]]
+tick = 6331
+name = "core.close"
+[[input]]
+tick = 6336
+name = "core.launch"
+[[input]]
+tick = 6346
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 6406
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 6416
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 6589
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 6522 }
+[[input]]
+tick = 6600
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 6603
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6600 }
+[[input]]
+tick = 6612
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.greenhouse_ask" }
+# Her gift answered, Ines asks in place of her everyday line.
+[[input]]
+tick = 6613
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask1" }
+[[input]]
+tick = 6614
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask2" }
+[[input]]
+tick = 6615
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask3" }
+[[input]]
+tick = 6616
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask4", choice = "core.greenhouse_ask_yes" }
+# Accepted: the plot is staked out and the glassite offer waits on 8 glassite.
+[[input]]
+tick = 6617
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_ask", line = "core.greenhouse_ask5" }
+[[input]]
+tick = 6620
+name = "core.close"
+[[input]]
+tick = 6623
+name = "core.launch"
+
+[[input]]
+tick = 6628
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 7285
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 7252 }
+
+[[input]]
+tick = 7400
+name = "core.open"
+
+[[input]]
+tick = 7403
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 7400 }
+
+[[input]]
+tick = 7404
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.kiln_trader_intro" }
+
+[[input]]
+tick = 7405
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro1" }
+
+[[input]]
+tick = 7406
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro2" }
+
+[[input]]
+tick = 7407
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_trader_intro", line = "core.kiln_trader_intro3" }
+
+# Met, Sefa has the lead for the glassite Ines needs, before anything else.
+[[expect]]
+tick = 7408
+entity = "glassite_lead"
+component = "engine.talk"
+field = "enabled"
+equals = true
+
+[[input]]
+tick = 7409
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.glassite_lead" }
+
+[[input]]
+tick = 7410
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.glassite_lead", line = "core.glassite_lead1" }
+
+[[input]]
+tick = 7411
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.glassite_lead", line = "core.glassite_lead2" }
+
+[[input]]
+tick = 7412
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.glassite_lead", line = "core.glassite_lead3" }
+
+[[expect]]
+tick = 7413
+entity = "glassite_rumour"
+component = "rumour"
+field = "heard"
+equals = true
+
+# Heard once, the lead is put away and her everyday line keeps its landmark.
+[[expect]]
+tick = 7413
+entity = "glassite_lead"
+component = "engine.talk"
+field = "enabled"
+equals = false
+
+[[expect]]
+tick = 7413
+entity = "kiln_trader_now"
+component = "engine.talk_line"
+field = "text"
+equals = "8 glassite for Ines's panes. North of our berth, by the lone buoy."
+
+[[expect]]
+tick = 7413
+entity = "kiln_trader_talk"
+component = "engine.talk"
+field = "enabled"
+equals = true
+
+[[input]]
+tick = 7414
+name = "core.close"
+
+[[input]]
+tick = 7416
+name = "core.launch"
+
+[[input]]
+tick = 7421
+name = "core.mine"
+source = "script"
+payload = { rock = "core.glassite1" }
+
+# Flown north from the Kiln, the old ring by the glassite wakes as it comes in sight.
+[[expect]]
+tick = 8189
+entity = "glassite_rumour"
+component = "rumour"
+field = "found"
+equals = false
+
+[[expect]]
+tick = 8190
+entity = "glassite_rumour"
+component = "rumour"
+field = "found"
+equals = true
+
+[[expect]]
+tick = 8190
+entity = "glassite_ring"
+component = "engine.model"
+field = "model"
+equals = "core.stone_ring_lit"
+
+[[expect]]
+tick = 8190
+entity = "glassite_ring"
+component = "engine.emitter"
+field = "recipe"
+equals = "core.ring_motes"
+
+[[expect]]
+tick = 8190
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Lilac rocks by a lone buoy: the glassite drift. Beside them lies a ring of old stone, and its groove lights as you pass."
+
+[[input]]
+tick = 8790
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 9637
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 9604 }
+
+[[input]]
+tick = 9690
+name = "core.open"
+
+[[input]]
+tick = 9693
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_exchange_room", start_tick = 9690 }
+
+# Back at the Kiln with the glassite, business first: her offer for it, her question after.
+[[expect]]
+tick = 9694
+entity = "glassite_tell"
+component = "engine.talk"
+field = "enabled"
+equals = false
+
+[[expect]]
+tick = 9694
+entity = "greenhouse_glassite"
+component = "engine.talk"
+field = "enabled"
+equals = true
+
+[[expect]]
+tick = 9694
+entity = "kiln_trader_now"
+component = "engine.talk_line"
+field = "text"
+equals = "8 glassite for Ines's panes, from round that old ring."
+
+[[input]]
+tick = 9695
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.greenhouse_glassite" }
+
+[[input]]
+tick = 9696
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite1" }
+
+[[input]]
+tick = 9697
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite2", choice = "core.greenhouse_glassite_yes" }
+
+# The greenhouse goes on as before: Sefa fires the panes.
+[[expect]]
+tick = 9697
+entity = "greenhouse_job"
+component = "project"
+field = "step"
+equals = 3
+
+[[input]]
+tick = 9698
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite3" }
+
+[[input]]
+tick = 9699
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.greenhouse_glassite", line = "core.greenhouse_glassite4" }
+
+[[expect]]
+tick = 9699
+entity = "kiln_trader_now"
+component = "engine.talk_line"
+field = "text"
+equals = "Her panes are in the kiln, cooling slow."
+
+# Handed over, Sefa asks what the player saw out there.
+[[expect]]
+tick = 9699
+entity = "glassite_tell"
+component = "engine.talk"
+field = "enabled"
+equals = true
+
+[[input]]
+tick = 9700
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.glassite_tell" }
+
+[[input]]
+tick = 9701
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.glassite_tell", line = "core.glassite_tell1" }
+
+[[input]]
+tick = 9702
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.glassite_tell", line = "core.glassite_ask", choice = "core.glassite_tell_ring" }
+
+[[expect]]
+tick = 9702
+entity = "glassite_rumour"
+component = "rumour"
+field = "told"
+equals = true
+
+[[input]]
+tick = 9703
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.glassite_tell", line = "core.glassite_tell2" }
+
+[[input]]
+tick = 9704
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.glassite_tell", line = "core.glassite_tell3" }
+
+[[input]]
+tick = 9705
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.glassite_tell", line = "core.glassite_tell4" }
+
+[[input]]
+tick = 9706
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.glassite_tell", line = "core.glassite_tell5" }
+
+# Told once: nobody asks again.
+[[expect]]
+tick = 9706
+entity = "glassite_tell"
+component = "engine.talk"
+field = "enabled"
+equals = false
+
+[[input]]
+tick = 9712
+name = "core.close"
+
+[[input]]
+tick = 9715
+name = "core.open"
+payload = { facility = "core.kiln_office" }
+
+[[input]]
+tick = 9718
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_office_room", start_tick = 9715 }
+
+# Mags, met only now, has heard of the ring from Sefa and says so first.
+[[expect]]
+tick = 9719
+entity = "kiln_master_intro"
+component = "engine.talk"
+field = "first"
+equals = "core.kiln_master_intro_news"
+
+[[expect]]
+tick = 9719
+entity = "kiln_master_intro_news"
+component = "engine.talk_line"
+field = "text"
+equals = "Your ring's on my oldest chart, unnamed."
+
+[[input]]
+tick = 9720
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.kiln_master_intro" }
+
+[[input]]
+tick = 9721
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_master_intro", line = "core.kiln_master_intro_news" }
+
+[[input]]
+tick = 9722
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_master_intro", line = "core.kiln_master_intro2" }
+
+[[input]]
+tick = 9723
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_master_intro", line = "core.kiln_master_intro3" }
+
+[[input]]
+tick = 9724
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_master_intro", line = "core.kiln_master_intro4" }
+
+# Heard once, it is no longer news.
+[[expect]]
+tick = 9725
+entity = "glassite_rumour"
+component = "rumour"
+field = "charted"
+equals = true
+
+[[input]]
+tick = 9726
+name = "core.close"
+
+[[expect]]
+tick = 9727
+entity = "kiln_master_now"
+component = "engine.talk_line"
+field = "text"
+equals = "The field still holds 113 ore."
+
+[[expect]]
+tick = 9727
+entity = "kiln_trader_talk"
+component = "engine.talk"
+field = "enabled"
+equals = true

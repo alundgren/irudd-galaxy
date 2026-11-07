@@ -1,0 +1,49 @@
+about = "An old stone ring, dark: a worn band with standing stones, a groove round its top, glassite growing through"
+seed = 31
+# A ring of dark stone lying flat among the glassite, too regular to have grown: its
+# band and the standing stones on it are worn smooth, a groove runs round its top,
+# and glassite crystals grow up through it.
+[[part]]
+name = "band"
+shape = "ring"
+radius = 3.4
+tube = 1.2
+flat = 0.75
+sides = 5
+segments = 12
+paint = "#4a4066"
+[[part]]
+name = "stones"
+shape = "box"
+size = [0.9, 1.3, 1.5]
+copies = 6
+distance = 3.4
+angle = 15
+at = [0, 0, 0.1]
+paint = "#3c3458"
+[[part]]
+name = "crystals"
+shape = "cylinder"
+radius = 0.36
+height = 2.4
+taper = 0
+sides = 5
+copies = 3
+spread = 50
+angle = 100
+distance = 3.1
+pitch = -50
+paint = "#c99af2"
+glow = 0.45
+pulse = 4.5
+pulse_low = 0.6
+[[part]]
+name = "groove"
+shape = "ring"
+radius = 3.4
+tube = 0.3
+flat = 0.5
+sides = 4
+segments = 24
+at = [0, 0, 0.62]
+paint = "#6b5a8c"

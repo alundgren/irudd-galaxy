@@ -380,6 +380,26 @@ entity = "ship"
 component = "hold"
 field = "glassite"
 equals = 0
+# The player found the old ring on the way out (scripts/rumour.luau), so Sefa has no
+# lead to give, and her question about it waits until the glassite is handed over.
+[[expect]]
+tick = 8799
+entity = "glassite_lead"
+component = "engine.talk"
+field = "enabled"
+equals = false
+[[expect]]
+tick = 8799
+entity = "glassite_tell"
+component = "engine.talk"
+field = "enabled"
+equals = false
+[[expect]]
+tick = 8803
+entity = "glassite_tell"
+component = "engine.talk"
+field = "enabled"
+equals = true
 [[expect]]
 tick = 8801
 entity = "kiln_trader_act2"

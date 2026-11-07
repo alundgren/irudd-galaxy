@@ -7,6 +7,7 @@ local places = require("./places")
 local project = require("./project")
 local salvage = require("./salvage")
 local history = require("./history")
+local rumour = require("./rumour")
 
 local voices = {}
 
@@ -69,6 +70,7 @@ end
 -- has sold them for: the barge's bloom, the project's build, the station's first build.
 local function remembered(ctx, keeper, station)
     local says = salvage.remembers(ctx, keeper) or project.remembers(ctx, keeper, station)
+        or rumour.remembers(ctx, keeper)
     if says then return says end
     local build = built(ctx, station)
     if not build then return nil end
@@ -119,9 +121,10 @@ function voices.refresh(ctx, station, hold, sold, need)
             local keeper = ctx.get(who, "keeper")
             -- What they have to say about the player's doings (`memory`): the jobs' news,
             -- else the history their everyday talk carries, found below.
-            local memory = salvage.news(ctx, who) or project.news(ctx, who)
+            local memory = salvage.news(ctx, who) or project.news(ctx, who) or rumour.news(ctx, who)
             local text
-            local says = project.line(ctx, who, hold, station)
+            -- Where the job's ware grows, once the player has heard or been (rumour.luau).
+            local says = rumour.line(ctx, who) or project.line(ctx, who, hold, station)
             -- A job's line heard already as news in their introduction gives way to their own.
             if history.told(ctx, who, says) then says = nil end
             local site = ctx.get(id, "build")
@@ -166,6 +169,10 @@ function voices.refresh(ctx, station, hold, sold, need)
                 if made ~= "" then memory = memory or made end
                 if history.told(ctx, who, made) then made = "" end
                 text = voices.master(left, build and need or 0, build and build.ware or "", build and string.lower(build.name) or "", made)
+                -- Word of the player's find, heard from the keeper they told, comes first
+                -- until it is heard here or in their introduction.
+                local news = rumour.news(ctx, who)
+                if news and not history.told(ctx, who, news) then text = news end
                 if not build then
                     voices.intro_close(ctx, who, station)
                 elseif need <= 0 then
@@ -185,8 +192,9 @@ function voices.refresh(ctx, station, hold, sold, need)
         if says then ctx.patch(job.skipper .. "_now", "engine.talk_line", { text = says }) end
     end
     voices.gifts(ctx, station, hold)
-    project.offers(ctx, station, hold)
+    local busy = project.offers(ctx, station, hold)
     salvage.offers(ctx, station)
+    rumour.offers(ctx, station, nil, busy)
 end
 
 -- An answered gift's talk is put away and the keeper's everyday talk comes back.
@@ -197,8 +205,8 @@ local function put_away(ctx, id, gift)
 end
 
 -- Puts away every answered gift still on offer: when its talk ends, or when another
--- starts in its place.
-function voices.retire(ctx)
+-- starts in its place. `done` is the talk whose last line was just heard, if any.
+function voices.retire(ctx, done)
     for _, id in ctx.query("gift") do
         local gift = ctx.get(id, "gift")
         if gift.answered and ctx.get(id, "engine.talk").enabled then put_away(ctx, id, gift) end
@@ -207,8 +215,9 @@ function voices.retire(ctx)
     -- the next one due comes on (project.offers).
     local station = places.docked(ctx)
     if station then
-        project.offers(ctx, station, ctx.get("ship", "hold"))
+        local busy = project.offers(ctx, station, ctx.get("ship", "hold"))
         salvage.offers(ctx, station)
+        rumour.offers(ctx, station, done, busy)
     end
 end
 

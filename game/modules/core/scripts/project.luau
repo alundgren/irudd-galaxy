@@ -269,11 +269,12 @@ end
 -- its step, what it needs holds and its speaker stands there, off after "Not now" until
 -- the next docking. A speaker's everyday talk (`instead`) rests while one of theirs is
 -- on. A talk being heard is never cut short: voices.retire comes back for it. `hold`
--- and `job` are after the caller's writes (job defaults to the world's).
+-- and `job` are after the caller's writes (job defaults to the world's). Returns the
+-- speakers with an offer on, by id (rumour.offers waits for them).
 function project.offers(ctx, station, hold, job)
     local job_id, now = project.find(ctx)
     job = job or now
-    if not job then return end
+    if not job then return {} end
     local room = fit.hold(ctx) - rules.load(hold)
     local ready = asked(ctx, job_id, job)
     local on_for, instead_of = {}, {}
@@ -300,6 +301,7 @@ function project.offers(ctx, station, hold, job)
             if not (want and gift) then ctx.patch(instead, "engine.talk", { enabled = want }) end
         end
     end
+    return on_for
 end
 
 -- The glaziers working the site: on the deck by the scaffold while it is built, the first
