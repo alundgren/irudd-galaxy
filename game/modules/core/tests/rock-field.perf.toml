@@ -1,0 +1,9 @@
+# The densest rock field: the flight route's ship parked on a rock, its beam cutting a hold
+# while the traders fly past (tests/flight.inputs, mining from tick 1629). The window plays
+# 20 seconds of it, the heaviest stretch in open space the core routes reach.
+inputs = "tests/flight.inputs"
+at = 1700
+seconds = 20
+size = [1280, 720]
+scale = 1.25
+seed = 1
