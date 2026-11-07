@@ -72,6 +72,9 @@ pub fn render(args: &[String]) -> Result<Output, Failure> {
         session.check_input(input).map_err(Failure::bad_input)?;
     }
     let mut inputs = script.by_tick();
+    let mut edits = galaxy_sim::scenario::DueEdits::new(&script.edits, 0, "inputs", &session)
+        .map_err(Failure::bad_input)?;
+    edits.apply(&mut session).map_err(Failure::bad_input)?;
     let ticks = options.ticks.unwrap_or(300);
     // PCM RIFF has a 32-bit byte length; reject an unwritable run before creating a file.
     if ticks > (u64::from(u32::MAX) - 44) / (u64::from(RATE / 30) * 4) {
@@ -106,6 +109,7 @@ pub fn render(args: &[String]) -> Result<Output, Failure> {
         session
             .step(&inputs.remove(&tick).unwrap_or_default())
             .map_err(Failure::runtime)?;
+        edits.apply(&mut session).map_err(Failure::bad_input)?;
         for action in scene.update(&session.world) {
             mixer.apply(action);
         }

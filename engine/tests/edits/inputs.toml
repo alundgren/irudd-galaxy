@@ -1,0 +1,25 @@
+# The purse module's earn.toml as an inputs file: the state set by edits, with full IDs.
+[[edit]]
+entity = "purse.buyer"
+component = "purse.wallet"
+set = { coins = 150, work = 9 }
+
+[[input]]
+tick = 1
+name = "purse.buy"
+
+[[edit]]
+tick = 1
+entity = "purse.buyer"
+component = "purse.wallet"
+set = { work = 10 }
+
+[[input]]
+tick = 2
+name = "purse.buy"
+
+[[edit]]
+tick = 4
+entity = "purse.tool2"
+component = "purse.goods"
+put = { price = 1 }

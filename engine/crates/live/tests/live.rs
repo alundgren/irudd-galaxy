@@ -91,6 +91,15 @@ impl Host for Headless {
         self.paused.then(|| "an F8 note is open".to_owned())
     }
 
+    fn edit(&mut self, edits: &[galaxy_sim::edit::Edit]) -> Result<(), String> {
+        self.session.edit("live", edits)
+    }
+
+    fn debug(&mut self, input: Input) -> Result<(), String> {
+        self.pending.push(input);
+        Ok(())
+    }
+
     fn live_input(&mut self, conn: u64, act: &Act) -> Result<(), String> {
         match act {
             Act::Key { key, down } => {
@@ -346,6 +355,101 @@ fn a_watch_samples_each_tick_and_the_world_runs_as_it_would_unwatched() {
         plain.step(&[]).unwrap();
     }
     assert_eq!(rig.host.session.world.hash(), plain.world.hash());
+}
+
+#[test]
+fn an_edit_changes_the_running_world_by_short_names_and_the_session_replays() {
+    let mut rig = rig();
+    let edits = |lines: &[&str]| Op::Edit {
+        edits: lines
+            .iter()
+            .map(|l| galaxy_sim::edit::Edit::parse_text(l).unwrap())
+            .collect(),
+    };
+    let op = edits(&["set w1 walker steps=40 pace=2", "remove w2 engine.motion"]);
+    let done = rig.with_client(move |dir| call(&dir, op)).unwrap();
+    assert_eq!(
+        done["edited"],
+        json!([
+            "set stroll.w1 stroll.walker pace=2 steps=40",
+            "remove stroll.w2 engine.motion"
+        ]),
+        "{done}"
+    );
+    let world = &rig.host.session.world;
+    assert_eq!(
+        world.entities["stroll.w1"]["stroll.walker"].fields["steps"],
+        40
+    );
+    assert!(!world.entities["stroll.w2"].contains_key("engine.motion"));
+    assert_eq!(done["hash"], world.hash());
+    // Written with the edit in it, before another tick ran: it replays to the same world.
+    let at_edit =
+        galaxy_sim::Recording::read(Path::new(done["recording"].as_str().unwrap())).unwrap();
+    let (_, replayed) = galaxy_sim::replay(&at_edit).unwrap();
+    assert!(
+        replayed.identical,
+        "the recording written at the edit replays"
+    );
+    for _ in 0..30 {
+        rig.host.session.step(&[]).unwrap();
+    }
+    let (_, replayed) = galaxy_sim::replay(&rig.host.session.recording().unwrap()).unwrap();
+    assert!(replayed.identical, "the edited session replays");
+
+    // A mistake is refused by name, and nothing changes.
+    let before = rig.host.session.world.hash();
+    let op = edits(&["set w1 walker steps=1", "set w1 walker speed=3"]);
+    let refused = rig.with_client(move |dir| call(&dir, op)).unwrap_err();
+    assert_eq!((refused.code, refused.kind.as_str()), (4, "bad_input"));
+    assert!(refused.message.contains("`speed`"), "{}", refused.message);
+    let op = edits(&["set nobody walker steps=1"]);
+    let refused = rig.with_client(move |dir| call(&dir, op)).unwrap_err();
+    assert!(refused.message.contains("nobody"), "{}", refused.message);
+    assert_eq!(rig.host.session.world.hash(), before);
+
+    // While an F8 note is open, edits wait.
+    rig.host.paused = true;
+    let op = edits(&["set w1 walker steps=1"]);
+    let held = rig.with_client(move |dir| call(&dir, op)).unwrap_err();
+    assert_eq!(held.kind, "bad_input");
+    assert_eq!(rig.host.session.world.hash(), before);
+}
+
+#[test]
+fn a_debug_event_runs_on_the_next_tick_from_the_debug_source_and_counts_as_edited() {
+    let mut rig = rig_of(&[("edits", "purse")]);
+    let status = rig.with_client(|dir| call(&dir, Op::Status {})).unwrap();
+    assert_eq!(status["edited"], 0);
+    let op = |event: &str| Op::Debug {
+        event: event.into(),
+        payload: json!({ "coins": 300 }).as_object().unwrap().clone(),
+    };
+    let tick = rig.host.session.world.tick;
+    let sent = rig.with_client(move |dir| call(&dir, op("grant"))).unwrap();
+    assert_eq!(sent["sent"], "purse.grant", "{sent}");
+    assert_eq!(sent["tick"], tick + 1);
+    // Not a debug event: refused by name, and nothing is sent.
+    let refused = rig
+        .with_client(move |dir| call(&dir, op("buy")))
+        .unwrap_err();
+    assert_eq!(refused.kind, "bad_input");
+    assert!(refused.message.contains("buy"), "{}", refused.message);
+    rig.host.tick(&mut rig.live);
+    let world = &rig.host.session.world;
+    assert_eq!(
+        world.entities["purse.buyer"]["purse.wallet"].fields["coins"],
+        300
+    );
+    let status = rig.with_client(|dir| call(&dir, Op::Status {})).unwrap();
+    assert_eq!(status["edited"], 1);
+    let rec = rig.host.session.recording().unwrap();
+    assert!(rec.events.iter().any(|e| matches!(
+        e,
+        RecEvent::Input(i) if i.source == "debug" && i.via.as_deref() == Some("live")
+    )));
+    let (_, replayed) = galaxy_sim::replay(&rec).unwrap();
+    assert!(replayed.identical);
 }
 
 #[test]

@@ -47,11 +47,46 @@ functions, is one failed `(load)` test.
 
 **Scenario runs**, `tests/<name>.toml`, test what the module does to a world: a `seed`, a
 number of `ticks`, `[[input]]` entries as in an inputs file (a plain name is the module's
-own event kind) and `[[expect]]` entries on a component field (`equals`, `at_least`,
+own event kind), `[[edit]]` entries that set the state the test needs (`world-edits.md`)
+and `[[expect]]` entries on a component field (`equals`, `at_least`,
 `at_most`, or `absent = true`) or a count of facts, checked after their tick (the last by
 default). A script failure during the run fails it too. `saves-and-replay.md` has the
 format; it is the inputs file plus expectations, so a session scripted for `galaxy sim run`
 becomes a test by adding a seed, ticks and what should hold.
+
+**Make the state, don't play to it.** A test creates the state it needs instantly, then
+runs the few seconds that matter; long play-throughs are the playtester's. Edits on tick
+0 are the start state; later ones change the world part way, once their tick has run:
+
+```toml
+seed = 7
+ticks = 120
+
+[[edit]]                          # a hundred jobs done and the price in hand
+entity = "worker"
+component = "record"
+set = { jobs = 100, coins = 15000 }
+[[edit]]
+entity = "rock4"                  # out of the way
+remove = true
+
+[[input]]
+tick = 1
+name = "buy"
+payload = { item = "example.drill" }
+[[expect]]
+tick = 1
+entity = "drill"
+component = "item"
+field = "owned"
+equals = true
+```
+
+A wrong edit (an unknown thing, component or field, a value of the wrong type) fails the
+scenario with its name. Scripts hear each edit as `engine.edited` on the next tick. When
+the change has rules the module enforces (fitting a part, a stage of a build), send the
+module's debug event instead, `[[input]]` with `source = "debug"`, so its scripts make it
+(`world-edits.md`).
 
 **`galaxy-gm test <module>`** loads the module with the modules beside it, as `check` does
 (a module may count another's events), runs every Luau test and every scenario, and prints

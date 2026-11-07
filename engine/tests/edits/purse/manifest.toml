@@ -1,0 +1,24 @@
+# A generic test module for world edits: a tool the buyer may buy only once it has done
+# the work and can pay, and a ledger counting the edits its script was told about
+# (engine.edited), and a debug event that pays the buyer through the script's own rule.
+# Kept apart from tests/modules, whose recorded hashes it would change.
+id = "purse"
+version = "0.1.0"
+min_engine_version = "0.8.0"
+scripts = ["scripts/purse.luau"]
+events = ["buy", "bought", "refused", "grant"]
+debug = ["grant"]
+writes = ["engine.position", "engine.motion"]
+
+[components.wallet]
+coins = "int"
+work = "int"
+
+[components.goods]
+owned = "bool"
+price = { type = "int", default = 100 }
+work = { type = "int", default = 10 }
+
+[components.ledger]
+edits = "int"
+last = "text"

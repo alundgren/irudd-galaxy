@@ -46,8 +46,10 @@ For play, the engine version and installed build name must match; otherwise exit
 explains which build to restore. Uninstalled binaries have only a version identity.
 Module files may have changed since the save, as when the GM changed the game between two
 sittings: play carries the world over to them exactly as `sim load` and a hot-load do, or
-refuses (exit 4) when the world no longer fits. Both report `resumed`: the save, its tick
-and `changed_modules`. `--seed` with `--load` is a usage error.
+refuses (exit 4) when the world no longer fits. Both report `resumed`: the save, its tick,
+`changed_modules` and `edited`, how many edits and debug events the world took before it
+was saved (counted from its causes, so the save needs no field for it: `world-edits.md`).
+An edited save loads like any other. `--seed` with `--load` is a usage error.
 
 **The continuing save.** `galaxy play --modules <modules> --continue` loads the newest
 `save.db` in the sessions folder made with exactly these modules (by ID), which is where the
@@ -91,7 +93,8 @@ A recording is one JSON file that holds everything needed to run a session again
 - `seed` and `start`: the whole world the session started from;
 - `events`, in order: inputs (`tick`, `source`, `name`, `payload`, and `via` for one that
   did not come from the window itself), hot-loads (`tick`,
-  `module` and its exact new files), notes (`tick`, `text`, the world's `hash` then, and
+  `module` and its exact new files), edits (`tick`, `source` and the edits with full IDs,
+  made once that tick had run: `world-edits.md`), notes (`tick`, `text`, the world's `hash` then, and
   from a played session the `camera`, a moment, and the `frame` file that was seen) and
   zooms (`tick`, and the `view` height the wheel left; one a tick), widget presentation
   snapshots (`tick`, `state`: scroll offsets and an active drag) and UI sound cues
@@ -134,8 +137,10 @@ inputs in `inputs_via`, and live `history` says `input from keyboard via live`.
 ## Replay
 
 `galaxy sim replay <recording>` builds the modules from the recorded files (never the
-module folders), starts from the recorded world, applies each input and hot-load on its
-tick, and compares the end hash with the recorded one. A world hot-load made after the last
+module folders), starts from the recorded world, applies each input, hot-load and edit on
+its tick (hot-loads and edits in the order they were made; each note is checked with
+just the edits made before it on its tick), and compares the end hash with the recorded
+one. A world hot-load made after the last
 tick ran (recorded for the tick that never came, as when the recording is written right
 after a load or the window closes before the next tick) is applied at the end, since the
 recorded end already holds it: after a note on the last tick (taken before the load), and
@@ -262,7 +267,7 @@ assets stay in the module folders and are unnecessary for headless replay. The
 ## Inputs files and scenario tests
 
 `--inputs <file>` takes a TOML file of `[[input]]`, `[[note]]`, `[[hot_load]]`,
-`[[zoom]]` and `[[resize]]` entries by tick (`crates/sim/src/scenario.rs` shows the
+`[[zoom]]`, `[[resize]]` and `[[edit]]` entries by tick (`crates/sim/src/scenario.rs` shows the
 format; `tests/sessions/stroll.toml` is an example). A hot-load names a module folder; it
 is read when the run starts. A zoom turns the wheel `steps` once its tick has run; it is
 for the view only (`play`, `shot` and `film` use it, `sim run` has nothing to zoom), and
@@ -270,10 +275,14 @@ for the view only (`play`, `shot` and `film` use it, `sim run` has nothing to zo
 in logical pixels once its tick has run, so a bot can measure resizing
 (`resize_interval_ms` in play's frame times, `renderer-and-style.md`). Only `play` has a
 window to resize; the other commands ignore it, and it is not recorded, because a film or
-audit draws at the size it is given.
+audit draws at the size it is given. An edit sets, puts or removes a component or a thing,
+or moves a thing to a place, once its tick has run (`world-edits.md`); `sim run`, `play`,
+`shot`, `film` and `audio` all make it, and a recording keeps it, so bots, films and
+replays see the same world.
 
-A scenario test is a module's `tests/<name>.toml`: a seed, a number of ticks, inputs, and
-`[[expect]]` entries on component fields or fact counts, checked after their tick. The
+A scenario test is a module's `tests/<name>.toml`: a seed, a number of ticks, inputs,
+`[[edit]]` entries that set the state it needs (or `[[input]] source = "debug"` for a
+module's debug event), and `[[expect]]` entries on component fields or fact counts, checked after their tick. The
 runner (`run_module_tests`) runs each and reports the expectations that failed and any
 script failures. `galaxy-gm test <module>` runs them with the module's Luau tests, and
 `galaxy-gm what-if` runs a recording again on changed modules to find the first tick that

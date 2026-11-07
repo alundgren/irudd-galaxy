@@ -6,7 +6,8 @@
 //! hot-loads through the host, exactly like a `--watch` reload, so the session records it
 //! and still replays. `input` holds keys and moves the pointer through the host, on the
 //! ticks its steps name, the way the window's own keyboard and mouse would; the inputs
-//! that makes are recorded like theirs, marked `via` live.
+//! that makes are recorded like theirs, marked `via` live. `edit` changes the world
+//! directly through the host (`Session::edit`), recorded, so the session still replays.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::io;
@@ -16,6 +17,7 @@ use galaxy_api::engine::{HOT_LOADED, TICKS_PER_SECOND};
 use galaxy_module::Failure;
 use galaxy_module::module::Module;
 use galaxy_render::RgbaImage;
+use galaxy_sim::edit::Edit;
 use galaxy_sim::{Session, World};
 use serde_json::{Map, Value, json};
 
@@ -40,8 +42,20 @@ pub trait Host {
     /// Hot-loads these modules between ticks, in order, as `--watch` would: each one's
     /// result. The host refreshes what it shows (keys, sounds, models) afterwards.
     fn hot_load(&mut self, modules: Vec<Module>) -> Vec<Result<(), String>>;
-    /// Writes the recording so far into the session folder, after a hot-load.
+    /// Writes the recording so far into the session folder, after a hot-load or an edit.
     fn write_recording(&mut self) -> Option<PathBuf>;
+    /// Edits the world between ticks (`Session::edit`, source `live`), with full IDs. The
+    /// host refreshes what it shows afterwards.
+    fn edit(&mut self, edits: &[galaxy_sim::edit::Edit]) -> Result<(), String> {
+        let _ = edits;
+        Err("this game takes no edits".into())
+    }
+    /// Sends a debug event (an input with source `debug`, already checked) on the next
+    /// tick, recorded like the window's own inputs.
+    fn debug(&mut self, input: galaxy_sim::Input) -> Result<(), String> {
+        let _ = input;
+        Err("this game takes no debug events".into())
+    }
     /// Why the game can't take live input now, if it can't: it has no window, or an F8
     /// note has the keyboard.
     fn refuses_input(&self) -> Option<String> {
@@ -307,6 +321,14 @@ impl Live {
                 let dirs = dirs.clone();
                 self.load(host, &dirs)
             }
+            Op::Edit { edits } => {
+                let edits = edits.clone();
+                edit(host, &edits)
+            }
+            Op::Debug { event, payload } => {
+                let (event, payload) = (event.clone(), payload.clone());
+                debug(host, &event, payload)
+            }
             Op::Input { steps, ticks } => match host.refuses_input() {
                 Some(why) => Err(WireError::runtime(why)),
                 None => {
@@ -352,6 +374,7 @@ impl Live {
             "entities": world.entities.len(),
             "facts": world.facts.len(),
             "hot_loads": world.facts.iter().filter(|f| f.kind == HOT_LOADED).count(),
+            "edited": galaxy_sim::edit::edits(world),
         });
         if let Value::Object(map) = &mut out {
             map.extend(host.presentation());
@@ -502,6 +525,84 @@ impl Live {
         }
         Err(e)
     }
+}
+
+/// Makes `edits` full against the running world and makes them, between two ticks.
+/// Sends a module's debug event on the next tick (`galaxy-gm live debug`).
+fn debug(
+    host: &mut impl Host,
+    event: &str,
+    payload: serde_json::Map<String, Value>,
+) -> Result<Value, WireError> {
+    let session = host.session();
+    let debug: Vec<&String> = session
+        .registry()
+        .events
+        .iter()
+        .filter(|e| session.is_debug(e))
+        .collect();
+    if debug.is_empty() {
+        return Err(WireError::input(
+            "no loaded module has debug events (`debug` in its manifest)",
+        ));
+    }
+    let name = reads::pick(event, &debug, "debug event").map_err(WireError::input)?;
+    let tick = session.world.tick + 1;
+    let input = galaxy_sim::Input {
+        tick,
+        source: galaxy_api::engine::DEBUG_SOURCE.into(),
+        name: name.clone(),
+        payload,
+        via: Some("live".into()),
+    };
+    session.check_input(&input).map_err(WireError::input)?;
+    let payload = input.payload.clone();
+    host.debug(input).map_err(WireError::input)?;
+    Ok(json!({
+        "sent": name,
+        "payload": payload,
+        "tick": tick,
+        "note": "the event runs on that tick, recorded with source debug; the session counts as edited",
+    }))
+}
+
+fn edit(host: &mut impl Host, edits: &[Edit]) -> Result<Value, WireError> {
+    if let Some(why) = host.holds_loads() {
+        return Err(WireError::input(
+            why.replace("then load again", "then edit again"),
+        ));
+    }
+    let session = host.session();
+    let world = &session.world;
+    let entity = |want: &str| {
+        if world.entities.contains_key(want) {
+            return Ok(want.to_owned());
+        }
+        match reads::entity(world, want) {
+            Ok(id) => Ok(id),
+            // `put` on a new entity names it in full.
+            Err(_) if galaxy_module::ids::is_full_id(want) => Ok(want.to_owned()),
+            Err(e) => Err(e),
+        }
+    };
+    let types: Vec<&String> = session.registry().components.keys().collect();
+    let kind = |want: &str| reads::pick(want, &types, "component type");
+    let full = edits
+        .iter()
+        .map(|e| e.qualify(&entity, &kind))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(WireError::input)?;
+    host.edit(&full).map_err(WireError::input)?;
+    let recording = host.write_recording();
+    let world = &host.session().world;
+    Ok(json!({
+        "edited": full.iter().map(Edit::text).collect::<Vec<_>>(),
+        "tick": world.tick,
+        "hash": world.hash(),
+        "recording": recording.map(|p| p.display().to_string()),
+        "note": "made between two ticks as one edit and recorded, so the session still \
+                 replays; scripts see engine.edited on the next tick",
+    }))
 }
 
 /// Whether `new` differs from `old` only in `style.toml` (a presentation-only load, as the

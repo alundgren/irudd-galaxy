@@ -584,6 +584,110 @@ pub static COMMANDS: &[Command] = &[
     },
     Command {
         tool: Tool::Gm,
+        path: "live edit",
+        synopsis: "<edit>... | --file <edits.toml> [--game <pid|session>]",
+        answers: "Put the running game in the state you want: set a field, add or remove a \
+                  component or a thing, move a thing to another place.",
+        about: "Edits the world between two ticks, outside its rules, as one change: all \
+                of it or, when one edit is wrong, none of it. An edit is set <entity> \
+                <component> <field>=<value>... (those fields of a component the thing has), \
+                put <entity> <component> [<field>=<value>...] (the whole component, added or \
+                replaced, the other fields at their defaults; putting on a new full ID makes \
+                the thing), remove <entity> [<component>] (the component, or the whole \
+                thing), or place <entity> <place> [<spot>] (moved there at once). Values \
+                read as TOML: 99, 2.5, true, \"two words\", [1, 2]; a bare word is text. \
+                Names are as live state takes them: a full ID, or a unique last part (walker \
+                for demo.walker). Several edits go as several arguments \
+                or joined with ;. --file takes the [[edit]] entries of an inputs file \
+                (galaxy-gm fields inputs), without tick. An unknown thing, component or \
+                field, or a value of the wrong type, is refused by name (exit 4, kind \
+                bad_input) and nothing changes. State the engine keeps itself is refused \
+                with what to use instead: engine.walk, engine.travel and engine.location \
+                (place moves a thing), and the progress fields of engine.talk and \
+                engine.life. Each edit must leave places, talks and lives consistent, as a \
+                resumed save must. Anything a module derives itself (a count, a cache) it \
+                hears about through engine.edited on the next tick, so edit what the \
+                module's rules read, not only what they write; when a change has rules the \
+                module enforces (buying, fitting), send its debug event instead (live \
+                debug). The edit is recorded, so the session replays, audits and films with \
+                it, saves made after it load, and live status counts it under edited. While \
+                an F8 note is open it is refused.",
+        args: &[
+            (
+                "<edit>",
+                "set, put, remove or place, such as \"set walker pockets coins=500 \
+                 jobs=10\" or \"remove rock4; place walker hall door\"",
+            ),
+            (
+                "--file <edits.toml>",
+                "[[edit]] entries (entity, component, and set, put, remove or place and \
+                 spot), made in order as one edit",
+            ),
+            (
+                "--game <pid|session>",
+                "which running game, by its pid or session folder name; needed only when \
+             several run and none is clearly meant (the error lists them)",
+            ),
+        ],
+        output: &[
+            (
+                "edited",
+                "each edit as made, with full IDs (set demo.walker demo.pockets coins=500)",
+            ),
+            (
+                "tick, hash",
+                "the world after the edit, before the next tick",
+            ),
+            (
+                "recording",
+                "the session's recording, written with the edit in it",
+            ),
+        ],
+        writes: "the session's recording.json",
+        example: "galaxy-gm live edit \"set walker pockets coins=500 jobs=10\"",
+        next: "galaxy-gm live state --entity <thing> to see it; live history --kind edited \
+               shows each edit, by edit from live.",
+        topic: "live",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "live debug",
+        synopsis: "<event> [<field>=<value>...] [--game <pid|session>]",
+        answers: "Make a change through the module's own rules, now, without playing to it.",
+        about: "Sends one of a module's debug events (debug = [...] in its manifest, from its \
+                events) on the next tick, as an input with source debug, recorded like any \
+                input. The module's scripts handle it as they handle any event, so the change \
+                keeps the module's rules: use it instead of live edit whenever the module \
+                enforces rules on the change (fitting a part, a stage of a build). Only this \
+                source sends a debug event: keys can't be bound to one, a screen button \
+                naming one does nothing, and scenarios and inputs files send one with source \
+                = \"debug\". The event is a full ID or a unique last part; the payload's \
+                values read as TOML, as in live edit. A wrong event or payload is exit 4, \
+                kind bad_input. The session counts as edited (live status, edited).",
+        args: &[
+            ("<event>", "a debug event, such as fit_now for demo.fit_now"),
+            (
+                "<field>=<value>",
+                "the event's payload, such as part=demo.drill",
+            ),
+            (
+                "--game <pid|session>",
+                "which running game, by its pid or session folder name; needed only when \
+             several run and none is clearly meant (the error lists them)",
+            ),
+        ],
+        output: &[
+            ("sent", "the event's full ID"),
+            ("payload", "what it carries"),
+            ("tick", "the tick it runs on"),
+        ],
+        writes: "nothing (the session records the input)",
+        example: "galaxy-gm live debug fit_now part=demo.drill",
+        next: "galaxy-gm live history --inputs --last 5 shows it, by input from debug.",
+        topic: "live",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "look",
         synopsis: "<recording> (--note <n> | --tick <n>) [--point <x,y>] [--size <w>x<h>]",
         answers: "What is under a point of a recorded frame; is its hover readable?",
@@ -1753,11 +1857,21 @@ pub static TOPICS: &[Topic] = &[
                 and has no ctx, so keep the rules you want to test in plain functions. \
                 tests/<name>.toml is a scenario run: seed, ticks, [[input]] entries (tick, \
                 name, source, payload; a plain name is the module's own event, payload IDs are \
-                full, and an input on tick N has run when tick N's expectations are checked) \
-                and [[expect]] entries checked after their tick (the last by default): entity \
+                full, and an input on tick N has run when tick N's expectations are checked), \
+                [[edit]] entries that set the state the test needs instead of playing there \
+                (tick, 0 by default: made once that tick has run, before its expectations; \
+                entity and component named as for expectations; then set = { field = value \
+                }, put = { ... } for a whole component or a new thing, remove = true, or \
+                place = \"<place>\" with an optional spot), and [[expect]] entries checked \
+                after their tick (the last by default): entity \
                 (the module's own name, or a full ID), component and field with equals, \
                 at_least or at_most (absent = true without a field), or facts = \"<event>\" \
-                with a count. tests/<name>.bot.toml declares a rendered run: inputs = \
+                with a count. A wrong edit (an unknown thing, component or field, a value of \
+                the wrong type) fails the test with its name. Make the state instantly and \
+                run only the seconds that matter; long play-throughs belong to playtests. \
+                Scripts hear each edit as engine.edited on the next tick (source, entities, \
+                components): a module that keeps derived values (counts, caches) handles it \
+                or the test edits those too. tests/<name>.bot.toml declares a rendered run: inputs = \
                 \"tests/run.inputs\", ticks = 300, size = [1280, 720], optional seed = 1 and \
                 scale = 1.25 (the UI scale; one key per line). \
                 Inputs are module-relative, use full event IDs, and cannot resize or hot-load. \
@@ -1787,18 +1901,31 @@ pub static TOPICS: &[Topic] = &[
                 "gm what-if",
             ),
         ],
-        recipes: &[Recipe {
-            title: "Add a test, run it, then see which tick a script change first alters",
-            steps: &[
-                "Write tests/rules.luau in the module: local rules = require(\"../scripts/rules\"), then return { steps_add_up = function() assert(rules.STEP == 1, \"one step a second\") end }.",
-                "galaxy-gm test <module> --only rules",
-                "Record a session by playing it (galaxy play --modules <modules>), or script one:",
-                "galaxy sim run --modules <modules> --seed 7 --ticks 450 --inputs <inputs.toml> --record session.json",
-                "Copy the module, change a value in one of its scripts, then:",
-                "galaxy-gm what-if session.json --modules <changed module>",
-                "Read report: the first tick that differs, and the fields and facts that differ there.",
-            ],
-        }],
+        recipes: &[
+            Recipe {
+                title: "Start a scenario from the state it needs",
+                steps: &[
+                    "Write tests/earned.toml: seed = 1 and ticks = 90, then the state the rule needs, at tick 0:",
+                    "[[edit]] entity = \"walker\", component = \"pockets\", set = { coins = 500, jobs = 10 }",
+                    "[[edit]] entity = \"rock4\", remove = true",
+                    "Then the few inputs that exercise the rule, and [[expect]] entries on what must follow, as in any scenario.",
+                    "galaxy-gm test <module> --only earned",
+                    "Every [[edit]] key: galaxy-gm fields inputs. The same entries work in an inputs file (with full IDs) and, without tick, in galaxy-gm live edit --file <edits.toml>. A change with the module's rules (fitting, a build stage) is its debug event instead: [[input]] tick = 0, name = \"fit_now\", source = \"debug\".",
+                ],
+            },
+            Recipe {
+                title: "Add a test, run it, then see which tick a script change first alters",
+                steps: &[
+                    "Write tests/rules.luau in the module: local rules = require(\"../scripts/rules\"), then return { steps_add_up = function() assert(rules.STEP == 1, \"one step a second\") end }.",
+                    "galaxy-gm test <module> --only rules",
+                    "Record a session by playing it (galaxy play --modules <modules>), or script one:",
+                    "galaxy sim run --modules <modules> --seed 7 --ticks 450 --inputs <inputs.toml> --record session.json",
+                    "Copy the module, change a value in one of its scripts, then:",
+                    "galaxy-gm what-if session.json --modules <changed module>",
+                    "Read report: the first tick that differs, and the fields and facts that differ there.",
+                ],
+            },
+        ],
     },
     Topic {
         name: "live",
@@ -1812,7 +1939,10 @@ pub static TOPICS: &[Topic] = &[
                 process: keys held down for as long as you say, several at once, and the \
                 pointer, through the same path as the window's keyboard and mouse (no focus \
                 needed), recorded via live so a session played that way says so; what it \
-                holds is let go when it ends or dies. Each command picks the one running game, or the \
+                holds is let go when it ends or dies. live edit changes the world directly \
+                between two ticks (set a field, put or remove a component or a thing, place \
+                a thing elsewhere), recorded so the session still replays; live debug sends \
+                a module's debug event, a change through its own rules. Each command picks the one running game, or the \
                 one running the modules it loads, or the one playing modules in the working \
                 folder; otherwise it lists them (kind several_games) and --game <pid or \
                 session> picks one. With no game running, kind no_game.",
@@ -1824,6 +1954,8 @@ pub static TOPICS: &[Topic] = &[
             ("What the window shows", "gm live shot"),
             ("Load changed modules without restarting", "gm live load"),
             ("Hold keys, move and click, by hand", "gm live input"),
+            ("Set fields, add or remove things, teleport", "gm live edit"),
+            ("Change it through a module's rules", "gm live debug"),
         ],
         recipes: &[
             Recipe {

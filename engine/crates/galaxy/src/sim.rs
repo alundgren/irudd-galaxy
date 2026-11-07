@@ -9,7 +9,7 @@ use galaxy_module::cli::{self, Output};
 use galaxy_module::failure::code;
 use galaxy_module::module::Module;
 use galaxy_module::{Failure, discover, gate};
-use galaxy_sim::scenario::InputsFile;
+use galaxy_sim::scenario::{DueEdits, InputsFile};
 use galaxy_sim::step::FixedStep;
 use galaxy_sim::watch::ModuleWatcher;
 use galaxy_sim::{BuildStamp, Recording, Session, save};
@@ -344,6 +344,7 @@ pub(crate) fn resume_save(
         "save": save_path.display().to_string(),
         "tick": info.tick,
         "changed_modules": changed,
+        "edited": galaxy_sim::edit::edits(&session.world),
     });
     Ok((session, resumed))
 }
@@ -372,6 +373,7 @@ pub fn replay(args: &[String]) -> Result<Output, Failure> {
         "tick": report.tick,
         "hash": report.hash,
         "recorded_hash": report.recorded_hash,
+        "edited": galaxy_sim::edit::edits(&session.world),
         "builds": galaxy_sim::recording::builds(
             &rec.build,
             &this,
@@ -442,6 +444,8 @@ fn drive(
         })?;
     }
     let inputs = script.by_tick();
+    let mut edits = DueEdits::new(&script.edits, session.world.tick, "inputs", &session)
+        .map_err(Failure::bad_input)?;
     let mut loads: BTreeMap<u64, Vec<Module>> = BTreeMap::new();
     if script.needs_window() {
         return Err(Failure::bad_input(
@@ -459,6 +463,8 @@ fn drive(
         session.start_recording(BuildStamp::current());
     }
     let first_fact = session.world.facts.len();
+    // Edits on the tick the run starts on are made before it, and recorded.
+    edits.apply(&mut session).map_err(Failure::bad_input)?;
     let realtime = options.realtime || options.watch;
     let watcher = if options.watch {
         let roots = session
@@ -512,6 +518,7 @@ fn drive(
         session
             .step(inputs.get(&tick).map_or(&[][..], Vec::as_slice))
             .map_err(Failure::runtime)?;
+        edits.apply(&mut session).map_err(Failure::bad_input)?;
         for text in notes.get(&session.world.tick).into_iter().flatten() {
             session.note(text, None, None);
         }
@@ -553,6 +560,8 @@ fn drive(
         "facts": session.world.facts.len(),
         "script_failures": of_kind(SCRIPT_FAILED),
         "hot_loads": of_kind(HOT_LOADED),
+        "edits": of_kind(galaxy_api::engine::EDITED),
+        "edited": galaxy_sim::edit::edits(&session.world),
         "watch_failures": watch_failures,
         "log": session.log,
         "saved": options.save.as_ref().map(|p| p.display().to_string()),

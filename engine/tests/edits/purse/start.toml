@@ -1,0 +1,10 @@
+[entities.buyer]
+wallet = {}
+"engine.position" = { x = 0.0, y = 0.0 }
+"engine.motion" = { vx = 1.0 }
+
+[entities.tool]
+goods = {}
+
+[entities.book]
+ledger = {}

@@ -7,7 +7,7 @@
 //! [[input]]
 //! tick = 10                 # runs on tick 10
 //! name = "example.pressed"  # a declared event kind
-//! source = "keyboard"       # optional; "script" by default
+//! source = "keyboard"       # optional; "script" by default, "debug" for a debug event
 //! payload = { door = "example.front" }
 //!
 //! [[note]]
@@ -26,6 +26,12 @@
 //! tick = 220                # galaxy play only: the window resized once tick 220 has run
 //! width = 1000              # logical pixels; presentation only, not a sim input
 //! height = 600
+//!
+//! [[edit]]
+//! tick = 0                  # the world edited once tick 0 has run (before the first)
+//! entity = "example.walker" # full IDs; set, put, remove or place (`crate::edit`)
+//! component = "example.pockets"
+//! set = { coins = 500 }
 //! ```
 //!
 //! A scenario test is a module's `tests/<name>.toml`, which `galaxy-gm test` runs: a
@@ -44,6 +50,9 @@
 //! facts = "opened"          # how many facts of this kind were recorded
 //! equals = 1
 //! ```
+//!
+//! A scenario sets the state it needs with `[[edit]]` entries (as in an inputs file, but
+//! with names as for expectations), at tick 0 or later, instead of playing there.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -55,6 +64,7 @@ use galaxy_module::module::Module;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::edit::Edit;
 use crate::session::{Input, Session};
 
 /// Every key an inputs file takes: its entry, the key, an example as TOML and what it does.
@@ -131,7 +141,7 @@ pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
         "[[input]]",
         "source",
         "\"keyboard\"",
-        "where it came from; \"script\" by default",
+        "where it came from; \"script\" by default, \"debug\" for (and only for) a module's debug events",
     ),
     (
         "[[input]]",
@@ -174,6 +184,54 @@ pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
         "steps",
         "2.0",
         "wheel steps; positive is closer",
+    ),
+    (
+        "[[edit]]",
+        "tick",
+        "0",
+        "the world is edited once this tick has run, before the next (0, the default: before the first tick); a resumed save skips edits before its tick",
+    ),
+    (
+        "[[edit]]",
+        "entity",
+        "\"example.walker\"",
+        "the entity edited, as a full ID (a scenario may write its own module's names plainly)",
+    ),
+    (
+        "[[edit]]",
+        "component",
+        "\"example.pockets\"",
+        "the component set, put or removed; none to place or to remove the whole entity",
+    ),
+    (
+        "[[edit]]",
+        "set",
+        "{ coins = 500 }",
+        "these fields of a component the entity has; the others stay. Exactly one of set, put, remove and place",
+    ),
+    (
+        "[[edit]]",
+        "put",
+        "{ lit = true }",
+        "instead of set: the whole component, added or replaced, fields left out at their defaults; putting on a new entity makes it",
+    ),
+    (
+        "[[edit]]",
+        "remove",
+        "true",
+        "instead of set: removes the component, or the whole entity without one",
+    ),
+    (
+        "[[edit]]",
+        "place",
+        "\"example.hall\"",
+        "instead of set: moves a located entity to this place at once (a teleport)",
+    ),
+    (
+        "[[edit]]",
+        "spot",
+        "\"example.door\"",
+        "with place: the spot it lands on; the place's arrival spot by default",
     ),
     (
         "[[resize]]",
@@ -325,6 +383,8 @@ struct RawInputs {
     resize: Vec<RawResize>,
     #[serde(default)]
     key: Vec<RawKey>,
+    #[serde(default)]
+    edit: Vec<toml::Table>,
 }
 
 fn input(raw: RawInput, qualify: impl Fn(&str) -> Option<String>) -> Result<Input, String> {
@@ -365,6 +425,8 @@ pub struct InputsFile {
     pub resizes: Vec<(u64, (u32, u32))>,
     /// Key presses by tick (`galaxy play` only): manifest key names, released a tick later.
     pub keys: Vec<(u64, String)>,
+    /// Edits of the world by tick, made once that tick has run (`[[edit]]`).
+    pub edits: Vec<(u64, Edit)>,
 }
 
 impl InputsFile {
@@ -394,7 +456,14 @@ impl InputsFile {
                 ));
             }
         }
+        let edits = raw
+            .edit
+            .iter()
+            .map(Edit::from_toml)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("{}: {e}", path.display()))?;
         Ok(InputsFile {
+            edits,
             keys: raw.key.into_iter().map(|k| (k.tick, k.key)).collect(),
             pointers: raw.pointer,
             clicks: raw
@@ -470,6 +539,77 @@ impl InputsFile {
     }
 }
 
+/// An inputs file's edits waiting for their tick, applied once it has run, each tick's
+/// as one edit (`Session::edit`) from `source`.
+#[derive(Clone, Debug, Default)]
+pub struct DueEdits {
+    by_tick: BTreeMap<u64, Vec<Edit>>,
+    source: String,
+}
+
+impl DueEdits {
+    /// `edits` from tick `from` on (a resumed save has passed the earlier ones), each
+    /// checked against `session`'s component types and fields now, so a mistyped name or
+    /// value is refused before anything runs.
+    pub fn new(
+        edits: &[(u64, Edit)],
+        from: u64,
+        source: &str,
+        session: &Session,
+    ) -> Result<DueEdits, String> {
+        let mut by_tick: BTreeMap<u64, Vec<Edit>> = BTreeMap::new();
+        for (tick, edit) in edits {
+            precheck(session, edit)
+                .map_err(|e| format!("[[edit]] on tick {tick} (`{}`): {e}", edit.text()))?;
+            if *tick >= from {
+                by_tick.entry(*tick).or_default().push(edit.clone());
+            }
+        }
+        Ok(DueEdits {
+            by_tick,
+            source: source.to_owned(),
+        })
+    }
+
+    /// Makes the edits whose tick has run.
+    pub fn apply(&mut self, session: &mut Session) -> Result<(), String> {
+        let due: Vec<u64> = self
+            .by_tick
+            .range(..=session.world.tick)
+            .map(|(t, _)| *t)
+            .collect();
+        for tick in due {
+            let edits = self.by_tick.remove(&tick).unwrap_or_default();
+            session
+                .edit(&self.source, &edits)
+                .map_err(|e| format!("[[edit]] on tick {tick}: {e}"))?;
+        }
+        Ok(())
+    }
+
+    /// Keeps only the edits up to `tick` (`--hold`: the route stops there).
+    pub fn until(&mut self, tick: u64) {
+        self.by_tick.retain(|t, _| *t <= tick);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.by_tick.is_empty()
+    }
+}
+
+/// What can be checked of an edit before the world reaches its tick: its shape, its
+/// component type and its fields' names and values.
+fn precheck(session: &Session, edit: &Edit) -> Result<(), String> {
+    use crate::edit::Action;
+    match edit.action()? {
+        Action::Set(c, fields) | Action::Put(c, fields) => {
+            session.registry().coerce(c, fields).map(|_| ())
+        }
+        Action::Remove(Some(c)) => session.registry().schema(c).map(|_| ()),
+        Action::Remove(None) | Action::Place(..) => Ok(()),
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawExpect {
@@ -503,6 +643,8 @@ struct RawScenario {
     input: Vec<RawInput>,
     #[serde(default)]
     expect: Vec<RawExpect>,
+    #[serde(default)]
+    edit: Vec<toml::Table>,
 }
 
 /// How a scenario went.
@@ -566,12 +708,27 @@ pub fn run_scenario(
         }
         expects.entry(tick).or_default().push(e);
     }
+    let mut edits: Vec<(u64, Edit)> = Vec::new();
+    for table in &raw.edit {
+        let (tick, edit) = Edit::from_toml(table).map_err(at)?;
+        if tick > raw.ticks {
+            return Err(at(format!("an edit at tick {tick} is after the last tick")));
+        }
+        let full =
+            |name: &str| entity(name).ok_or_else(|| format!("`{name}` is not an entity name"));
+        let kind = |name: &str| {
+            qualify_kind(name).ok_or_else(|| format!("`{name}` is not a component type"))
+        };
+        edits.push((tick, edit.qualify(&full, &kind).map_err(at)?));
+    }
     let mut session = Session::new(modules.to_vec(), raw.seed).map_err(at)?;
     for list in inputs.values() {
         for input in list {
             session.check_input(input).map_err(at)?;
         }
     }
+    let mut edits = DueEdits::new(&edits, 0, "scenario", &session).map_err(at)?;
+    edits.apply(&mut session).map_err(at)?;
     let mut failures = Vec::new();
     let mut check = |session: &Session, list: &[RawExpect]| -> Result<(), String> {
         for e in list {
@@ -587,6 +744,7 @@ pub fn run_scenario(
         session
             .step(inputs.get(&tick).map_or(&[][..], Vec::as_slice))
             .map_err(at)?;
+        edits.apply(&mut session).map_err(at)?;
         check(&session, expects.get(&tick).map_or(&[][..], Vec::as_slice)).map_err(at)?;
     }
     for fact in &session.world.facts {
@@ -760,6 +918,9 @@ mod tests {
             if *entry == "[[click]]" && *key == "widget" {
                 continue; // Alternative to x/y, exercised as its own entry below.
             }
+            if *entry == "[[edit]]" && ["put", "remove", "place", "spot"].contains(key) {
+                continue; // Alternatives to set, exercised as their own entries below.
+            }
             if *entry != last {
                 text.push_str(&format!("{entry}\n"));
                 last = entry;
@@ -771,12 +932,27 @@ mod tests {
             .find(|(entry, key, _, _)| *entry == "[[click]]" && *key == "widget")
             .unwrap();
         text.push_str(&format!("[[click]]\ntick = 20\nwidget = {widget}\n"));
+        let example = |key: &str| {
+            INPUTS_KEYS
+                .iter()
+                .find(|(entry, k, _, _)| *entry == "[[edit]]" && *k == key)
+                .unwrap()
+                .2
+        };
+        text.push_str(&format!(
+            "[[edit]]\nentity = 'a.b'\ncomponent = 'a.c'\nput = {}\n[[edit]]\nentity = 'a.b'\nremove = {}\n[[edit]]\nentity = 'a.b'\nplace = {}\nspot = {}\n",
+            example("put"),
+            example("remove"),
+            example("place"),
+            example("spot")
+        ));
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("inputs.toml");
         std::fs::write(&path, &text).unwrap();
         let read = InputsFile::read(&path).unwrap_or_else(|e| panic!("{e}\n{text}"));
         assert_eq!(read.clicks.len(), 2);
         assert_eq!(read.keys, vec![(12, "escape".to_owned())]);
+        assert_eq!(read.edits.len(), 4);
         assert_eq!(
             (
                 read.inputs.len(),

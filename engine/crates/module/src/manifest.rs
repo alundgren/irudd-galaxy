@@ -7,6 +7,7 @@
 //!
 //! scripts = ["scripts/main.luau"]   # entry scripts, run on events and the cadence
 //! events = ["opened", "pressed"]    # event kinds this module records or takes as input
+//! debug = ["pressed"]               # of those, ones only a debug input may send
 //! writes = ["engine.position"]      # other modules' component types its scripts may write
 //!
 //! [components.door]                 # a component type: example.door
@@ -59,8 +60,14 @@ pub const FILE_KEYS: &[(&str, &str, &str, &str)] = &[
     (
         "",
         "events",
-        "[\"opened\"]",
+        "[\"opened\", \"reset\"]",
         "event kinds it records or takes as input, as `<id>.<kind>`",
+    ),
+    (
+        "",
+        "debug",
+        "[\"reset\"]",
+        "debug-only events, from `events`: sent only with source debug (scenarios, inputs files, galaxy-gm live debug), never by keys or the UI; the session counts as edited",
     ),
     (
         "",
@@ -99,6 +106,8 @@ pub struct Manifest {
     pub scripts: Vec<String>,
     /// Event kinds, as local names (`opened` is `<id>.opened`).
     pub events: Vec<String>,
+    /// Debug-only events, from `events`: sent only by an input with source `debug`.
+    pub debug: Vec<String>,
     /// Component types of other modules (or the engine) its scripts may write, as full IDs.
     pub writes: Vec<String>,
     /// Component types it declares, by local name.
@@ -298,6 +307,8 @@ struct Raw {
     #[serde(default)]
     events: Vec<String>,
     #[serde(default)]
+    debug: Vec<String>,
+    #[serde(default)]
     writes: Vec<String>,
     #[serde(default)]
     components: BTreeMap<String, BTreeMap<String, toml::Value>>,
@@ -397,6 +408,18 @@ pub fn parse(dir: &Path, text: &str) -> Result<Manifest, Failure> {
             return Err(invalid(dir, format!("events: `{event}` is listed twice")));
         }
     }
+    let mut seen = std::collections::BTreeSet::new();
+    for event in &raw.debug {
+        if !raw.events.contains(event) {
+            return Err(invalid(
+                dir,
+                format!("debug: `{event}` is not one of this module's events; list it in `events`"),
+            ));
+        }
+        if !seen.insert(event) {
+            return Err(invalid(dir, format!("debug: `{event}` is listed twice")));
+        }
+    }
     for write in &raw.writes {
         match ids::split(write) {
             Some((module, _)) if module == raw.id => {
@@ -450,6 +473,15 @@ pub fn parse(dir: &Path, text: &str) -> Result<Manifest, Failure> {
                 ),
             ));
         }
+        if raw.debug.contains(event) {
+            return Err(invalid(
+                dir,
+                format!(
+                    "keys.{key}: `{event}` is a debug event, which only a debug input sends; \
+                     bind a normal event"
+                ),
+            ));
+        }
     }
     if raw.contact_speed.is_some_and(|s| !s.is_finite() || s < 0.0) {
         return Err(invalid(
@@ -497,6 +529,7 @@ pub fn parse(dir: &Path, text: &str) -> Result<Manifest, Failure> {
         id: raw.id,
         scripts: raw.scripts,
         events: raw.events,
+        debug: raw.debug,
         writes: raw.writes,
         components,
         keys: raw.keys,
@@ -661,6 +694,10 @@ mod tests {
             format!("id = \"demo\"\n{head}[components.c]\nf = {{ type = \"int\", min = 1 }}\n"),
             format!("id = \"demo\"\n{head}events = [\"go\"]\n[keys]\nf8 = \"go\"\n"),
             format!("id = \"demo\"\n{head}events = [\"go\"]\n[keys]\nw = \"stop\"\n"),
+            format!("id = \"demo\"\n{head}events = [\"go\"]\ndebug = [\"stop\"]\n"),
+            format!(
+                "id = \"demo\"\n{head}events = [\"go\"]\ndebug = [\"go\"]\n[keys]\nw = \"go\"\n"
+            ),
         ] {
             let dir = module(&text);
             assert_eq!(load(dir.path()).unwrap_err().kind, "bad_input", "{text}");
