@@ -67,7 +67,7 @@ tick = 181
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Sefa on the radio: \"Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.\""
+equals = "Sefa on Cinder Kiln's radio: “Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.”"
 [[expect]]
 tick = 181
 entity = "ship"
@@ -85,7 +85,7 @@ tick = 300
 entity = "ship"
 component = "pilot"
 field = "message"
-equals = "Sefa on the radio: \"Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.\""
+equals = "Sefa on Cinder Kiln's radio: “Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.”"
 [[expect]]
 tick = 330
 entity = "rock5"

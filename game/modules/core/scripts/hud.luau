@@ -1,5 +1,5 @@
 -- The ship's own screens in flight: the things you can click (each rock and each
--- station) and the hint strip. Each kind of thing keeps one look and one place: status
+-- station) and the bottom stack. Each kind of thing keeps one look and one place: status
 -- top right, the log bottom left (status.luau, logbook.luau), what just happened at the
 -- bottom with the key that fits where the ship is, and each station's name under it
 -- while it is in view. A room panel or the open log takes the
@@ -13,6 +13,7 @@ local trade = require("./trade")
 local fit = require("./fit")
 local cutter = require("./cutter")
 local salvage = require("./salvage")
+local notice = require("./notice")
 
 -- One hint at a time, for what a press does right now: Space in a berth's ring, the
 -- beam with a rock in its sights, the turn to bring the nose onto one in reach, then the
@@ -53,6 +54,82 @@ local function hint(ctx)
     if not full and teach.new(taught, "mine") then return "Fly up to a rock and face it to cut" end
     if ctx.get("ship", "engine.steer").mode ~= "" and teach.new(taught, "cancel") then return "0 · cancel the order" end
     return nil
+end
+
+-- The bottom of the screen in flight: one surface per kind of thing, a gap apart, so a
+-- glance tells them apart (direction doc 1.5; the looks are style.toml's). From the top:
+--   the latest message: a person on the radio (the radio's look, their name on the amber
+--     tag before their words) or what just happened (a lighter plum card, the ship's icon)
+--   the goal it gives, with its WANTED tag, and a lesson about the game (a paper card)
+--   where the stations off screen lie (a small dark label, like their names), and the
+--     one key that fits now (the gold-framed pill, the key standing out), side by side
+--     when both fit
+-- The message and its goal and lesson are notice.luau's; a hint with no key in it is a
+-- lesson too. A short line's surface is only as wide as its words, so the stack covers
+-- no more of the reach than one panel holding them all.
+-- Small print runs at most SMALL px a character and body text BODY (counted in bytes,
+-- so a curly quote or a dot only overcounts); a surface's own frame and icon add FRAME
+-- (a label, a goal, a lesson, a note) or PILL (the key pill's rounder ends).
+local GAP, SMALL, BODY, FRAME, PILL = 6, 7.6, 9.2, 36, 16
+local function fits(text, extra, room, per)
+    return #text * (per or SMALL) + extra <= room
+end
+
+local function bottom(ctx, ui, pilot)
+    local wide = layout.MESSAGE
+    local stack = {}
+    local goal, lesson, press = notice.parts(pilot)
+    if pilot.message ~= "" then
+        local who, from, words = notice.speech(pilot.message)
+        if who then
+            -- Who speaks first, on the name tag, then where from, quieter, then the words.
+            local spans = kit.speaker(who, from)
+            table.insert(spans, "  " .. words)
+            table.insert(stack, kit.radio(ui, { id = "message", width = wide, children = {
+                ui.text { id = "said", width = wide - 16, icon = "radio", spans = spans, size = kit.SIZE.body, cue = "flash" },
+            } }))
+        elseif fits(pilot.message, FRAME, wide, BODY) then
+            table.insert(stack, ui.text { id = "message", look = kit.LOOK.note, icon = "ship", text = pilot.message,
+                size = kit.SIZE.body, cue = "flash" })
+        else
+            table.insert(stack, kit.note(ui, { id = "message", width = wide, children = {
+                ui.text { id = "said", width = wide - 16, icon = "ship", text = pilot.message, size = kit.SIZE.body, cue = "flash" },
+            } }))
+        end
+    end
+    if goal ~= "" then
+        table.insert(stack, ui.text { id = "goal", look = kit.LOOK.goal, size = kit.SIZE.small,
+            width = not fits("WANTED  " .. goal, FRAME, wide) and wide or nil,
+            spans = { { text = "WANTED", look = kit.LOOK.kind }, "  " .. goal } })
+    end
+    local key = press ~= "" and press or hint(ctx)
+    -- A hint with no key in it ("Fly slowly into a berth's glowing ring to dock") says how
+    -- the game works: a lesson, unless the message brought one.
+    if key and not string.find(key, " · ", 1, true) then
+        if lesson == "" then lesson = key end
+        key = nil
+    end
+    if lesson ~= "" then
+        table.insert(stack, ui.text { id = "lesson", look = kit.LOOK.lesson, size = kit.SIZE.small, text = lesson,
+            width = not fits(lesson, FRAME, wide) and wide or nil })
+    end
+    -- The stations off screen and the way each lies: no arrows, but the way home is never
+    -- lost in a reach several screens across.
+    local ways = pilot.bearings ~= "" and kit.label(ui, { id = "bearings", icon = "station", text = pilot.bearings,
+        size = kit.SIZE.small }) or nil
+    local keys = key and ui.text { id = "hints", look = kit.LOOK.pill, pad = 4, spans = kit.hint(key), size = kit.SIZE.small }
+        or nil
+    if ways and keys and fits(pilot.bearings .. key, FRAME + PILL + GAP, layout.BOTTOM) then
+        -- Side by side, each keeps the width of its words.
+        ways.width = math.ceil(#pilot.bearings * SMALL + FRAME)
+        ways.height = 28 -- as tall as the pill beside it
+        keys.width = math.ceil(#key * SMALL + PILL)
+        table.insert(stack, ui.row { id = "ways", gap = GAP, children = { ways, keys } })
+    else
+        if ways then table.insert(stack, ways) end
+        if keys then table.insert(stack, keys) end
+    end
+    return ui.column { id = "bottom", align = "bottom", y = layout.M, width = layout.BOTTOM, gap = GAP, children = stack }
 end
 
 local function where(ctx)
@@ -129,22 +206,7 @@ return {
         if space then
             station_names(ctx, ui, children)
             targets(ctx, ui, children)
-            -- One dark pill at the bottom (kit.pill): the latest message, flashing when it
-            -- changes, then the one key still to learn, the key itself standing out.
-            local bottom = { ui.text { id = "message", width = layout.MESSAGE - 20, text = pilot.message, size = kit.SIZE.body,
-                cue = "flash" } }
-            -- The stations off screen and the way each lies: no arrows, but the way home
-            -- is never lost in a reach several screens across.
-            if pilot.bearings ~= "" then
-                table.insert(bottom, ui.text { id = "bearings", width = layout.MESSAGE - 20, size = kit.SIZE.small,
-                    icon = "station", text = pilot.bearings })
-            end
-            local key = hint(ctx)
-            if key then
-                table.insert(bottom, ui.text { id = "hints", width = layout.MESSAGE - 20, size = kit.SIZE.small, spans = kit.hint(key) })
-            end
-            table.insert(children, kit.pill(ui, { id = "bottom", align = "bottom", y = layout.M, width = layout.MESSAGE, gap = 4,
-                children = bottom }))
+            table.insert(children, bottom(ctx, ui, pilot))
         end
         return layout.frame(ui, "hud", children)
     end,

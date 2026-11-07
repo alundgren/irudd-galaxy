@@ -83,4 +83,4 @@ tick = 1050
 entity = "log3"
 component = "entry"
 field = "text"
-equals = "The rig stops with the rock you picked: click another, or Space for the nearest."
+equals = "The rig stops with the rock you picked."

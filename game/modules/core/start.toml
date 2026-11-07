@@ -26,7 +26,9 @@
 # The view widens a little at speed and looks a quarter second ahead; mining beats kick
 # it (scripts/main.luau keeps the same values).
 "engine.camera_feel" = { speed_zoom = 0.12, lead = 0.25 }
-pilot = { message = "Bram on the radio: \"Welcome, pilot. Our galley wants 40 plate: sheet the Kiln fires from ore. What a station wants, your log lists as WANTED.\"" }
+# Bram's welcome, with the goal it gives and what the log does with it, each on its own
+# (scripts/notice.luau): the parts show while his line does.
+pilot = { message = "Bram on Lantern Dock's radio: “Welcome, pilot. Our galley needs plate: the Kiln fires it from ore.”", goal = "Lantern Dock's galley: 40 plate", lesson = "Your log keeps every WANTED.", aside = "Bram on Lantern Dock's radio: “Welcome, pilot. Our galley needs plate: the Kiln fires it from ore.”" }
 hold = {}
 held = {}
 taught = {}

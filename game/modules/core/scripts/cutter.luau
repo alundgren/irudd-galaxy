@@ -9,6 +9,7 @@
 -- jets in the engine socket fly the ship into a berth from anywhere.
 local rules = require("./rules")
 local teach = require("./teach")
+local notice = require("./notice")
 
 local cutter = {
     NOSE = 1.7, -- where the beam leaves the hull: the nose, ahead of the centre
@@ -239,14 +240,15 @@ function cutter.on(ctx, rock, latched, auto)
     if not pilot.mining then
         fields.gained = 0
         -- What stops it, so the line under a fresh beam never still says why it couldn't.
+        -- The key that stops it is its own part (notice.luau), not words in the line.
         if cutter.has(ctx, cutter.RIG) then
-            fields.message = "The rig cuts on its own. Fly to stop it."
+            notice.with(fields, "The rig cuts on its own.", { press = "W, A, S or D · fly off to stop it" })
         elseif auto then
-            fields.message = "Cutting. Fly to stop."
+            notice.with(fields, "Cutting.", { press = "W, A, S or D · fly off to stop" })
         elseif latched then
-            fields.message = "Cutting. Fly, or click the rock again, to stop."
+            notice.with(fields, "Cutting.", { press = "Click the rock again · stop, or fly off" })
         else
-            fields.message = "Cutting. Let go of Space to stop."
+            notice.with(fields, "Cutting.", { press = "Let go of Space · stop" })
         end
     end
     ctx.patch("ship", "pilot", fields)

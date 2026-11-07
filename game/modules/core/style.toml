@@ -1043,6 +1043,48 @@ pad = 8
 shadow = 3
 flash = "#5a4466"
 
+# The bottom of the flight screen holds one surface per kind of thing (scripts/hud.luau),
+# a gap apart: a person on the radio wears the radio's own look with their name on the
+# amber name tag; what just happened is a lighter plum card with the ship's icon; a goal is warm midnight with
+# a gold frame and its WANTED tag; a lesson is a paper card with black words; the
+# stations' bearings are a small dark label, like the names on the stations; the key is
+# the gold-framed pill.
+
+# What just happened in flight: a lighter plum card with no frame and the ship's icon,
+# squarer than the key pill and lighter than the labels.
+[screen.looks.note]
+fill = "#3d2c44"
+text = "#ffffff"
+border = "#3d2c44"
+border_px = 0
+radius = 8
+pad = 8
+flash = "#5a4466"
+
+# A goal someone gave: warm midnight (the lamplighters' trim) with a thin gold frame.
+[screen.looks.goal]
+fill = "#3a2d5c"
+text = "#ffffff"
+border = "#f2b43c"
+border_px = 1
+radius = 6
+pad = 8
+
+# A lesson about the game: a paper card with an ink frame and black words, the one
+# light surface in flight.
+[screen.looks.lesson]
+fill = "#fff4dd"
+text = "#000000"
+border = "#2a1a2e"
+border_px = 1
+radius = 10
+pad = 6
+
+# A quieter word beside a name on a dark surface (where a radio voice is from).
+[screen.looks.quiet_dark]
+text = "#ffffff"
+weight = 400
+
 # A warning: pale vermilion with a vermilion frame and black words.
 [screen.looks.warning]
 fill = "#fde3d3"
