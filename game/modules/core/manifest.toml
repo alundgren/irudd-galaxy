@@ -3,7 +3,7 @@ id = "core"
 version = "0.1.0"
 min_engine_version = "0.8.0"
 scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau", "scripts/tow.luau", "scripts/discover.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit", "bump", "drive_on", "beam_on", "hitch", "hand", "slipped", "hitched", "heard"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit", "bump", "drive_on", "beam_on", "hitch", "hand", "slipped", "hitched", "heard", "facing"]
 # Bodies that start touching at least this fast (units a second) record engine.contact,
 # which sound.luau turns into a bump on the hull when the ship is one of them.
 contact_speed = 2.0
@@ -46,6 +46,9 @@ chosen_part = "text"
 # counts this cut's units.
 latched = "bool"
 auto = "bool"
+# A click on a rock in reach that the nose is off: the ship turns its nose onto it (at
+# the helm's own turn rate, never flying) and the beam latches on once it is aimed.
+facing = "id"
 approach = "bool"
 # The order named this rock (a click on it): the rig stops when it is cut down rather
 # than moving on, so the player's choice of ware holds.
@@ -97,6 +100,12 @@ empty = { type = "text", default = "" }
 # How fast the beam cuts this rock, times the ship's own rate: the big seams are rich,
 # soft stone (1.5), so choosing one pays; the rest cut at the ship's rate (1).
 rich = { type = "number", default = 1.0 }
+# How warm the stone under the hand cutter's beam has run: seconds of beam, less what it
+# has cooled off the beam since (rules.HEAT). Warm stone cuts fast, glazed stone slowly.
+heat = { type = "number", default = 0.0 }
+# A small spall beside a seam, where a hand rests the beam while the seam cools: the rig
+# and a script's order never move on to one by themselves (a click still cuts it).
+spall = { type = "bool", default = false }
 
 [components.port]
 name = "text"
@@ -484,6 +493,11 @@ dock = "int"
 cancel = "int"
 talk = "int"
 tow = "int"
+# Moving the beam off a glazed rock onto another (the hint retires after a few).
+swap = "int"
+# Sefa's word on what to watch while cutting: 0 not yet said, 1 said and still the
+# message line under the beam, 2 heard out (scripts/main.luau, cutter.told).
+heat = "int"
 
 [keys]
 w = "ahead"

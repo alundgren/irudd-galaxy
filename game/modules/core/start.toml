@@ -96,6 +96,26 @@ ore = { left = 6, total = 6 }
 "engine.model" = { model = "core.rock_lump", look = "core.rock", scale = 1.1 }
 ore = { left = 14, total = 14 }
 
+# Two of the rich seams have a small spall broken off beside them, on the seam's far side
+# from the lanes and the routes in, within the cutter's reach of a ship parked between
+# the two: somewhere to put the beam while the seam cools (rules.HEAT). The east seam
+# (rock9) sits on the lamp trader's lane and has none.
+[entities.rock10]
+"engine.spin" = { rate = 4 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 76.1, y = -33.9 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.7 }
+ore = { left = 6, total = 6, spall = true }
+
+[entities.rock12]
+"engine.spin" = { rate = 3 }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -92.0, y = 18.0 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock", look = "core.rock", scale = 0.7 }
+ore = { left = 6, total = 6, spall = true }
+
 # The ice drift, far out west of Lantern Dock: pale floes, wide and tall. Lantern Dock
 # buys ice.
 [entities.rock9]
@@ -1383,7 +1403,7 @@ part = { name = "Tuned thrusters", socket = "engine", price = 9000, power = 2, m
 # aims the beam itself, cuts from far off and flies the ship out to a rock; the docking
 # jets fly it into a berth from anywhere.
 [entities.rig]
-part = { name = "Reach rig", socket = "rack", price = 15000, holds = 100, order = 4, effect = "click a rock, or press Space, and she flies out and cuts it from 16 units off, aiming herself", said = "She'll stand off now and pull the stone in herself." }
+part = { name = "Reach rig", socket = "rack", price = 15000, holds = 100, order = 4, effect = "click a rock, or press Space, and she flies out and cuts it from 16 units off, aiming herself, her beam held steady: no rock runs warm or glazes under it", said = "She'll stand off now and pull the stone in herself. Steady, mind: a good hand on a warm rock still cuts faster." }
 
 [entities.jets]
 part = { name = "Docking jets", socket = "rack", price = 30000, holds = 200, order = 5, effect = "press E or click a station, and they fly her into its berth from anywhere", said = "Point her home and let the jets do the berthing." }

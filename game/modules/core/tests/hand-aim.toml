@@ -106,9 +106,9 @@ entity = "ship"
 component = "pilot"
 field = "mining"
 equals = true
-# One unit before the turn; the next comes a whole second of beam time after it,
-# however that second was broken up (on at the 150 tick), and the click's beam cuts a
-# third.
+# One unit before the turn; the beam time before and after it adds up, however it was
+# broken up, and the click's beam carries on in the same cold stone (rules.HEAT: it cuts
+# slowly until it warms), so a second unit has come loose by the 189th tick.
 [[expect]]
 tick = 149
 entity = "ship"
@@ -120,7 +120,7 @@ tick = 189
 entity = "ship"
 component = "hold"
 field = "ore"
-equals = 3
+equals = 2
 # Space let go: off.
 [[expect]]
 tick = 150

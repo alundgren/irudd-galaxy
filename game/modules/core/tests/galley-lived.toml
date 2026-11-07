@@ -220,7 +220,7 @@ tick = 6331
 entity = "lantern_master_now"
 component = "engine.talk_line"
 field = "text"
-equals = "Your plate built our galley. The field still holds 113 ore."
+equals = "Your plate built our galley. The field still holds 125 ore."
 # Out to the station and straight back into her galley: seconds of clicks, not a visit.
 [[input]]
 tick = 6333

@@ -42,7 +42,7 @@ local function stop(ctx)
     ctx.put("ship", "held", {})
     ctx.put("ship", "engine.beam", {})
     ctx.patch("ship", "pilot", { mining = false, target = "", latched = false, auto = false, cut_from = 0, cut_work = 0,
-        approach = false })
+        approach = false, facing = "" })
 end
 
 -- The keys that fly the ship off the dock: the movement keys, not boost alone.
@@ -56,11 +56,24 @@ local function kick(ctx, share)
         shake_seconds = 0.35, shake_tick = ctx.tick })
 end
 
+-- What Sefa at Cinder Kiln says on the radio the first time the hand beam comes on,
+-- before the stone has warmed: what to watch while cutting.
+local WATCH = "Sefa on the radio: \"Watch the stone under your beam. Warm, it comes away fast. Once it glazes, move the beam to another rock and let it cool.\""
+
+-- The hand beam comes on: `cutter.on`, and the first time Sefa says what to watch.
+local function hand_on(ctx, rock, latched)
+    cutter.on(ctx, rock, latched)
+    if ctx.get("ship", "taught").heat == 0 then
+        ctx.patch("ship", "taught", { heat = 1 })
+        log.add(ctx, WATCH)
+    end
+end
+
 -- Starts the beam on the rock in the nose's sights, or says why there is none.
 local function cut_ahead(ctx, latched)
     local sighted, near, gap = cutter.sighted(ctx)
     if sighted then
-        cutter.on(ctx, sighted, latched)
+        hand_on(ctx, sighted, latched)
         return true
     end
     if not near then
@@ -115,6 +128,8 @@ local function flight(event, ctx)
     if pressed(event) then
         teach.used(ctx, TEACHES[key])
         if not MOVES[key] then return end
+        -- Flying by hand takes over from a click's turn onto a rock.
+        if pilot.facing ~= "" then ctx.patch("ship", "pilot", { facing = "" }) end
         local ordered = ctx.get("ship", "engine.steer").mode ~= ""
         ctx.put("ship", "engine.steer", {})
         if ordered then
@@ -163,6 +178,12 @@ local function mine(event, ctx)
     end
     teach.used(ctx, "mine")
     local key = rock == nil and not scripted(event)
+    -- Space, or another click, takes over from a click's turn onto a rock: the nose stops
+    -- where it is (unless A or D is held).
+    if pilot.facing ~= "" then
+        ctx.patch("ship", "pilot", { facing = "" })
+        ctx.patch("ship", "engine.helm", { turn = (held.left and 1 or 0) - (held.right and 1 or 0) })
+    end
     if key then
         -- Holding Space brakes, so the ship sits steady on the rock it cuts.
         ctx.patch("ship", "held", { mine = true })
@@ -190,7 +211,7 @@ local function mine(event, ctx)
         -- The rig, like a script's order, picks the rock and flies out to it itself.
         local target = rock
         if target == nil then
-            local sighted, near = cutter.sighted(ctx)
+            local sighted, near = cutter.sighted(ctx, true)
             target = sighted or near
         end
         if not target then cut_ahead(ctx, true); return end
@@ -203,19 +224,63 @@ local function mine(event, ctx)
     if rock ~= nil then
         -- A click on a rock: the beam cuts it while the ship holds steady, as Space does.
         if cutter.can_cut(ctx, rock) then
-            cutter.on(ctx, rock, true)
+            hand_on(ctx, rock, true)
         else
             local at = ctx.get("ship", "engine.position")
             local centre, radius = cutter.rock(ctx, rock)
             if rules.gap(at, centre, radius) > cutter.reach(ctx) then
                 message(ctx, "Too far to cut. The cutter reaches " .. cutter.reach(ctx) .. " units: fly closer.")
             else
-                message(ctx, "Point your nose at the rock to cut it: A or D turns.")
+                -- In reach but off the nose: she turns onto it where she sits (the helm's
+                -- own turn, no flying), and the beam latches on once it is aimed (`facing`).
+                if pilot.mining then cutter.off(ctx, nil) end
+                ctx.patch("ship", "pilot", { facing = rock, message = "Turning onto the rock." })
+                ctx.patch("ship", "engine.helm", { turn = cutter.turn_toward(ctx, rock) })
+                ctx.record("facing", { rock = rock, from = ctx.tick })
             end
         end
         return
     end
     cut_ahead(ctx, false)
+end
+
+-- A click's turn onto a rock in reach, one tick at a time (a recorded fact runs its
+-- handler on the next tick): the nose comes round at the helm's turn rate and the beam
+-- latches on once it is aimed. Anything that takes the helm (a key, an order, docking,
+-- another click) clears `facing` and ends it.
+local function facing(event, ctx)
+    local rock = event.payload.rock
+    local pilot = ctx.get("ship", "pilot")
+    if pilot.facing ~= rock or rock == "" then return end
+    local function done(text)
+        local fields = { facing = "" }
+        if text then fields.message = text end
+        ctx.patch("ship", "pilot", fields)
+        ctx.patch("ship", "engine.helm", { turn = 0 })
+    end
+    local ore = ctx.get(rock, "ore")
+    if not space(ctx) or pilot.mining or ctx.get("ship", "engine.steer").mode ~= "" or not ore or ore.left <= 0 then
+        done(nil)
+        return
+    end
+    if cutter.can_cut(ctx, rock) then
+        done(nil)
+        hand_on(ctx, rock, true)
+        return
+    end
+    local at = ctx.get("ship", "engine.position")
+    local centre, radius = cutter.rock(ctx, rock)
+    if rules.gap(at, centre, radius) > cutter.reach(ctx) then
+        done("Too far to cut. The cutter reaches " .. cutter.reach(ctx) .. " units: fly closer.")
+        return
+    end
+    -- A whole turn takes two seconds on the bare hull; past three, something holds the nose.
+    if ctx.tick - (event.payload.from or ctx.tick) > 3 * rules.TICKS then
+        done("Point your nose at the rock to cut it: A or D turns.")
+        return
+    end
+    ctx.patch("ship", "engine.helm", { turn = cutter.turn_toward(ctx, rock) })
+    ctx.record("facing", { rock = rock, from = event.payload.from })
 end
 
 local function dock(event, ctx)
@@ -247,6 +312,11 @@ local function dock(event, ctx)
     message(ctx, "Fly into " .. name .. "'s berth ring, the glowing ring off its dock, and the clamps take you in.")
 end
 
+-- What the pilot hears the moment the stone under a hand beam glazes.
+local GLAZED = "The stone glazes and the beam skates: put it on another rock while this one cools."
+
+local told = cutter.told
+
 -- One second of the beam on its rock: what it has cut lands in the hold.
 local function cut(ctx, pilot)
     local rock = pilot.target
@@ -261,18 +331,30 @@ local function cut(ctx, pilot)
         cutter.off(ctx, rig and "The rock is out of the rig's reach." or "The beam slipped off the rock.")
         return
     end
-    -- The ship may have drifted nearer or further: the chips fly the beam's new length.
-    local look = cutter.look(ctx, rock)
+    -- The second's beam time is banked at the rate the stone's heat gave it, and by hand
+    -- it warms the stone (rules.HEAT).
+    local ware = cutter.ware(ore)
+    local was = rules.phase(ware, ore.heat)
+    local work, phase = cutter.bank(ctx, pilot)
+    local steady = cutter.steady(ctx, pilot.auto)
+    -- The ship may have drifted nearer or further, and the stone may have glazed: the beam
+    -- shows it, and its chips fly the beam's new length.
+    local look = cutter.look(ctx, rock, phase)
     if ctx.get("ship", "engine.beam").look ~= look then ctx.patch("ship", "engine.beam", { look = look }) end
     local hold = ctx.get("ship", "hold")
     local capacity = fit.hold(ctx)
-    local due, rest = rules.cut(pilot.cut_work + cutter.work(ctx, rock, ctx.tick - pilot.cut_from))
+    local due, rest = rules.cut(work)
     local amount = rules.transfer(rules.load(hold), ore.left, capacity, due)
-    if amount <= 0 then return end
+    local turned = not steady and phase ~= was
+    if amount <= 0 then
+        local fields = { cut_work = work, cut_from = ctx.tick }
+        if turned and phase == "glazed" then fields.message = GLAZED end
+        ctx.patch("ship", "pilot", fields)
+        if turned and phase == "glazed" then told(ctx) end
+        return
+    end
     local load = rules.load(hold) + amount
     local left = ore.left - amount
-    -- Each rock yields its own ware: ore, ice or glassite.
-    local ware = ore.ware ~= "" and ore.ware or "ore"
     ctx.patch("ship", "hold", { [ware] = (hold[ware] or 0) + amount })
     ctx.patch(rock, "ore", { left = left })
     -- The rock shrinks as it is mined; one with stages also changes model as it goes,
@@ -281,13 +363,24 @@ local function cut(ctx, pilot)
     ctx.record("mined", { rock = rock, units = amount })
     local full = load >= capacity
     -- A full hold is the work itself: the fitter counts them (fit.verdict, part `holds`).
-    ctx.patch("ship", "pilot", { cut_work = rest, cut_from = ctx.tick, gained = pilot.gained + amount, away = true,
-        holds = pilot.holds + (full and 1 or 0), message = "+" .. amount .. " " .. ware .. " · hold " .. load .. " of " .. capacity .. ((ore.rich or 1) > 1 and " · rich seam" or "") })
+    -- The count says what the stone under a hand beam is doing; just after the first beam
+    -- comes on, the line about it stays up until the stone first glazes (told).
+    local line = "+" .. amount .. " " .. ware .. " · hold " .. load .. " of " .. capacity .. ((ore.rich or 1) > 1 and " · rich seam" or "")
+        .. (steady and "" or " · " .. rules.FEEL[phase])
+    local fields = { cut_work = rest, cut_from = ctx.tick, gained = pilot.gained + amount, away = true,
+        holds = pilot.holds + (full and 1 or 0), message = line }
+    if turned and phase == "glazed" then
+        fields.message = GLAZED
+        told(ctx)
+    elseif not steady and ctx.get("ship", "taught").heat == 1 then
+        fields.message = nil
+    end
+    ctx.patch("ship", "pilot", fields)
     if left > 0 then
         -- The unit itself: a fistful of stone breaks off the cut and flies to the ship.
         local lx, ly, back = cutter.landing(ctx, rock)
         local chunk = ({ ["core.cutter_near"] = "core.chunk_near", ["core.cutter"] = "core.chunk",
-            ["core.cutter_far"] = "core.chunk_far" })[look] or "core.reach_chunk"
+            ["core.cutter_far"] = "core.chunk_far", ["core.cutter_glazed"] = "core.chunk" })[look] or "core.reach_chunk"
         ctx.put(rock, "engine.burst", { recipe = chunk, tick = ctx.tick, target = "core.ship", x = lx, y = ly,
             height = cutter.HEIGHT, angle = back })
     else
@@ -308,9 +401,11 @@ local function cut(ctx, pilot)
             -- The count is of rocks holding this rock's ware; the rig moves on to any.
             local alike = 0
             for _, id in cutter.rocks(ctx) do
+                local o = ctx.get(id, "ore")
                 if id ~= rock then
-                    table.insert(others, id)
-                    local o = ctx.get(id, "ore")
+                    -- A seam's spall is somewhere for a hand to rest the beam: an order
+                    -- moves on to a real rock, never to it by itself.
+                    if not o.spall then table.insert(others, id) end
                     if (o.ware ~= "" and o.ware or "ore") == ware then alike += 1 end
                 end
             end
@@ -342,7 +437,7 @@ end
 return {
     on = {
         ahead = flight, back = flight, left = flight, right = flight, boost = flight,
-        mine = mine, dock = dock,
+        mine = mine, dock = dock, facing = facing,
         cancel = function(event, ctx)
             if pressed(event) and space(ctx) then
                 teach.used(ctx, "cancel")
@@ -408,6 +503,13 @@ return {
     },
     cadence = function(ctx)
         local pilot = ctx.get("ship", "pilot")
+        -- Every rock off the beam cools a second's worth, docked or not.
+        for _, id in ctx.query("ore") do
+            local ore = ctx.get(id, "ore")
+            if ore.heat > 0 and not (pilot.mining and pilot.target == id) then
+                cutter.set_heat(ctx, id, ore, rules.cooled(cutter.ware(ore), ore.heat, 1))
+            end
+        end
         if not space(ctx) then return end
         local at = ctx.get("ship", "engine.position")
         -- Every rock can be pointed at and clicked: it publishes an anchor for the HUD.

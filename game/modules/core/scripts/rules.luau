@@ -30,6 +30,63 @@ local rules = {
     WARES = { "ore", "ice", "glassite", "plate", "rations", "panes" },
 }
 
+-- How the stone under the hand cutter's beam takes its heat (scripts/cutter.luau). Each
+-- second of beam on a rock warms it by one; each second off the beam it cools by `cool`.
+-- Cold stone (below `warm`) cuts at `cold` times the ship's rate; warm stone, up to
+-- `glaze`, comes away fast at `hot` times; past that it glazes over and the beam skates,
+-- at `glazed` times, until it has cooled back. Nothing is lost: a glazed rock still cuts,
+-- and cools by itself. Ore runs warm a few seconds and holds it, so a small rock is
+-- nearly cut through before it glazes and a seam wants the beam moved to its spall;
+-- ice warms at once, slumps soon and cools fast, so the close-packed floes want the beam
+-- moved often; glassite crazes after a few units, so the crystals want working in turn,
+-- coming back for what is left. The reach rig and a script's orders hold the beam
+-- steady: always the ship's own rate, never warm, never glazed.
+rules.HEAT = {
+    ore = { warm = 1.5, glaze = 4.5, cool = 1.5, cold = 0.6, hot = 1.7, glazed = 0.45 },
+    ice = { warm = 0.5, glaze = 3, cool = 3, cold = 0.6, hot = 1.7, glazed = 0.45 },
+    glassite = { warm = 1, glaze = 3, cool = 2, cold = 0.5, hot = 1.5, glazed = 0.4 },
+}
+
+-- The heat rules for a rock of `ware` (ore's for any other).
+function rules.heat_of(ware)
+    return rules.HEAT[ware] or rules.HEAT.ore
+end
+
+-- "cold", "warm" or "glazed": the stone of `ware` at `heat`.
+function rules.phase(ware, heat)
+    local h = rules.heat_of(ware)
+    if (heat or 0) >= h.glaze then return "glazed" end
+    if (heat or 0) >= h.warm then return "warm" end
+    return "cold"
+end
+
+-- How fast the hand cutter cuts stone of `ware` at `heat`, times the ship's rate.
+function rules.heat_rate(ware, heat)
+    local h = rules.heat_of(ware)
+    local phase = rules.phase(ware, heat)
+    if phase == "glazed" then return h.glazed end
+    if phase == "warm" then return h.hot end
+    return h.cold
+end
+
+-- A rock's heat after `seconds` more of beam: it stops rising a little past glazing, so a
+-- rock left glazed cools back within a few seconds however long the beam sat on it.
+function rules.warmed(ware, heat, seconds)
+    return math.min((heat or 0) + seconds, rules.heat_of(ware).glaze + 2)
+end
+
+-- A rock's heat after `seconds` off the beam.
+function rules.cooled(ware, heat, seconds)
+    return math.max(0, (heat or 0) - rules.heat_of(ware).cool * seconds)
+end
+
+-- What the pilot reads about the stone under the beam, after the hold's count.
+rules.FEEL = {
+    cold = "cold stone, it warms as you cut",
+    warm = "warm: cutting fast",
+    glazed = "glazed: put the beam on another rock",
+}
+
 function rules.distance2(a, b)
     return (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2
 end

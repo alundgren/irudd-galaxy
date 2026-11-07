@@ -8,6 +8,7 @@
 -- aims the beam itself, cuts from far off and flies the ship out to a rock; the docking
 -- jets in the engine socket fly the ship into a berth from anywhere.
 local rules = require("./rules")
+local teach = require("./teach")
 
 local cutter = {
     NOSE = 1.7, -- where the beam leaves the hull: the nose, ahead of the centre
@@ -22,18 +23,71 @@ function cutter.has(ctx, id)
     return p ~= nil and p.fitted
 end
 
+-- The ware a rock gives: ore, ice or glassite.
+function cutter.ware(ore)
+    return ore and ore.ware ~= "" and ore.ware or "ore"
+end
+
+-- Whether the beam is held steady, as the reach rig and a script's orders hold it (`auto`
+-- is the pilot's): the stone under it never runs warm or glazes (rules.HEAT).
+function cutter.steady(ctx, auto)
+    return auto or cutter.has(ctx, cutter.RIG)
+end
+
 -- Ore a second the beam cuts with the parts fitted now, on `rock` if given: a rich seam
--- cuts faster (its `rich`).
-function cutter.rate(ctx, rock)
+-- cuts faster (its `rich`), and by hand the stone's heat speeds or slows the cut
+-- (rules.heat_rate) unless the beam is `steady`.
+function cutter.rate(ctx, rock, steady)
     local f = ctx.get("ship", "fit")
     local ore = rock and ctx.get(rock, "ore")
-    return (f and f.mine or 1) * (ore and ore.rich or 1)
+    local heat = (ore and not steady) and rules.heat_rate(cutter.ware(ore), ore.heat) or 1
+    return (f and f.mine or 1) * (ore and ore.rich or 1) * heat
 end
 
 -- The cutting work `ticks` of beam on `rock` does, in whole work units (beam ticks times
 -- ore a second, rounded), so a rich seam's fractional rate keeps the work an integer.
-function cutter.work(ctx, rock, ticks)
-    return math.floor(ticks * cutter.rate(ctx, rock) + 0.5)
+function cutter.work(ctx, rock, ticks, steady)
+    return math.floor(ticks * cutter.rate(ctx, rock, steady) + 0.5)
+end
+
+-- How a rock of `ware` looks at `phase`: its own look, warmer as it heats; a glazed one
+-- shimmers (an emitter over it), so which rock needs the beam moved off it reads at a
+-- glance.
+local LOOKS = { ore = "core.rock", ice = "core.ice", glassite = "core.glassite" }
+function cutter.show_heat(ctx, rock, ware, phase)
+    local base = LOOKS[ware] or LOOKS.ore
+    ctx.patch(rock, "engine.model", { look = phase == "cold" and base or base .. "_" .. phase })
+    if phase == "cold" then
+        if ctx.has(rock, "engine.emitter") then ctx.remove(rock, "engine.emitter") end
+    else
+        -- Over the rock's top, not inside it: a big seam stands taller than a small rock.
+        local model = ctx.get(rock, "engine.model")
+        local height = 2.0 * ((model and model.scale) or 1)
+        ctx.put(rock, "engine.emitter", { recipe = "core." .. phase .. "_" .. ware, height = height })
+    end
+end
+
+-- Sets `rock`'s heat, and its look when that changes the phase. Returns the new phase.
+function cutter.set_heat(ctx, rock, ore, heat)
+    local ware = cutter.ware(ore)
+    local was, now = rules.phase(ware, ore.heat), rules.phase(ware, heat)
+    ctx.patch(rock, "ore", { heat = heat })
+    if was ~= now then cutter.show_heat(ctx, rock, ware, now) end
+    return now
+end
+
+-- Banks the beam time since the pilot's `cut_from` on its target: the work it did, at the
+-- rate the stone's heat gave it then, and, by hand, the heat it put into the stone.
+-- Returns the work not yet come loose, and the stone's phase now.
+function cutter.bank(ctx, pilot)
+    local rock = pilot.target
+    local ticks = math.max(0, ctx.tick - pilot.cut_from)
+    local steady = cutter.steady(ctx, pilot.auto)
+    local work = pilot.cut_work + cutter.work(ctx, rock, ticks, steady)
+    local ore = ctx.get(rock, "ore")
+    if not ore then return work, "cold" end
+    if steady or ticks == 0 then return work, rules.phase(cutter.ware(ore), ore.heat) end
+    return work, cutter.set_heat(ctx, rock, ore, rules.warmed(cutter.ware(ore), ore.heat, ticks / rules.TICKS))
 end
 
 -- The beam's reach with the parts fitted now.
@@ -66,15 +120,28 @@ function cutter.can_cut(ctx, rock, auto)
     return rules.cuttable(at, centre, radius, cutter.reach(ctx), auto or cutter.has(ctx, cutter.RIG))
 end
 
+-- Which way the nose turns onto `rock`: 1 is left (counter-clockwise), -1 right, the
+-- shorter way round.
+function cutter.turn_toward(ctx, rock)
+    local at = ctx.get("ship", "engine.position")
+    local centre = cutter.rock(ctx, rock)
+    local a = at.angle or 0
+    local cross = math.cos(a) * (centre.y - at.y) - math.sin(a) * (centre.x - at.x)
+    return cross >= 0 and 1 or -1
+end
+
 -- The rock the beam would cut now (the one the nose is most squarely on, then the
--- nearest), or nil; and, when none, the nearest rock with ore and its gap.
-function cutter.sighted(ctx)
+-- nearest), or nil; and, when none, the nearest rock with ore and its gap. For an
+-- `order` (the rig's or a script's pick) a seam's spall is passed over: it is where a
+-- hand rests the beam, and a click on it still cuts it.
+function cutter.sighted(ctx, order)
     local at = ctx.get("ship", "engine.position")
     local rig = cutter.has(ctx, cutter.RIG)
     local reach = cutter.reach(ctx)
     local best, best_off, best_gap = nil, math.huge, math.huge
     local near, near_gap = nil, math.huge
     for _, id in cutter.rocks(ctx) do
+        if order and ctx.get(id, "ore").spall then continue end
         local centre, radius = cutter.rock(ctx, id)
         local gap = rules.gap(at, centre, radius)
         if gap < near_gap then near, near_gap = id, gap end
@@ -118,8 +185,10 @@ end
 
 -- The beam's look for `rock`: the rig's, or the hand cutter's for how far the cut is from
 -- the nose, so its chips fly just the length of the beam and fade as they reach the ship.
-function cutter.look(ctx, rock)
+-- On glazed stone (`phase`) the hand beam skates: no chips, sparks thrown wide.
+function cutter.look(ctx, rock, phase)
     if cutter.has(ctx, cutter.RIG) then return "core.reach" end
+    if phase == "glazed" then return "core.cutter_glazed" end
     local at = ctx.get("ship", "engine.position")
     local centre, radius = cutter.rock(ctx, rock)
     local gap = rules.gap(at, centre, radius) - cutter.NOSE
@@ -133,12 +202,29 @@ end
 -- order). Cut progress carries on if it is the same rock.
 function cutter.on(ctx, rock, latched, auto)
     local pilot = ctx.get("ship", "pilot")
-    ctx.put("ship", "engine.beam", { target = rock, look = cutter.look(ctx, rock), x = cutter.NOSE, height = cutter.HEIGHT })
+    -- Moved from one rock to another: the one left keeps the heat it got. Off one that has
+    -- run hot (it may have cooled a little while the nose came round), that is the move
+    -- the hint teaches.
+    if pilot.target ~= rock and pilot.target ~= "" then
+        local left
+        if pilot.mining and pilot.cut_from > 0 then
+            left = select(2, cutter.bank(ctx, pilot))
+        else
+            local o = ctx.get(pilot.target, "ore")
+            left = o and rules.phase(cutter.ware(o), o.heat)
+        end
+        if left and left ~= "cold" and not cutter.steady(ctx, auto) then teach.used(ctx, "swap") end
+    end
+    local ore = ctx.get(rock, "ore")
+    local phase = (ore and not cutter.steady(ctx, auto)) and rules.phase(cutter.ware(ore), ore.heat) or "cold"
+    ctx.put("ship", "engine.beam", { target = rock, look = cutter.look(ctx, rock, phase), x = cutter.NOSE, height = cutter.HEIGHT })
     local fields = { mining = true, target = rock, latched = latched, auto = auto or false, cut_from = ctx.tick,
         approach = false, away = true }
     if pilot.target ~= rock then
         fields.cut_work = 0
     end
+    -- A beam put on by hand is no order: the rig's "rock you picked" is not this one.
+    if not auto then fields.chosen = false end
     if not pilot.mining then
         fields.gained = 0
         -- What stops it, so the line under a fresh beam never still says why it couldn't.
@@ -156,16 +242,23 @@ function cutter.on(ctx, rock, latched, auto)
     if not pilot.mining then ctx.record("cut_start", { rock = rock }) end
 end
 
+-- Sefa's word on what to watch has been heard out: the first glaze, or the first beam
+-- going off. The per-unit count takes the message line back.
+function cutter.told(ctx)
+    if ctx.get("ship", "taught").heat == 1 then ctx.patch("ship", "taught", { heat = 2 }) end
+end
+
 -- Turns the beam off, keeping how far it got into the rock. `text` says why, if the
 -- player should hear it.
 function cutter.off(ctx, text)
     local pilot = ctx.get("ship", "pilot")
     ctx.put("ship", "engine.beam", {})
     local fields = { mining = false, latched = false, auto = false, cut_from = 0, approach = false }
-    if pilot.cut_from > 0 then fields.cut_work = pilot.cut_work + cutter.work(ctx, pilot.target, ctx.tick - pilot.cut_from) end
+    if pilot.cut_from > 0 then fields.cut_work = (cutter.bank(ctx, pilot)) end
     if text then fields.message = text end
     ctx.patch("ship", "pilot", fields)
     if pilot.mining then ctx.record("cut_stop", { rock = pilot.target }) end
+    cutter.told(ctx)
 end
 
 -- Where the beam lands on `rock`, in the ship's own frame (x ahead, y to the left), and
