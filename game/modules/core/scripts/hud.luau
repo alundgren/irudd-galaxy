@@ -37,7 +37,7 @@ local function hint(ctx)
     if pilot.mining and not pilot.auto and not cutter.has(ctx, cutter.RIG) and teach.new(taught, "swap") then
         local ore = ctx.get(pilot.target, "ore")
         if ore and rules.phase(cutter.ware(ore), ore.heat) == "glazed" then
-            return "Click another rock, or turn onto one · this one has glazed, let it cool"
+            return "Click another rock, or A or D · move the beam"
         end
     end
     if not full and not pilot.mining and teach.new(taught, "mine") then
@@ -69,10 +69,10 @@ end
 -- bearings and the key) when both fit, so the stack covers no more of the reach than one
 -- panel holding them all.
 -- Small print runs at most SMALL px a character and body text BODY; a surface's own
--- frame adds ICON (with an icon: a note, the bearings), GOAL (its tag), PAD (a lesson)
+-- frame and icon add NOTE (a note), ICON (the bearings), GOAL (its tag), PAD (a lesson)
 -- or PILL (the key pill's rounder ends). Two surfaces side by side are as tall as each
 -- other: the goal and the lesson ASIDE, the bearings and the key WAYS.
-local GAP, SMALL, BODY, ICON, GOAL, PAD, PILL, ASIDE, WAYS = 6, 7.5, 9.2, 36, 24, 26, 16, 30, 28
+local GAP, SMALL, BODY, NOTE, ICON, GOAL, PAD, PILL, ASIDE, WAYS = 6, 7.5, 9.4, 48, 36, 24, 26, 16, 30, 28
 
 local function span(text, per, extra)
     return math.ceil((utf8.len(text) or #text) * per + extra)
@@ -118,7 +118,7 @@ local function bottom(ctx, ui, pilot)
                 ui.text { id = "words", width = wide - 16, icon = "radio", spans = spans, size = kit.SIZE.body, cue = "flash" },
             } }), wide } }))
         else
-            local width = math.min(wide, span(pilot.message, BODY, ICON))
+            local width = math.min(wide, span(pilot.message, BODY, NOTE))
             local note = width < wide and ui.text { id = "message", look = kit.LOOK.note, icon = "ship", text = pilot.message,
                 size = kit.SIZE.body, cue = "flash" }
                 or kit.note(ui, { id = "message", children = {

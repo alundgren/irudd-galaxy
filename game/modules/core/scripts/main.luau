@@ -48,7 +48,7 @@ local function stop(ctx)
     ctx.put("ship", "held", {})
     ctx.put("ship", "engine.beam", {})
     ctx.patch("ship", "pilot", { mining = false, target = "", latched = false, auto = false, cut_from = 0, cut_work = 0,
-        approach = false, facing = "" })
+        approach = false, facing = "", press = "" })
 end
 
 -- The keys that fly the ship off the dock: the movement keys, not boost alone.
@@ -322,8 +322,11 @@ local function dock(event, ctx)
     message(ctx, "", { lesson = "Fly into " .. name .. "'s berth ring, the glowing ring off its dock, and the clamps take you in." })
 end
 
--- What the pilot hears the moment the stone under a hand beam glazes.
-local GLAZED = "The stone glazes and the beam skates: put it on another rock while this one cools."
+-- The moment the stone under a hand beam glazes: what happened, how glazed stone comes
+-- back, and the keys that move the beam (the hint strip's own, hud.luau), each apart.
+local GLAZED = "The stone has glazed: the beam skates on it."
+local GLAZE = { lesson = "Glazed stone cools once the beam is off it.",
+    press = "Click another rock, or A or D · move the beam" }
 
 local told = cutter.told
 
@@ -358,7 +361,7 @@ local function cut(ctx, pilot)
     local turned = not steady and phase ~= was
     if amount <= 0 then
         local fields = { cut_work = work, cut_from = ctx.tick }
-        if turned and phase == "glazed" then fields.message = GLAZED end
+        if turned and phase == "glazed" then notice.with(fields, GLAZED, GLAZE) end
         ctx.patch("ship", "pilot", fields)
         if turned and phase == "glazed" then told(ctx) end
         return
@@ -380,7 +383,7 @@ local function cut(ctx, pilot)
     local fields = { cut_work = rest, cut_from = ctx.tick, gained = pilot.gained + amount, away = true,
         holds = pilot.holds + (full and 1 or 0), message = line }
     if turned and phase == "glazed" then
-        fields.message = GLAZED
+        notice.with(fields, GLAZED, GLAZE)
         told(ctx)
     elseif not steady and ctx.get("ship", "taught").heat == 1 then
         fields.message = nil
@@ -431,7 +434,7 @@ local function cut(ctx, pilot)
         end
         if left <= 0 and not full and pilot.chosen then
             table.insert(lines, "The rig stops with the rock you picked.")
-            parts = { press = "Space · the nearest rock" }
+            parts = { press = "Space · the nearest rock, or click another" }
         end
         -- Both beats on one unit log both, the hold's last so it is the message showing.
         log.add_all(ctx, lines, parts)

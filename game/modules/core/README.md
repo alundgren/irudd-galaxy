@@ -271,10 +271,11 @@ ice and glassite); glazed stone goes pale and flat, unhatched like glaze on a po
 shimmers all over (`looks.*_glazed`, `particles.glazed_*`). The beam: on glazed stone it goes pale and flickers, its sparks
 thrown wide and no chips coming back up it (`beams.cutter_glazed`). The words: each
 unit's count ends with the stone's state ("cold stone, it warms as you cut", "warm:
-cutting fast", "glazed: put the beam on another rock"), the moment it glazes the line
-says "The stone glazes and the beam skates: put it on another rock while this one cools.",
-and the hint strip says "Click another rock, or turn onto one · this one has glazed, let it
-cool" until the beam has been moved off a hot rock three times (`taught.swap`).
+cutting fast", "glazed: cutting slowly"). The moment it glazes, the notice says "The stone
+has glazed: the beam skates on it.", a lesson under it says "Glazed stone cools once the
+beam is off it.", and the key pill says "Click another rock,
+or A or D · move the beam", which stays until the beam has been moved off a hot rock
+three times (`taught.swap`).
 
 Moving the beam is a turn (A or D, Space held) or a click on the other rock: in reach but
 off the nose, she turns onto it where she sits (a quarter turn in about half a second, no

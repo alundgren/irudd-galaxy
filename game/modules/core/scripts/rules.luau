@@ -86,7 +86,7 @@ end
 rules.FEEL = {
     cold = "cold stone, it warms as you cut",
     warm = "warm: cutting fast",
-    glazed = "glazed: put the beam on another rock",
+    glazed = "glazed: cutting slowly",
 }
 
 function rules.distance2(a, b)

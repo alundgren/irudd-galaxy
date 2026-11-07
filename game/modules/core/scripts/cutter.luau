@@ -11,6 +11,9 @@ local rules = require("./rules")
 local teach = require("./teach")
 local notice = require("./notice")
 
+-- What the line says while a fresh beam cuts, before its first unit lands.
+local CUTTING, RIG_CUTS = "Cutting.", "The rig cuts on its own."
+
 local cutter = {
     NOSE = 1.7, -- where the beam leaves the hull: the nose, ahead of the centre
     HEIGHT = 0.25,
@@ -242,13 +245,13 @@ function cutter.on(ctx, rock, latched, auto)
         -- What stops it, so the line under a fresh beam never still says why it couldn't.
         -- The key that stops it is its own part (notice.luau), not words in the line.
         if cutter.has(ctx, cutter.RIG) then
-            notice.with(fields, "The rig cuts on its own.", { press = "W, A, S or D · stop the rig" })
+            notice.with(fields, RIG_CUTS, { press = "W, A, S or D · stop the rig" })
         elseif auto then
-            notice.with(fields, "Cutting.", { press = "W, A, S or D · stop" })
+            notice.with(fields, CUTTING, { press = "W, A, S or D · stop" })
         elseif latched then
-            notice.with(fields, "Cutting.", { press = "Click the rock · stop" })
+            notice.with(fields, CUTTING, { press = "Click the rock, or fly · stop" })
         else
-            notice.with(fields, "Cutting.", { press = "Let go of Space · stop" })
+            notice.with(fields, CUTTING, { press = "Let go of Space · stop" })
         end
     end
     ctx.patch("ship", "pilot", fields)
@@ -262,11 +265,17 @@ function cutter.told(ctx)
 end
 
 -- Turns the beam off, keeping how far it got into the rock. `text` says why, if the
--- player should hear it.
+-- player should hear it. The key that stopped it goes with it: once off, the hint for
+-- what fits now shows instead. A beam that stops before its first unit, with nothing
+-- else to say, says so, rather than leave "Cutting." up beside the key that cuts again.
 function cutter.off(ctx, text)
     local pilot = ctx.get("ship", "pilot")
     ctx.put("ship", "engine.beam", {})
     local fields = { mining = false, latched = false, auto = false, cut_from = 0, approach = false }
+    if pilot.mining then
+        fields.press = ""
+        if not text and (pilot.message == CUTTING or pilot.message == RIG_CUTS) then text = "Beam off." end
+    end
     if pilot.cut_from > 0 then fields.cut_work = (cutter.bank(ctx, pilot)) end
     if text then fields.message = text end
     ctx.patch("ship", "pilot", fields)
