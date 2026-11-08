@@ -65,6 +65,10 @@
 //!   circle of `radius`, or with radius 0 its model's footprint. Overlaps push apart by
 //!   `mass`; a `fixed` body, or one with no `engine.motion`, never moves. Things that
 //!   don't fly lose `drag` of their speed per second after a push.
+//! - `engine.explorer { radius }` and `engine.explored { cell, cells }`: explored memory.
+//!   Each tick the explore service marks the cells within `radius` of an explorer on the
+//!   open plane into its `engine.explored` ([`crate::explored`],
+//!   `engine/docs/map-and-fog.md`).
 //!
 //! Places, locations, beings, spots, doors, walks and clocks are described in
 //! `engine/docs/places-and-beings.md`. They use ordinary components and entity IDs.
@@ -126,6 +130,8 @@ pub const BEAM: &str = "engine.beam";
 pub const EMITTER: &str = "engine.emitter";
 pub const BURST: &str = "engine.burst";
 pub const CAMERA_FEEL: &str = "engine.camera_feel";
+pub const EXPLORER: &str = "engine.explorer";
+pub const EXPLORED: &str = "engine.explored";
 
 /// The engine's event kinds (in the `engine` namespace).
 /// - `start`: once, on the first tick of a new world.
@@ -707,6 +713,21 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
         "its outline is a circle this big, world units; 0 uses the model's footprint",
     ),
     ("body", "mass", "overlaps push apart by mass"),
+    (
+        "explorer",
+        "radius",
+        "world units around it the explore service marks explored each tick",
+    ),
+    (
+        "explored",
+        "cell",
+        "grid cell size of this memory, world units; changing it reinterprets cells",
+    ),
+    (
+        "explored",
+        "cells",
+        "explored cells as rows of runs `y:x+count,...;...`; the explore service adds to it",
+    ),
     ("body", "fixed", "never moves"),
     (
         "body",
@@ -956,6 +977,12 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
             ]),
         ),
         ("waypoint", fields(&[("next", Id)])),
+        ("explorer", numbers(&[("radius", 40.0)])),
+        ("explored", {
+            let mut f = fields(&[("cells", Text)]);
+            f.extend(numbers(&[("cell", crate::explored::DEFAULT_CELL)]));
+            f
+        }),
         ("body", {
             let mut body = fields(&[("radius", Number), ("fixed", Bool)]);
             body.extend(numbers(&[("mass", 1.0), ("drag", 1.5)]));

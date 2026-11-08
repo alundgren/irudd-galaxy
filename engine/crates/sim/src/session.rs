@@ -12,6 +12,7 @@
 //!    tick never chains without end. Inputs are handled before the services, so a key
 //!    acts on the tick it arrives;
 //! 4. engine services run: flight, motion, walking, collide, then ground ([`crate::services`]);
+//!    after the cadence and the holds settle, explore marks explored memory ([`crate::explore`]);
 //! 5. on every [`CADENCE_TICKS`]th tick, each script's `cadence` handler runs, in the same
 //!    order.
 //!
@@ -89,6 +90,8 @@ pub struct Session {
     vias: BTreeMap<u64, String>,
     /// The next tick starts with an `engine.resumed` input ([`Session::announce_resume`]).
     resume_pending: bool,
+    /// Decoded explored memories, checked against the world's text before each use.
+    explored: crate::explore::Explored,
 }
 
 /// A module set worked out once for many new sessions ([`Session::prepared`]): the
@@ -188,6 +191,7 @@ impl Session {
         crate::places::validate(&world)?;
         crate::talk::validate(&world)?;
         crate::life::validate(&world)?;
+        crate::explore::validate(&world)?;
         crate::life::update(&mut world, &registry)?;
         if world
             .entities
@@ -205,6 +209,7 @@ impl Session {
             recording: None,
             vias: BTreeMap::new(),
             resume_pending: false,
+            explored: crate::explore::Explored::default(),
         })
     }
 
@@ -222,6 +227,7 @@ impl Session {
         crate::places::validate(&world)?;
         crate::talk::validate(&world)?;
         crate::life::validate(&world)?;
+        crate::explore::validate(&world)?;
         Ok(Session {
             world,
             shapes: Shapes::of(modules.values().map(|l| &l.module)),
@@ -231,6 +237,7 @@ impl Session {
             recording: None,
             vias: BTreeMap::new(),
             resume_pending: false,
+            explored: crate::explore::Explored::default(),
         })
     }
 
@@ -371,6 +378,7 @@ impl Session {
         {
             services::ground(&mut self.world);
         }
+        crate::explore::explore(&mut self.world, &mut self.explored);
         crate::travel::start(&mut self.world, before, &self.registry)?;
         crate::talk::interrupt(&mut self.world, &self.registry)?;
         Ok(())

@@ -32,7 +32,8 @@ budgets, without `ctx` (`tests-and-what-if.md`).
 
 ## ctx
 
-A handler reads and writes the world only through `ctx`: `get`, `has`, `query`, `put`,
+A handler reads and writes the world only through `ctx`: `get`, `has`, `query`,
+`explored` (whether a point is in a thing's explored memory, `map-and-fog.md`), `put`,
 `patch`, `remove`, `record`, `move`, `walk`, `advance_clock`, `random`, `random_int`,
 plus `tick` and `module`. Reads see
 the world as it was when the call started. Writes are buffered as commands and checked

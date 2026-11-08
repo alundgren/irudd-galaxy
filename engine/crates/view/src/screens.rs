@@ -2,6 +2,7 @@
 mod hovers;
 mod icons;
 mod interaction;
+mod map;
 mod motion;
 mod paint;
 mod scrolling;
@@ -71,6 +72,9 @@ pub struct Screens {
     cues: RefCell<Option<Vec<UiCue>>>,
     /// The clickable thing the pointer was over in the last frame, for hover cues.
     hovering: Option<String>,
+    /// Each `ui.map`'s paint this frame, by widget path, and the decoded memories.
+    maps: BTreeMap<String, map::Frame>,
+    memories: map::Memories,
 }
 
 /// At most this many cues wait to be taken; later ones are dropped.
@@ -216,6 +220,21 @@ impl Screens {
             );
         }
         self.boxes = shown;
+        self.maps.clear();
+        for root in &self.boxes {
+            frames(
+                root,
+                world,
+                &mut self.maps,
+                &mut self.memories,
+                &self.icons,
+                &mut self.measure,
+                &mut self.problems,
+            );
+        }
+        if self.maps.is_empty() {
+            self.memories.clear();
+        }
         self.finish_motion();
         self.update_motion(&previous);
         let hovered = self.hovered_button();
@@ -490,6 +509,28 @@ impl Screens {
     }
 }
 
+/// Works out the paint of every map in `b` for this frame.
+fn frames(
+    b: &Boxed,
+    world: &World,
+    maps: &mut BTreeMap<String, map::Frame>,
+    memories: &mut map::Memories,
+    icons: &icons::Icons,
+    measure: &mut TextMeasure,
+    problems: &mut Vec<String>,
+) {
+    if b.hidden {
+        return;
+    }
+    if let Some(spec) = &b.widget.map {
+        let frame = map::frame(b, spec, world, memories, icons, measure, problems);
+        maps.insert(b.widget.path.clone(), frame);
+    }
+    for child in &b.children {
+        frames(child, world, maps, memories, icons, measure, problems);
+    }
+}
+
 /// `kit.kept` maps a drop target's path to the verdict height it keeps while a value is
 /// held.
 fn layout(w: &Widget, available: f32, kit: &mut Kit) -> Boxed {
@@ -655,6 +696,9 @@ fn layout(w: &Widget, available: f32, kit: &mut Kit) -> Boxed {
             None => height = h + y + w.pad,
         }
         text = Some(t);
+    } else if w.kind == "map" {
+        // A square unless given a height; it paints itself every frame.
+        height = w.height.unwrap_or(width);
     } else if w.kind == "grid" {
         let cell = ((inner - w.gap * (w.columns - 1) as f32) / w.columns as f32).max(1.0);
         let mut y = w.pad;
@@ -1012,6 +1056,17 @@ fn draw(b: &Boxed, overlay: &mut Overlay, ink: paint::Ink, fx: Fx, p: &Painter) 
         }
     }
     let rect = shifted(b.rect, dy);
+    if kind_is_map(&b.widget) {
+        map::paint(
+            screens.maps.get(&b.widget.path),
+            rect,
+            b.clip.map(|c| shifted(c, fx.dy)),
+            style,
+            fx.alpha,
+            overlay,
+        );
+        return;
+    }
     let mut layer = UiLayer {
         clip: b.clip.map(|c| shifted(c, fx.dy)),
         ..Default::default()
@@ -1221,7 +1276,10 @@ fn leaf(kind: &str) -> bool {
     )
 }
 fn painted_kind(kind: &str) -> bool {
-    leaf(kind) || matches!(kind, "panel" | "scroll" | "bubble")
+    leaf(kind) || matches!(kind, "panel" | "scroll" | "bubble" | "map")
+}
+fn kind_is_map(w: &Widget) -> bool {
+    w.kind == "map" && w.map.is_some()
 }
 /// The box a measured text covers; a trailing text's position is its end edge.
 fn text_rect(t: &Text, size: Vec2) -> Rect {

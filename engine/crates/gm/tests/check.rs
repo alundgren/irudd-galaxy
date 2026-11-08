@@ -36,6 +36,7 @@ fn the_test_modules_pass_check() {
         "tests/play/screens",
         "tests/play/rich-screens/rich",
         "tests/play/ui-kit/kit",
+        "tests/play/map/chart",
     ] {
         let (code, out) = gm(&engine(), &["check", module]);
         let out = json(&out);
@@ -69,6 +70,21 @@ fn check_reports_unused_missing_glyphs_missing_icons_and_unreadable_grids() {
             "[icons]",
             "ui.drop_target{id='target',on='drop',text='',accepts={small=''}}",
             "empty text",
+        ),
+        (
+            "[icons]",
+            "ui.map{width=200,center={x=0,y=0},span=100,memory='nobody'}",
+            "map memory `example.nobody` has no engine.explored or engine.explorer",
+        ),
+        (
+            "[icons]",
+            "ui.map{width=200,center={x=0,y=0},span=100,marks={{entity='gone'}}}",
+            "mark `example.gone` doesn't exist",
+        ),
+        (
+            "[icons]",
+            "ui.map{width=200,center={x=0,y=0},span=-5}",
+            "span must be above 0",
         ),
     ] {
         let tmp = tempfile::tempdir().unwrap();
