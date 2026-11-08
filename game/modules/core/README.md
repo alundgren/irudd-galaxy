@@ -792,7 +792,7 @@ Lantern Dock then holds a lamp night (direction doc 3.3, a `happening` in
 we have tonight, for our greenhouse."), each docking's log line gives the cause, and it lasts
 three later counted dockings there before the strings come down.
 
-Measured on the headless route in `tests/greenhouse.toml` (seed 7): the galley is built
+Measured once on a scripted headless route (seed 7): the galley is built
 at tick 6296 and the greenhouse at 13563, 7267 ticks (4.0 minutes of scripted play)
 over five trips out: glassite, ore while the panes fire, the panes to Lantern Dock, and
 two runs of ice. Hand flying, docking and reading the talk stretch each trip.
@@ -911,11 +911,11 @@ Noor's line follows the job wherever she stands, visiting or at her beds: from "
 west, past the ice. That's where her lamps went." through "Bram's crew needs plate
 before they can pipe her." to "The beds drink from her tanks now. Look at them!"
 
-**Measured** (ticks are 1/30 s), headless, flights and tows scripted, from a finished
+**Measured** once (ticks are 1/30 s), headless, flights and tows scripted, from a finished
 greenhouse to the payoff:
-- kept: Noor's ask at tick 18279 (`kettle.toml`), the work done by 24991, so 6712 ticks
+- kept: Noor's ask at tick 18279, the work done by 24991, so 6712 ticks
   (3.7 min);
-- mended: the fee answered at 26519 (`kettle-mend.toml`), so 8240 ticks (4.6 min).
+- mended: the fee answered at 26519, so 8240 ticks (4.6 min).
 
 The tow is the long stretch: she lies about 311 units from Lantern Dock's ring, some 30
 seconds at the towing speed (32 from the line passed to the clamps, scripted), and 687
@@ -1394,7 +1394,7 @@ ice by a hand swing, cast off and passed again, Bram's and Mags's `Not now`, tow
 from Lantern Dock to the Kiln, and Hessa's fee declined), shared history (one scenario
 a case, each failing on the core before it: `history-hessa-keep.toml`, Hessa's
 introduction once Cold Kettle is kept, its last line once the beds bloom, heard at
-Ines's table with no fee; `history-hessa-mend.toml`, her introduction once the Kiln mends
+Ines's table with no fee; `kettle-mend.toml` also has her introduction once the Kiln mends
 her, her sign in Mags's office at once, its last line once mended, her line after the
 fee taken; `history-ines.toml`, Ines after Noor's whole ask and `Not now`;
 `history-bram.toml`, Bram's unheard introduction after the keep choice, starting with
@@ -1402,7 +1402,7 @@ the barge, the greeting left out, the rest heard on, his last line on the galley
 `history-first-plate.toml`, Ines met only after the first plate, starting with her word
 on it and saying it once; `history-tova.toml`, Tova met only after the galley is built
 through her exchange, starting with the galley your plate built and saying it once;
-`history-room.toml`, Bram walking from his desk to the porthole as she is kept;
+`history-bram.toml` also has Bram walking from his desk to the porthole as she is kept;
 `history-hessa-seated.toml`, Hessa seated at Ines's table in her seated figure;
 `tests/history.luau` folds news in front of an introduction, once, past what was heard,
 and keeps it out of everyday talk once heard; `tests/places.luau` dresses a being for a posed act and back), the galley lived in
@@ -1417,9 +1417,8 @@ the locked preset) and fitted again for nothing; the next hold mined at twice th
 the pods making the hold 36, the ship 18 and 162° and its model the podded hull; the pods
 refused coming off with 36 aboard, then taken off once sold; `fit-click.toml`: the same
 fits by Choose, Put back, Fit here and Take it off here, the choice let go on leaving,
-Orrin's sign hidden while a part is chosen, and the fits logged at the station). `log-pins.toml` leaves Ines's offer unanswered, then makes
-32 quick launch-and-redock trips: the offer stays marked heard after its entry has
-been dropped, and each launch ends a visit. `tests/log.luau` checks visits (a return
+Orrin's sign hidden while a part is chosen, and the fits logged at the station). `gift-back.toml` leaves Ines's offer unanswered
+across a launch and a redock: the offer stays marked heard, and each launch ends a visit. `tests/log.luau` checks visits (a return
 to the same station with nothing logged between is a new one), the short visit line,
 pins outlasting dropped entries and the open log's width at 960x540, and
 `tests/chip.luau` that every row of the chip fits with all three wares aboard, and
@@ -1440,12 +1439,13 @@ far rock (`hand-mining.bot.toml`, 1589 ticks, nine notes); `play.inputs` docks (
 glides in), points at and clicks the exchange building (a cut into the room), talks to
 Tova at her counter, lands the office's cut with a click and talks to Bram at his desk,
 goes back with Esc and with a right-click, shuts the log with Esc and takes twelve notes
-(`play.bot.toml`, 2148 ticks); `kettle-play.inputs` plays through Cold Kettle's job
-(`kettle.bot.toml`, 26798 ticks, 42 notes): Noor's ask accepted, out to the barge by
-hand keys, a line passed with a click on her, a hand swing round the ice that slips it,
-passed again and towed home, moored and the plate handed over with Bram's gold button,
-two trips out, the supper on the deck, the greenhouse in bloom with Hessa minding the
-tanks, and Noor's thanks in the galley; `fit-play.inputs` plays the fitting loop with
+(`play.bot.toml`, 2148 ticks); three bots play Cold Kettle's job
+from a set greenhouse: Noor's ask read and accepted in the galley (`kettle-ask.bot.toml`,
+670 ticks, two notes); a line passed with a click on the barge, a hand swing round the
+ice that slips it, towed in and moored with Bram's gold button (`kettle-tow.bot.toml`,
+1060 ticks, seven notes); a hold of plate bought at the Kiln, handed to Bram, two trips
+out and back, the beds in bloom and Noor's thanks (`kettle-plate.bot.toml`, 1235 ticks,
+five notes); `fit-play.inputs` plays the fitting loop with
 real drags from set credits and holds (`fit.bot.toml`, 1630 ticks, thirteen notes): the
 cradle on the first visit, the lens held with too few credits and every socket's
 refusal, a click on the resting Buy 1 with a full hold (reported in `resting_clicks`,
@@ -1542,8 +1542,8 @@ the same hash as an uninterrupted run. A save from before the rocks turned loads
 plays with its rocks still; its rings, lamps and stars move anyway, as they are drawn only.
 A save from before Ines's greenhouse, taken just after the galley was built, loads and
 plays with its galley and credits, without the greenhouse; start a new game for it.
-A save taken while the greenhouse goes up (`tests/greenhouse.toml`'s inputs to tick
-11000, glaziers at work) resumes for 4200 ticks to the same hash as an uninterrupted
+A save taken while the greenhouse goes up (at tick
+11000 of a scripted route, glaziers at work) resumed for 4200 ticks to the same hash as an uninterrupted
 run, through the ice and the greenhouse built. Saves made before Cold Kettle's job, on
 the build before it (mid-greenhouse, and with the lamp night over), load and play with
 their credits, hold and greenhouse, without the job; start a new game for it. Resumed or hot
