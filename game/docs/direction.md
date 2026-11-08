@@ -332,8 +332,15 @@ known-changes items.*
 - **Things are solid:** ships, rocks and stations bump and push, with no damage.
   - Collision must keep every mining spot reachable and must not trap NPC pilots.
   - When mining, the ship sits at the rock's drawn surface.
-- There are no waypoint arrows. Finding the way is part of the game:
-  - Stations off screen in your region show as small edge markers.
+- There are no waypoint arrows and no direction hints in the UI. Finding the way is part
+  of the game, and the map is earned:
+  - **Fog of war.** What the ship hasn't been near stays under fog on the minimap and the
+    map. The flight view shows what is on screen, as before.
+  - **Before the map,** the way is found by sight, landmarks and what people say, which
+    is vague but correct (9). Off-screen stations get no edge markers and no bearings.
+  - **The map is the first earned upgrade.** It is found as a blueprint (5, "Make"),
+    and comes as two named ship upgrades: the minimap first, then the full map. The
+    names are the module's.
   - A goal marker is an accessibility option, off by default.
 
 **Source.**
@@ -346,6 +353,8 @@ known-changes items.*
   `known-changes.html`, "Already decided" (now 9 here) and "Things are solid" (PR #53,
   merged 2026-10-31 12:48 UTC).
 - No arrows: the messaging-lab README (PR #43) and the slice README.
+- Fog of war, the minimap and the map as the first earned upgrade: Andreas, 2026-11-08,
+  with the long story (13).
 
 **In a screenshot or film.**
 
@@ -354,6 +363,8 @@ known-changes items.*
 - Docked, a press of W, A, S or D leaves the dock.
 - Shift doubles the speed.
 - Hitting a rock pushes the ship, and the ship doesn't pass through it.
+- In flight, nothing on screen points to a place: no arrows, no edge markers, no
+  bearings. Once fitted, the minimap shows explored space and keeps the rest under fog.
 
 **Overrides.**
 
@@ -365,10 +376,13 @@ known-changes items.*
 - PR #48 (merged 2026-10-31 05:32 UTC) built "W or S flies off; A and D do nothing while
   docked". The later "Already decided" list (PR #53, merged 12:48 UTC the same day) says
   "The movement keys (W, A, S, D) always fly the ship off the dock". The later one wins.
+- "No minimap design is locked, and none should be added" (issue #47, "Still open";
+  known-changes "Keep") and the off-screen edge markers lost to Andreas's navigation
+  decision of 2026-11-08: fog of war, a minimap and a map, earned as a blueprint,
+  instead of direction hints in the UI.
 
 **Parked.** Click-to-fly, map travel, order queues and loops as earned controls (see 5).
-System and galaxy maps: a map exists, but no minimap design is locked, and none should
-be added (issue #47, "Still open"; known-changes "Keep").
+Maps beyond the reach.
 
 ---
 
@@ -729,7 +743,8 @@ here still looks like a pause button, which is a known-changes item.*
 - **Where parts come from:**
   - Ready: credits.
   - Make: materials plus a blueprint found in the world, always confirmed with the
-    materials shown.
+    materials shown. The first blueprint is the map's: the minimap, then the full map
+    (2).
   - Friends: the keeper's contact at another station sends it after your next docking
     there, counted in dockings.
 - **Controls are modules** in the control rack (click to fly, click to mine, map travel,
@@ -967,6 +982,7 @@ roles beside them are how the slice, issue #47 and the ui-lab used them.
 | Bubbles anchored to the speaker's module; the dockmaster speaks from the office building (issue #47, Phase 2 and 3.1) | The bubble is on the speaker's figure in a staged room (places lab, 2026-11-01). |
 | Click a module, the camera glides to it, and the room panel opens beside it with the station still visible (issue #45, issue #47 3.1, known-changes) | The cut into a staged room. The 45% panel cap and the back paths stay (places lab, 2026-11-01). |
 | The ui-lab's station view: bubbles on buildings, the cradle cutting to another scene, the office nudging the camera (2026-11-01) | The places lab's pick, one grammar for every room (2026-11-01, later the same day). |
+| No minimap, and off-screen stations as small edge markers (issue #47, known-changes "Keep") | Fog of war, a minimap and a map instead of direction hints; the map is the first earned upgrade, found as a blueprint (Andreas, 2026-11-08). |
 
 ---
 
@@ -984,8 +1000,9 @@ Each item is described in its area above.
 - **Fitting:** a working drone bay, faction-styled parts and hull upgrade trees (5).
 - **Sound:** a quiet engine hum and ambient sound beds (6).
 - **World memory:** embeddings for vector search (7).
-- **The world:** system and galaxy maps, with no minimap (2), and true-3D stations and
+- **The world:** maps beyond the reach and map travel (2), and true-3D stations and
   planets (1.1).
+- **The long story:** what lies past the door, and going through it (13).
 
 ---
 
@@ -1006,6 +1023,48 @@ in 10. These two points are left open by the sources themselves:
 
 ---
 
+## 13. The long story
+
+**Decision.**
+
+- **The ring is a door.** The old stone ring by the glassite drift is one of a pair of
+  doors, and the player came through it. Twenty-four years ago it opened for under a
+  minute, and a lifeboat came through carrying a child of about three, alone. The player
+  is that child, grown.
+- **One fixed origin.** Every game starts from the same past, and the player chooses
+  nothing about it. Hessa Kell found and raised the child on Cold Kettle until they were
+  six, then sent them inward and logged nothing. They came back at twenty-seven, in a
+  tired tug, to work where they were found.
+- **The past is facts.** What the character remembers comes back a piece at a time,
+  released by a place, a person or an object, and is written as things seen, heard and
+  smelled. The past never tells the player how to feel or what to choose.
+- **Three anchors carry it:** Sefa, Mags and Hessa, each with a secret tied to the
+  player's past. They are in the core for the whole game.
+- **Friction and discovery.** No trust meter, and nothing points the way to a memory or a
+  secret.
+- **Plant, don't define.** Where the other door is, who sent the child, and what lies past
+  either door are left open. Going through could one day take the player somewhere
+  wholly new.
+- **The core owns the long threads.** A later module reads where they stand and writes
+  around them, but never advances them.
+- Who everyone is, what they hide and what reveals it: the being sheets in
+  [`game/modules/core/beings/`](../modules/core/beings/). Read the sheets before writing
+  any line for the player, Sefa, Mags or Hessa.
+
+**Source.** Andreas, 2026-11-08: "The Door", picked from three hidden answers for the ring,
+and the rules for being sheets.
+
+**In a screenshot.**
+
+- No meter, tag or icon shows how a keeper feels about the player.
+- A memory in the log is plain facts, with no word of feeling and no direction to go.
+- The ring looks and behaves as the core has it today: dark stone that wakes lilac only
+  when the player's ship comes near.
+
+**Parked.** The far side of the door, and what going through it means.
+
+---
+
 ## Sources
 
 | Source | Date | What it decided |
@@ -1023,3 +1082,4 @@ in 10. These two points are left open by the sources themselves:
 | PRs #60 and #61, `prototypes/ui-lab/REPORT.md` | 2026-11-01 | Screens as widget trees; the station must feel like a place |
 | PR #71, `prototypes/places-lab/REPORT.md` | 2026-11-01 | `cut · staged · bubble · states` |
 | PR #82 | 2026-11-02 | A module owns its screen look in `style.toml` |
+| Andreas | 2026-11-08 | Fog of war, a minimap and a map, earned first as a blueprint; the ring is a door the player came through; being sheets |
