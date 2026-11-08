@@ -1,5 +1,5 @@
 # Going back mid-talk: Back from a room ends the bubble there, so it never rides the
-# cut out (tests/back-talk.bot.toml plays it in a window). Ines's offer,
+# cut out. Ines's offer,
 # left unanswered, stays on offer and begins again at its first line; Back on that
 # first, ordinary line ends it too; the third time the gift is taken, and the log keeps
 # the one conversation once. Inside a room the log stays shut, so it ends no bubble.
