@@ -211,10 +211,11 @@ necessary local samples are explicitly provisional. The room test includes:
 5. Leave and return. Score the views separately and name one correction. Choose
    staged, shoulder or a specific further camera test from the evidence.
 
-The existing flight geometry test reaches the berth in about 16.4 simulation
-seconds. A separate stress view completely hides the tug behind the hub.
-Reproduce it with `prototypes/room-look/check-flight.py` before changing the
-camera treatment. These findings prove neither target art nor steady performance.
+Earlier local flight experiments reached the berth in about 16.4 simulation
+seconds and exposed a view in which the hub completely hides the tug. Those
+experiments are not included in this asset-proof draft. Recreate the hidden-tug
+case in step 6 before accepting a camera treatment. The earlier observations
+prove neither target art nor steady performance.
 
 ### Room order within step 8
 
