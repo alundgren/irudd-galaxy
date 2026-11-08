@@ -749,7 +749,7 @@ entity = "kettle_skipper"
 component = "engine.life"
 field = "name"
 equals = "Hessa Kell"
-# A hold of ore, and back at the Kiln.
+# A hold of ore (23, filling it beside the ration aboard), and back at the Kiln.
 [[input]]
 tick = 526
 name = "core.launch"
@@ -757,7 +757,7 @@ name = "core.launch"
 tick = 526
 entity = "ship"
 component = "hold"
-set = { ore = 24 }
+set = { ore = 23 }
 [[edit]]
 tick = 526
 entity = "ship"

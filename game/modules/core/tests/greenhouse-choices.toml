@@ -409,7 +409,8 @@ entity = "greenhouse_job"
 component = "project"
 field = "step"
 equals = 3
-# A full hold of ore cut while the panes fire: back at the Kiln, a counted visit.
+# A full hold of ore cut while the panes fire (23, beside her gift's ration): back at the
+# Kiln, a counted visit.
 [[input]]
 tick = 340
 name = "core.launch"
@@ -417,7 +418,7 @@ name = "core.launch"
 tick = 340
 entity = "ship"
 component = "hold"
-set = { ore = 24 }
+set = { ore = 23 }
 [[edit]]
 tick = 340
 entity = "ship"

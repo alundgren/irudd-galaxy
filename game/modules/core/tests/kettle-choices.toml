@@ -1067,7 +1067,8 @@ entity = "kettle_ore"
 component = "engine.talk"
 field = "enabled"
 equals = false
-# Ore for Orrin's pump: a hold of ore, back at the Kiln, and 4 of it handed to Mags.
+# Ore for Orrin's pump: a hold of ore (23, beside the ration aboard), back at the Kiln,
+# and 4 of it handed to Mags.
 [[input]]
 tick = 1027
 name = "core.launch"
@@ -1075,7 +1076,7 @@ name = "core.launch"
 tick = 1027
 entity = "ship"
 component = "hold"
-set = { ore = 24 }
+set = { ore = 23 }
 [[edit]]
 tick = 1027
 entity = "ship"
