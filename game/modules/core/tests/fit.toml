@@ -348,6 +348,13 @@ component = "hold"
 field = "ore"
 equals = 24
 
+# Each cut is recorded as mined (the chips and the full hold's chime follow it): nine
+# cuts fill the hold with the lens.
+[[expect]]
+tick = 470
+facts = "mined"
+equals = 9
+
 # Back at the cradle with the pods' price in hand: the pods make the hold 36 and the
 # ship slower, with wider turns.
 [[edit]]
@@ -462,6 +469,10 @@ entity = "ship"
 component = "pilot"
 field = "mining"
 equals = false
+[[expect]]
+tick = 690
+facts = "mined"
+equals = 11
 
 # Docked with 36 aboard, the bare hold takes 24: the pods stay on until the hold is sold.
 [[edit]]

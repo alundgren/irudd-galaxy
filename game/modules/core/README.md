@@ -1432,7 +1432,7 @@ records `engine.place_arrived` when a cut or glide lands; scenarios give it by h
 where a check needs the view settled. `loop.inputs`,
 `kiln.inputs` and `trade.inputs` are equivalent headless routes, and so is
 `fit.inputs` (sim runs, shots and the audio mixes play them); `flight.inputs` and
-`trade-play.inputs` are the performance scenes' routes. Six bots run headless with a
+`trade-play.inputs` are the performance scenes' routes. Eight bots run headless with a
 window's recording and world, each playing only the clicks, drags and keys that are its
 own; where a bot needs a later state it sets it with `[[edit]]` entries in its inputs
 file: `hand-mining.inputs` mines and docks with the keys a player presses and clicks a
@@ -1459,7 +1459,15 @@ with the scroll wheel (`zoom.bot.toml`, 590 ticks, six notes): zoomed fully in, 
 Mercy off screen with no label drawn, her label yielding while it would sit on the
 message, named beside the ship clear of the HUD, then zoomed fully out and named as she
 flies on, and off Cinder Kiln, Mercy and Quiet Lamp moored by it with none, and nothing
-jittering with nothing pressed. All declare 1280x720 physical pixels. The GM test report
+jittering with nothing pressed; `trade-click.inputs` clicks the trade through
+(`trade-click.bot.toml`, 860 ticks, seven notes): the galley site's sign, Ines and her
+introduction, plate sold with the exchange's Sell button until the fortieth builds the
+galley, her gift taken with its answer button, rations bought with Buy max, the log
+opened and shut, and rations sold at Cinder Kiln; and `greenhouse-click.inputs` clicks
+Ines's greenhouse through (`greenhouse-click.bot.toml`, 1760 ticks, eleven notes): her ask
+accepted, Sefa's introduction and the glassite handed over, the panes loaded and
+delivered, each with its answer button, the thirtieth ice sold with its Sell button,
+Ines's thanks and Noor's introduction. All declare 1280x720 physical pixels. The GM test report
 includes their dimensions, problems and deterministic replay results. On a display
 scaled to 125% that window is 1024x576 logical pixels; the click bots run there, and the
 hand-mining route, shot there while cutting, full and in the ring, fits too.
