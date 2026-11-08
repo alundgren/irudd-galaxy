@@ -231,10 +231,12 @@ tuning against drift. It doesn't prove the hour is fun.
   came first, the lens came after the 10th hold (9.8 minutes on the route, about 13 by
   hand: the ratio of 1.33 used for "by hand" here). The tuned thrusters, 9000 cr, are
   past the hour. The first hour buys the chart glass and the two small parts.
-- The reach rig, the first assist, needs 100 full holds and 15000 cr. On the bare-hull
-  route that never buys a part, it fits 101 minutes in, so close to two hours or more by
-  hand. The docking jets need 200 full holds and 30000 cr; on the same route, with the rig
-  cutting from then on, the holds are the gate and they fit 197 minutes in.
+- The reach rig, the first assist, needs 100 full holds and 15000 cr, and the chart glass
+  first. Measured before the chart glass came first, on a route that bought no part, it
+  fitted 101 minutes in, so close to two hours or more by hand; the chart glass's 2500 cr
+  and 20 plate come long before the 100th hold, so the holds stay the gate. The docking
+  jets need 200 full holds and 30000 cr; on that route, with the rig cutting from then
+  on, the holds were the gate and they fitted 197 minutes in.
 - From a new game to the galley built takes 3.5 minutes on the scripted trade route
   (`trade.inputs`), about 5 by hand.
 
@@ -395,8 +397,8 @@ Two controls are earned in the cradle's control rack (`start.toml`, socket `rack
 | Docking jets | 30000 cr | 200 full holds | E, or a click on a station, flies the ship into its berth from anywhere |
 
 Both are earned by work as well as paid for (`part.holds`): the pilot's `holds` counts
-every hold cut full, by hand or not, and until it reaches a control's number the rack
-shows that control resting with Orrin's own words, "Bring in 100 full holds and I'll fit
+every hold cut full, by hand or not, and once the chart glass is in, until it reaches a
+control's number the rack shows that control resting with Orrin's own words, "Bring in 100 full holds and I'll fit
 it.", and how many you've brought. Neither can be fitted in the first hour: the rig comes
 some two hours in or later, the jets past three. A bought control is never taken
 off.
@@ -1038,7 +1040,8 @@ with credits:
 | Hold pods | Hold | 3500 cr | the hold carries 36 instead of 24 | 0 | 3 |
 | Tuned thrusters | Engine | 9000 cr | top speed 25 instead of 20 | 2 | 1 |
 
-Before it, each says why it waits (`Orrin: "The chart glass first."`). They are priced
+Before it, none of them is on the rack: the cradle shows `Nothing on the rack yet`
+under the sockets, and the control rack only the chart glass (`fit.offered`). They are priced
 for the first hour after the chart glass: the lens after some ten ore runs more, the pods
 after as many again, and the thrusters past the hour (below, "The opening hour").
 
@@ -1048,8 +1051,9 @@ mass freely; each unit over costs 10% of top speed and turn rate (never below
 half), so the pods with anything else make the ship slower with wider turns. The
 control rack holds the controls the ship flies by: the hand cutter and hand berthing
 are always there (and the chart glass, once made, joins them on the rack's hover:
-`Always fitted: ...`), and the reach rig and the docking jets are bought from a row of
-buttons under the sockets (`Reach rig · 15000 cr`), resting until the work is done with
+`Always fitted: ...`), and once the chart glass is in, the reach rig and the docking jets
+are bought from a row of buttons under the sockets (`Reach rig · 15000 cr`), resting until
+the work is done with
 Orrin's own words and the count so far (`Orrin: "Bring in 100 full holds and I'll fit
 it." You've brought 12`), then with the reason while they can't be paid for. Controls cost no power or mass and never come off. The rules are
 `scripts/fit.luau`; the room is `scripts/cradle.luau`.

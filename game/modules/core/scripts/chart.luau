@@ -111,9 +111,10 @@ function chart.pins(ctx)
 end
 
 -- The tag held to the light (`choice`, answering Orrin's line in `talk`): the drawing is
--- found, once. Returns the log's lines (the drawing, then memory 3, which is the message
--- shown on leaving the room), or nil when this was not the tag or it was held up before.
--- The talk picks up after the answer if left.
+-- found, once. Returns the log's lines (the drawing, then memory 3), or nil when this was
+-- not the tag or it was held up before. They reach the log only: notices are hidden in
+-- rooms, and the launch's message replaces them. The talk picks up after the answer if
+-- left.
 function chart.held(ctx, talk, choice)
     if choice ~= "core.kiln_fitter_hold" then return nil end
     local id, p = chart.part(ctx)
