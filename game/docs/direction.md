@@ -438,9 +438,11 @@ direction hints in the UI.
   station's arm or clamps reach out, take hold of the ship with visible contact and pull
   it in. The player flies the approach.
 - **The docking jets** are an earned upgrade that extends the capture: it starts from
-  further out, and at a higher speed.
+  further out, and at a higher speed. That is their only job. Nothing flies the ship into
+  a berth for the player: E and a click on a station no longer dock from anywhere.
 
 **Source.** Andreas, 2026-11-08, in the same sitting as the flight feel, right after it.
+That the jets lose their fly-me-in job for good: Andreas, 2026-11-08, with Galaxy Lead.
 
 **In a screenshot or film.**
 
@@ -455,7 +457,11 @@ direction hints in the UI.
   units of its centre and below 8 units a second (`rules.in_ring`), and the clamps take
   the ship in.
 - The core's docking jets, which fly the ship into the nearest berth from anywhere (E or
-  a click on a station). Their job becomes extending the capture.
+  a click on a station). Their job becomes extending the capture, and flying the ship in
+  from anywhere goes.
+
+**Parked.** Flying the ship somewhere for the player comes back, if at all, with markers,
+waypoints and quick travel, which Andreas put after the map (2026-11-07).
 
 ---
 
@@ -1099,7 +1105,8 @@ Each item is described in its area above.
 - **Fitting:** a working drone bay, faction-styled parts and hull upgrade trees (5).
 - **Sound:** a quiet engine hum and ambient sound beds (6).
 - **World memory:** embeddings for vector search (7).
-- **Flight:** click-to-fly, order queues and loops as earned controls (2.1).
+- **Flight:** click-to-fly, order queues and loops as earned controls (2.1); flying the
+  ship somewhere for the player, with markers, waypoints and quick travel (2.3).
 - **The world:** maps beyond the reach and map travel (2.2), and true-3D stations and
   planets (1.1).
 - **The long story:** what lies past the door, and going through it (13).
