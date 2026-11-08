@@ -23,6 +23,7 @@ Each area gives:
 - **Decision**: what was agreed.
 - **Source**: where, and when.
 - **In a screenshot**: what to check.
+- **Overrides**: what the decision replaced, where it replaced something.
 - **Parked**: what was put off but not dropped. Don't build it unasked, and don't rule it
   out.
 
@@ -302,27 +303,31 @@ known-changes items.*
 
 ---
 
-## 2. Flight: the locked preset
+## 2. Flight, finding the way and docking
+
+### 2.1 Flight: the feel Andreas chose
 
 **Decision.**
 
 - **Tank controls:** A and D rotate, W thrusts, S thrusts in reverse, holding Space
   brakes, and Shift boosts ×2.
-- **Feel:**
-  - top speed 300 lab px/s
-  - acceleration 450 px/s²
-  - inertia 0.40
+- **Feel,** in the core's world units, with the view 64 units tall (`engine.flight` in
+  the core's `start.toml`):
+  - top speed 20 units/s (0.3 view heights a second)
+  - thrust 30 units/s²
+  - braking 30 units/s²
+  - inertia 0.25
   - turn rate 180°/s
-  - brake 350 px/s²
-  - auto-brake on, stopping in 1.0 s from any speed
-  - camera zoom 0.80, camera lead 0, no course hold
-- Releasing W coasts briefly, then auto-brakes to a stop in about a second.
-- **The preset is locked to how it feels on screen.**
-  - In the slice, 1 lab px = 0.55 world units: top speed 165 u/s, acceleration 247.5 u/s²
-    and brake 192.5 u/s², with a view 550 u tall at zoom 0.80.
-  - If the core's world scale differs, match the on-screen feel, not the raw numbers.
+  - auto-brake on: letting go of thrust stops the ship in 0.7 s, from any speed
+- Releasing W coasts a short way, then auto-brakes to a stop in 0.7 s. Through a turn
+  the old heading carries on only a moment.
+- **It was chosen by flying the game.** Andreas flew the real game while the values were
+  changed live (`galaxy-gm live edit`): three or four candidate feels on the same route,
+  counting overshoots and aborted approaches. He kept this one: "Keep this for now."
+- **Camera,** from #47 and unchanged: zoom 0.80 (in the slice, a view 550 of its units
+  tall), camera lead 0, no course hold.
 - Top speed, turn rate and zoom are data, which fitted parts and progression can change.
-- **Space:** a press does the action available here (dock in a ring, ride a current,
+- **Space:** a press does the action available here (dock at a berth, ride a current,
   start mining beside a rock), and holding it brakes. The hint names what a press does
   right now.
 - **Undocking** is flying off, with no undock button or key and no confirm step. Any of
@@ -332,42 +337,36 @@ known-changes items.*
 - **Things are solid:** ships, rocks and stations bump and push, with no damage.
   - Collision must keep every mining spot reachable and must not trap NPC pilots.
   - When mining, the ship sits at the rock's drawn surface.
-- There are no waypoint arrows and no direction hints in the UI. Finding the way is part
-  of the game, and the map is earned:
-  - **Fog of war.** What the ship hasn't been near stays under fog on the minimap and the
-    map. The flight view shows what is on screen, as before.
-  - **Before the map,** the way is found by sight, landmarks and what people say, which
-    is vague but correct (9). Off-screen stations get no edge markers and no bearings.
-  - **The map is the first earned upgrade.** It is found as a blueprint (5, "Make"),
-    and comes as two named ship upgrades: the minimap first, then the full map. The
-    names are the module's.
-  - A goal marker is an accessibility option, off by default.
 
 **Source.**
 
-- The preset: issue #47, section 1.5 (2026-10-30). Its decisions are final, and the
-  reference is `prototypes/flight-lab/` (PR #30).
+- Tank controls, Shift, the auto-brake and the camera: issue #47, section 1.5
+  (2026-10-30), with `prototypes/flight-lab/` (PR #30) as its reference.
+- The feel's numbers: Andreas, 2026-11-08, in a live tuning session in the core.
 - Units, Space, undocking and the world edge: the Decisions section of PR #48 and its
   first Question and answer (2026-10-30).
 - Solid things, the 180°/s turn and W, A, S and D flying off the dock:
   `known-changes.html`, "Already decided" (now 9 here) and "Things are solid" (PR #53,
   merged 2026-10-31 12:48 UTC).
-- No arrows: the messaging-lab README (PR #43) and the slice README.
-- Fog of war, the minimap and the map as the first earned upgrade: Andreas, 2026-11-08,
-  with the long story (13).
 
 **In a screenshot or film.**
 
 - Measure the turn: 180°/s.
-- Measure the stop after releasing W: about 1.0 s, from any speed.
+- Measure the stop after releasing W: 0.7 s from any speed, coasting about 7 units from
+  top speed.
+- In a 90° turn under thrust, the course lags the nose a little (about 12°) and tracks
+  it again within a fifth of a second of the turn ending.
 - Docked, a press of W, A, S or D leaves the dock.
 - Shift doubles the speed.
 - Hitting a rock pushes the ship, and the ship doesn't pass through it.
-- In flight, nothing on screen points to a place: no arrows, no edge markers, no
-  bearings. Once fitted, the minimap shows explored space and keeps the rest under fog.
 
 **Overrides.**
 
+- The feel Andreas chose (2026-11-08) replaces issue #47's preset: top speed 300 lab
+  px/s, acceleration 450 px/s², brake 350 px/s², inertia 0.40 and a 1.0 s auto-brake,
+  locked to how it felt on screen in the slice (1 lab px = 0.55 world units). In the
+  core that preset was braking 23.3, a 1.0 s stop and inertia 0.4. Top speed, turn rate
+  and the controls stay as they were.
 - Issue #47's preset replaces the design deck's "arcade, stops on release" note in
   `design/visual-styles-and-feel.html`. #47 says it wins over older briefs.
 - PR #48 dropped solid rock collision because rocks walled off mining spots. The
@@ -376,13 +375,87 @@ known-changes items.*
 - PR #48 (merged 2026-10-31 05:32 UTC) built "W or S flies off; A and D do nothing while
   docked". The later "Already decided" list (PR #53, merged 12:48 UTC the same day) says
   "The movement keys (W, A, S, D) always fly the ship off the dock". The later one wins.
-- "No minimap design is locked, and none should be added" (issue #47, "Still open";
-  known-changes "Keep") and the off-screen edge markers lost to Andreas's navigation
-  decision of 2026-11-08: fog of war, a minimap and a map, earned as a blueprint,
-  instead of direction hints in the UI.
 
-**Parked.** Click-to-fly, map travel, order queues and loops as earned controls (see 5).
-Maps beyond the reach.
+**Parked.** Click-to-fly, order queues and loops as earned controls (see 5).
+
+### 2.2 Finding the way: what people say, landmarks, fog and the map
+
+**Decision.** There are no waypoint arrows and no direction hints in the UI. Finding the
+way is part of the game, and the map is earned.
+
+- **People give directions in talk,** worded as a person would say them: vague but
+  correct (9), never exact bearings or distances in numbers. "Out past the lighthouse"
+  is a direction; "bearing 40°, 320 units" is not.
+- **Landmarks to point by.** A few big landmarks can be seen from far away, the
+  lighthouse and the ring among them, so people can point by them. Directions in talk
+  come first; the landmarks are added so the directions can lean on them.
+- **Fog of war.** What the ship hasn't been near stays under fog on the minimap and the
+  map. The flight view shows what is on screen, as before.
+- **The ship remembers from the start.** It records where it has flown from the first
+  minute, before any map is fitted. Fitting the minimap uncovers every place already
+  flown near.
+- **Before the map,** the way is found by sight, landmarks and what people say.
+  Off-screen stations get no edge markers and no bearings.
+- **The map is the first earned upgrade.** It is found as a blueprint (5, "Make"), and
+  comes as two named ship upgrades: the minimap first, then the full map. The names are
+  the module's.
+- **Mags's charts, later.** In a later beat, Mags's charts fill in places the player has
+  never visited: a gift or a trade, once she trusts the player. Her charts keep a gap
+  around the ring, on purpose (13; her being sheet).
+- A goal marker is an accessibility option, off by default.
+
+**Source.**
+
+- No arrows: the messaging-lab README (PR #43) and the slice README.
+- Fog of war, the minimap and the map as the first earned upgrade: Andreas, 2026-11-08,
+  with the long story (13).
+- Spoken directions and landmarks, the ship's memory from the start, and Mags's charts:
+  Andreas, 2026-11-08, answering the first hour's questions.
+
+**In a screenshot.**
+
+- In flight, nothing on screen points to a place: no arrows, no edge markers, no
+  bearings.
+- A direction in talk names a place or a landmark and a rough way, with no numbers.
+- The lighthouse and the ring can be picked out from far across the reach.
+- Fly somewhere, then fit the minimap: the places flown near are already clear, and the
+  rest is under fog.
+
+**Overrides.** "No minimap design is locked, and none should be added" (issue #47, "Still
+open"; known-changes "Keep") and the off-screen edge markers lost to Andreas's navigation
+decision of 2026-11-08: fog of war, a minimap and a map, earned as a blueprint, instead of
+direction hints in the UI.
+
+**Parked.** Map travel as an earned control (5). Maps beyond the reach.
+
+### 2.3 Docking: a capture zone and the station's clamp
+
+**Decision.**
+
+- **A generous capture zone** sits in front of each berth, lit so it reads from a
+  distance.
+- **The station does the last metres.** Come into the zone slowly enough, and the
+  station's arm or clamps reach out, take hold of the ship with visible contact and pull
+  it in. The player flies the approach.
+- **The docking jets** are an earned upgrade that extends the capture: it starts from
+  further out, and at a higher speed.
+
+**Source.** Andreas, 2026-11-08, in the same sitting as the flight feel, right after it.
+
+**In a screenshot or film.**
+
+- In front of a berth, the lit capture zone is plainly bigger than the ship.
+- Coming in slowly, the arm or clamps touch the ship before it moves. Nothing pulls the
+  ship without contact.
+- With the docking jets fitted, the capture starts further out and at a higher speed.
+
+**Overrides.**
+
+- The core's ring docking: fly into the berth's glowing ring and slow down, within 3.5
+  units of its centre and below 8 units a second (`rules.in_ring`), and the clamps take
+  the ship in.
+- The core's docking jets, which fly the ship into the nearest berth from anywhere (E or
+  a click on a station). Their job becomes extending the capture.
 
 ---
 
@@ -621,6 +694,29 @@ list:
 - The hullwright as a working yard, busy with NPC ships.
 - Your old ship or tender visible in a berth, and plaques for big deliveries.
 
+### 3.4 The office: the station's records
+
+**Decision.** The office is where a station keeps its records:
+
+- **The posted prices,** on a board you can see in the room, each price with who posted
+  it and when.
+- **Mags's charts,** in her office at Cinder Kiln: where the fog beat's charts come from
+  (2.2).
+- **The station's logs** of who came and went. Later, the player can look there for
+  traces of their own arrival, and find that Hessa logged nothing (13).
+
+**Source.** Andreas, 2026-11-08, answering the first hour's questions.
+
+**In a screenshot.**
+
+- Inside an office, the price board is part of the room, and each price on it says who
+  posted it and when.
+- Mags's office shows her charts.
+
+**Overrides.** None. It builds on the office the core has (every station's posted
+prices, what a station is building and how much ore the field holds) and takes nothing
+away.
+
 ---
 
 ## 4. Talk and the ship log (messaging direction A)
@@ -744,7 +840,7 @@ here still looks like a pause button, which is a known-changes item.*
   - Ready: credits.
   - Make: materials plus a blueprint found in the world, always confirmed with the
     materials shown. The first blueprint is the map's: the minimap, then the full map
-    (2).
+    (2.2).
   - Friends: the keeper's contact at another station sends it after your next docking
     there, counted in dockings.
 - **Controls are modules** in the control rack (click to fly, click to mine, map travel,
@@ -922,7 +1018,7 @@ These were the "Already decided (do not contradict)" list in `known-changes.html
   with history.
 - **Input.** Mouse first: every room and action can be reached by clicking. The movement
   keys (W, A, S, D) always fly the ship off the dock, with no separate undock step. This
-  is later than PR #48's "W or S" and wins (2).
+  is later than PR #48's "W or S" and wins (2.1).
 - **Agency.** Nothing changes the player's cargo, credits or fitted parts without a
   deliberate choice and a readable receipt.
 - **Readability.**
@@ -956,7 +1052,7 @@ Also agreed, in issue #47 and the known-changes intro:
   - Control hints say the key and what it does.
   - Flavour belongs in dialogue, and NPCs speak in the first person.
   - Names and terms are introduced before they are used.
-  - Directions can be vague but must be correct.
+  - Directions can be vague but must be correct, and people give them in talk (2.2).
 - **Screen size.** The design size is 1280×720, and nothing overlaps at that size.
 
 The copy rules are from issue #47, "Ground rules for the whole night" (2026-10-30); the
@@ -983,6 +1079,9 @@ roles beside them are how the slice, issue #47 and the ui-lab used them.
 | Click a module, the camera glides to it, and the room panel opens beside it with the station still visible (issue #45, issue #47 3.1, known-changes) | The cut into a staged room. The 45% panel cap and the back paths stay (places lab, 2026-11-01). |
 | The ui-lab's station view: bubbles on buildings, the cradle cutting to another scene, the office nudging the camera (2026-11-01) | The places lab's pick, one grammar for every room (2026-11-01, later the same day). |
 | No minimap, and off-screen stations as small edge markers (issue #47, known-changes "Keep") | Fog of war, a minimap and a map instead of direction hints; the map is the first earned upgrade, found as a blueprint (Andreas, 2026-11-08). |
+| Issue #47's flight preset, locked to how it felt on screen in the slice: inertia 0.40, brake 350 lab px/s², a 1.0 s auto-brake (in the core: braking 23.3, a 1.0 s stop, inertia 0.4) | The feel Andreas chose flying the core: top speed 20, thrust 30, braking 30, a 0.7 s stop, inertia 0.25, turn 180 (2.1; Andreas, 2026-11-08). |
+| Docking by slowing in the berth's ring, within 3.5 units and below 8 units a second (the core's `rules.in_ring`); the docking jets fly the ship into a berth from anywhere (the core) | A generous lit capture zone, where the station's arm or clamps take the ship in; the docking jets extend the capture (2.3; Andreas, 2026-11-08). |
+| Hessa met in person only at the end of the galley, greenhouse and Cold Kettle chain (the core) | The galley optional; Hessa met early; the chain deepens her story (14; Andreas, 2026-11-08). |
 
 ---
 
@@ -1000,7 +1099,8 @@ Each item is described in its area above.
 - **Fitting:** a working drone bay, faction-styled parts and hull upgrade trees (5).
 - **Sound:** a quiet engine hum and ambient sound beds (6).
 - **World memory:** embeddings for vector search (7).
-- **The world:** maps beyond the reach and map travel (2), and true-3D stations and
+- **Flight:** click-to-fly, order queues and loops as earned controls (2.1).
+- **The world:** maps beyond the reach and map travel (2.2), and true-3D stations and
   planets (1.1).
 - **The long story:** what lies past the door, and going through it (13).
 
@@ -1063,6 +1163,31 @@ and the rules for being sheets.
 
 **Parked.** The far side of the door, and what going through it means.
 
+## 14. The first hour
+
+**Decision.**
+
+- **The galley is optional from the start.** Ines asks early, and her first thanks and
+  her wish for hot meals stay, but the galley is never required. After the minimap it is
+  one choice of three, beside the glassite lead and the full map.
+- **Hessa can be met early.** She is met without first going through the galley, the
+  greenhouse and Cold Kettle adrift, for example on her barge at the ice, so her "New
+  tug?" lands in the first hour. That chain deepens her story instead of gating it.
+
+**Source.** Andreas, 2026-11-08, answering the first hour's questions.
+
+**In play.**
+
+- A new game reaches the minimap without the galley built.
+- In the first hour, without the galley built, the player can meet Hessa in person and
+  hear her "New tug?".
+- Ines asks for the galley early, thanks the player and wishes for hot meals, and the
+  minimap and meeting Hessa don't wait on the galley being built.
+
+**Overrides.** The core's chain, in which Hessa is met in person only once Cold Kettle
+is towed in, after the galley and then the greenhouse are built (the core's README and
+Hessa's being sheet). The chain stays, but it no longer gates meeting her.
+
 ---
 
 ## Sources
@@ -1083,3 +1208,4 @@ and the rules for being sheets.
 | PR #71, `prototypes/places-lab/REPORT.md` | 2026-11-01 | `cut · staged · bubble · states` |
 | PR #82 | 2026-11-02 | A module owns its screen look in `style.toml` |
 | Andreas | 2026-11-08 | Fog of war, a minimap and a map, earned first as a blueprint; the ring is a door the player came through; being sheets |
+| Andreas, the first hour's questions and a live flight session | 2026-11-08 | The flight feel; spoken directions and landmarks; the ship's memory and Mags's charts; docking by a capture zone and the station's clamp; the office as the station's records; the galley optional and Hessa met early |
