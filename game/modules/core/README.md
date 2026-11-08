@@ -1,6 +1,8 @@
 # Core: a quiet working shift
 
 Every change here follows [the direction doc](../../docs/direction.md); compare your screenshots with its reference images.
+Who the player, Sefa, Mags and Hessa are, and what they hide, is in the being sheets in
+[`beings/`](beings/), which the game doesn't load; read them before writing their lines.
 
 Fly a small tug, cut ironstone, ice and rare
 glassite from the rocks of the reach, fly the long way to either of two stations and sell
