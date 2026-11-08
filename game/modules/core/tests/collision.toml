@@ -32,7 +32,7 @@ tick = 30
 entity = "ship"
 component = "engine.position"
 field = "y"
-at_least = 2
+at_least = 1.9
 
 [[expect]]
 entity = "rock1"

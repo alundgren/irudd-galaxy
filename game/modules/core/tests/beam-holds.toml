@@ -1,6 +1,6 @@
 # A beam holds on its rock as the rock shrinks (cutter.holds). A scripted order flies the
 # ship towards the south-east seam (rock5) and is cancelled short of it, so she coasts to
-# a stop some 6.4 units off its surface, near the edge of the cutter's reach of 7, as a
+# a stop some 6.7 units off its surface, near the edge of the cutter's reach of 7, as a
 # pilot stops who flies up until the hint says the rock is in reach. One click puts the
 # beam on, no key is held, and it cuts the whole hold: the seam shrinks by a fifth as it
 # is cut, and its surface drawing back past the cutter's reach no longer lifts the beam
@@ -13,7 +13,7 @@ tick = 1
 name = "core.mine"
 payload = { rock = "core.rock5" }
 [[input]]
-tick = 99
+tick = 103
 name = "core.cancel"
 payload = { down = true }
 [[input]]

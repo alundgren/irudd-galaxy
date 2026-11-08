@@ -24,7 +24,7 @@ payload = { station = "core.lantern" }
 tick = 96
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 42 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 40 }
 [[input]]
 tick = 116
 name = "core.open"

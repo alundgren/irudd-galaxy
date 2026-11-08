@@ -5,7 +5,7 @@
 # count, and the seventh cuts it down. A turn and a short run put the nose on the big
 # east seam, whose soft stone cuts faster; held on it, it glazes and the rest comes slowly,
 # and it fills the hold. Turned onto Lantern Dock, W flies her there; a touch re-aims
-# her, and W let go coasts the ship to a stop in its glowing ring and the clamps take her
+# her, and W let go coasts the ship slowly into its glowing ring and the clamps take her
 # in with a puff. Ten notes.
 [[input]]
 tick = 4
@@ -13,7 +13,7 @@ name = "core.ahead"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 13
+tick = 15
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
@@ -61,7 +61,7 @@ name = "core.ahead"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 359
+tick = 366
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
@@ -130,13 +130,13 @@ name = "core.ahead"
 source = "keyboard"
 payload = { down = true }
 [[input]]
-tick = 1508
+tick = 1512
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
 [[note]]
-tick = 1552
-text = "Coasted to a stop inside the berth's glowing ring."
+tick = 1527
+text = "Coasting slowly into the berth's glowing ring."
 [[note]]
-tick = 1564
+tick = 1540
 text = "The clamps take her in with a puff of vapour."

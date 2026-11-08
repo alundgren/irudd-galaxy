@@ -1,6 +1,6 @@
 # Flying straight off the dock: docked, Shift alone does nothing, but W flies the ship
 # off on the tick it is pressed, facing away from the station, with no separate undock
-# step; the ship leaves in a straight line, and letting go coasts to a stop in a second.
+# step; the ship leaves in a straight line, and letting go coasts to a stop in 0.7 seconds.
 # Docked again at Cinder Kiln, D (a turn) flies it off too, turning as it goes.
 seed = 7
 ticks = 331
@@ -114,9 +114,9 @@ component = "engine.position"
 field = "angle"
 at_most = 0.55
 
-# Let go at 230: stopped a second later.
+# Let go at 140: stopped 0.7 seconds later.
 [[expect]]
-tick = 172
+tick = 161
 entity = "ship"
 component = "engine.motion"
 field = "vx"

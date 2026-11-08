@@ -201,7 +201,7 @@ payload = { station = "core.lantern" }
 tick = 230
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 226 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 213 }
 [[expect]]
 tick = 231
 entity = "lantern"

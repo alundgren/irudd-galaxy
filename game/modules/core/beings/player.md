@@ -155,6 +155,6 @@ What the game never puts in the player's mouth, on a talk button or in the log:
   "Pell won't cut near your ring. She says it hums."). True.
 - **Not yet reconciled, waiting on implementation:** the README makes the cutting lens
   the first part a player can buy and names off-screen stations in the bottom stack
-  (`rules.bearings`). The new direction (`../../../docs/direction.md`, 2) makes the map
+  (`rules.bearings`). The new direction (`../../../docs/direction.md`, 2.2) makes the map
   the first earned upgrade and replaces direction hints with fog of war, a minimap and a
   map. The core changes when the map is built.

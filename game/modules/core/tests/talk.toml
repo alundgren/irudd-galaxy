@@ -35,7 +35,7 @@ payload = { station = "core.lantern" }
 tick = 99
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 45 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 43 }
 
 # Each keeper wears a name sign in their own room: in the exchange Tova wears hers,
 # and Bram, in his office, none.
