@@ -5,29 +5,35 @@
 # (glassite_shard2) lie well inside the view: at cruise the view shows about 64 units each side
 # of the ship and 41 ahead and behind, and the expectation keeps a margin of 15 and 11.
 seed = 7
-ticks = 1434
+ticks = 894
 
+# Starts just off Cinder Kiln's berth, docking.
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = 200, y = -249 }
 [[input]]
 tick = 1
 name = "core.dock"
+source = "script"
 payload = { station = "core.kiln" }
 
 [[input]]
-tick = 600
+tick = 60
 name = "core.launch"
 
 [[input]]
-tick = 640
+tick = 100
 name = "core.right"
 payload = { down = true }
 
 [[input]]
-tick = 648
+tick = 108
 name = "core.right"
 payload = { down = false }
 
 [[input]]
-tick = 660
+tick = 120
 name = "core.ahead"
 payload = { down = true }
 
@@ -40,42 +46,42 @@ field = "text"
 equals = "Fly north from our berth, a touch east. It's far."
 
 [[expect]]
-tick = 601
+tick = 61
 entity = "ship"
 component = "engine.position"
 field = "x"
 equals = 206
 
 [[expect]]
-tick = 601
+tick = 61
 entity = "ship"
 component = "engine.position"
 field = "y"
 equals = -255
 
 [[expect]]
-tick = 1433
+tick = 893
 entity = "ship"
 component = "engine.position"
 field = "x"
 at_least = 216
 
 [[expect]]
-tick = 1433
+tick = 893
 entity = "ship"
 component = "engine.position"
 field = "x"
 at_most = 312
 
 [[expect]]
-tick = 1433
+tick = 893
 entity = "ship"
 component = "engine.position"
 field = "y"
 at_least = 224
 
 [[expect]]
-tick = 1433
+tick = 893
 entity = "ship"
 component = "engine.position"
 field = "y"
@@ -83,14 +89,14 @@ at_most = 278
 
 # What is seen there, where the box above is drawn round.
 [[expect]]
-tick = 1433
+tick = 893
 entity = "glassite_shard2"
 component = "engine.position"
 field = "x"
 equals = 264
 
 [[expect]]
-tick = 1433
+tick = 893
 entity = "glassite_shard2"
 component = "engine.position"
 field = "y"

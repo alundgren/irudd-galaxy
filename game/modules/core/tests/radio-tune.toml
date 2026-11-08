@@ -5,7 +5,19 @@
 # last channel turns the radio off, and R again turns it on at the first. Docked, the radio
 # is quiet and R does nothing.
 seed = 7
-ticks = 1549
+ticks = 995
+
+# Set just off Lantern Dock's berth before the Dock order.
+[[edit]]
+tick = 899
+entity = "ship"
+component = "engine.position"
+set = { x = -178, y = -197 }
+[[edit]]
+tick = 899
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0.0, vy = 0.0 }
 
 [[input]]
 tick = 120
@@ -76,7 +88,7 @@ name = "dock"
 payload = { station = "core.lantern" }
 
 [[input]]
-tick = 1499
+tick = 945
 name = "radio"
 payload = { down = true }
 
@@ -210,25 +222,25 @@ equals = 3
 
 # Docked: quiet, and R does nothing.
 [[expect]]
-tick = 1499
+tick = 945
 entity = "ship"
 component = "engine.location"
 field = "place"
 equals = "core.lantern"
 
 [[expect]]
-tick = 1499
+tick = 945
 facts = "radio_off"
 equals = 3
 
 [[expect]]
-tick = 1500
+tick = 946
 entity = "ship"
 component = "radio"
 field = "on"
 equals = true
 
 [[expect]]
-tick = 1500
+tick = 946
 facts = "radio_lantern"
 equals = 3

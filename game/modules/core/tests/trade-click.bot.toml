@@ -1,0 +1,9 @@
+# Trade and log by real clicks (tests/trade-click.inputs), from set states: the exchange's
+# Sell buttons for plate and rations, Buy max for rations, the galley's sign and its cook,
+# her introduction, her gift's answer and the log's close button.
+inputs = "tests/trade-click.inputs"
+ticks = 860
+size = [1280, 720]
+# The UI scale the routes are written at: 125% display scaling, on any machine.
+scale = 1.25
+seed = 1

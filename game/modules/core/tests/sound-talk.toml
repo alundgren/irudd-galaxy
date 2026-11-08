@@ -4,136 +4,136 @@
 # the last one too as the talk ends, and another stale click on the finished last line
 # adds nothing. A talk heard again blips again.
 seed = 3
-ticks = 1978
+ticks = 586
 
+# Starts just off Lantern Dock's berth with a full hold of ore, docking.
+[[edit]]
+entity = "ship"
+component = "hold"
+set = { ore = 24 }
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = -178, y = -197 }
 [[input]]
 tick = 1
-name = "core.ahead"
-payload = { down = true }
-[[input]]
-tick = 11
-name = "core.ahead"
-payload = { down = false }
-[[input]]
-tick = 60
-name = "core.mine"
-[[input]]
-tick = 960
 name = "core.dock"
+source = "script"
 payload = { station = "core.lantern" }
+
 [[input]]
-tick = 1488
+tick = 96
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 1434 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 42 }
 # Into Bram's office, where he is met.
 [[input]]
-tick = 1508
+tick = 116
 name = "core.open"
 payload = { facility = "core.lantern_office" }
 [[input]]
-tick = 1511
+tick = 119
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 1508 }
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 116 }
 [[input]]
-tick = 1548
+tick = 156
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_master_intro" }
 [[input]]
-tick = 1608
+tick = 216
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
 [[input]]
-tick = 1608
+tick = 216
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
 [[input]]
-tick = 1613
+tick = 221
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
 [[expect]]
-tick = 1613
+tick = 221
 entity = "lantern_master_intro"
 component = "engine.talk"
 field = "current"
 equals = "core.lantern_master_intro2"
 [[expect]]
-tick = 1613
+tick = 221
 facts = "engine.talk_next"
 equals = 3
 [[expect]]
-tick = 1613
+tick = 221
 facts = "talk_line"
 equals = 1
 
 [[input]]
-tick = 1668
+tick = 276
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro2" }
 [[input]]
-tick = 1728
+tick = 336
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro3" }
 [[input]]
-tick = 1788
+tick = 396
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro4" }
 [[input]]
-tick = 1848
+tick = 456
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro5" }
 [[input]]
-tick = 1850
+tick = 458
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro5" }
 [[expect]]
-tick = 1853
+tick = 461
 entity = "lantern_master_intro"
 component = "engine.talk"
 field = "active"
 equals = false
 [[expect]]
-tick = 1853
+tick = 461
 facts = "talk_line"
 equals = 5
 
 # His everyday line, heard twice: each time the talk starts and the line is clicked, it
 # blips again.
 [[input]]
-tick = 1938
+tick = 546
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_master_talk" }
 [[input]]
-tick = 1948
+tick = 556
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_talk", line = "core.lantern_master_now" }
 [[input]]
-tick = 1958
+tick = 566
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_master_talk" }
 [[input]]
-tick = 1968
+tick = 576
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_talk", line = "core.lantern_master_now" }
 [[expect]]
-tick = 1949
+tick = 557
 facts = "talk_line"
 equals = 6
 [[expect]]
-tick = 1969
+tick = 577
 facts = "talk_line"
 equals = 7

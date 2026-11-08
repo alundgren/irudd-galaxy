@@ -6,9 +6,9 @@
 # the rig's long beam cuts it from sixteen units off with no key held.
 #
 # The work is set, not played: the holds and credits come from [[edit]] entries, and the
-# ship starts beside Cinder Kiln's berth, so the run is twelve seconds of game time.
+# ship starts beside Cinder Kiln's berth, so the run is fourteen seconds of game time.
 seed = 7
-ticks = 350
+ticks = 420
 
 # One hold short of the rig's hundred, with credits for both controls.
 [[edit]]
@@ -188,7 +188,8 @@ facts = "core.docked"
 equals = 2
 
 # Launched again and set down thirty units off the nearest rock, Space sends her out to
-# it with no key held, and the rig's long beam cuts from sixteen units off.
+# it with no key held, and the rig's long beam cuts from sixteen units off. A tap of W
+# drops the rig's order: the beam goes off and no more ore comes in.
 [[input]]
 tick = 210
 name = "core.launch"
@@ -243,3 +244,58 @@ entity = "ship"
 component = "hold"
 field = "ore"
 at_least = 1
+
+[[expect]]
+tick = 359
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 359
+entity = "ship"
+component = "engine.beam"
+field = "target"
+equals = "core.rock5"
+[[expect]]
+tick = 359
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 5
+
+# A tap of W: the order is dropped, the beam lifts and no more ore comes in.
+[[input]]
+tick = 360
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 361
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[expect]]
+tick = 360
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+[[expect]]
+tick = 360
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Order dropped: flying by hand."
+[[expect]]
+tick = 420
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+[[expect]]
+tick = 420
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 5

@@ -218,7 +218,8 @@ tuning against drift. It doesn't prove the hour is fun.
 `tests/opening.toml` guards these: the hold not full 20 seconds into the cutting and full
 at 27, the Kiln still far off halfway there and reached 19 seconds after the order, the
 first hold's 379 cr, and the lens's price and the assists' gates. `tests/beats.toml`
-guards the first trip's messages, and `tests/assists.toml` plays the gates out in full.
+guards the first trip's messages, and `tests/assists.toml` checks the gates from set hold
+counts.
 
 ## Mining and docking by hand
 
@@ -737,7 +738,7 @@ built or not; what was heard stays heard, so "I'm Ines" is said once. The Kiln's
 exchange posts its rations price from
 the start, and Sefa mentions her crews would pay for them.
 
-Measured on the headless route `tests/trade.toml` (seed 7, flights scripted): one hold of
+Measured on the headless route `tests/trade.inputs` (seed 7, flights scripted): one hold of
 ore sells for 379 cr at the Kiln; each plate run buys what the credits allow (13, 15,
 then 17 plate) and earns 76, 66 and 59 cr as both plate lines ease back towards their
 targets, the Kiln's price rising and Lantern Dock's falling; a hold of rations earns 49
@@ -1287,7 +1288,7 @@ for every second of beam time however it is broken up, the berth ring, regrowth 
 and the worked-out message for an empty and a full hold, and in `tests/cutting.luau` the
 stone's heat, cold to warm to glazed and back, and simulated holds guarding how much an
 attentive hand beats clicking once and waiting, under "Cutting takes judgment") and
-seventy scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
+sixty-eight scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
 below):
 the opening's pace (`opening.toml`, above under "The opening hour"), cutting with
 judgment (`cutting.toml`: Sefa's word on the first hand beam, the seam warming, glazing
@@ -1313,33 +1314,33 @@ turned and
 flown the long way into Lantern Dock's ring by keys alone and clamped in; `hand-aim.toml`: turning lifts the beam, a quarter
 turn off says to point the nose, turning back resumes with no beam time lost, a click
 latches the beam and flying lifts it, a far rock is too far, and E without the jets
-flies nowhere and says how docking is done), the earned controls (`assists.toml`: after
-the first sale neither control fits, and eighty holds in, the rig's price in hand,
-Orrin still refuses it for the work; at a hundred full holds the rig is bought and, from
-the Kiln's berth with no key held, flies her out and cuts the hold full, aiming itself;
-at 200 holds and 30000 cr the jets fit, a bought control can't come off, and E flies her
-in from the reach. It is several hours of play, so it is the longest scenario, about
-four minutes headless; `rig-stop.toml`, the same route to the rig: a tap of W while the
-rig's beam is on a rock drops the order and no more ore comes in), the radio (`radio.toml`: Lantern Dock's channel in the first
+flies nowhere and says how docking is done), the earned controls (`assists.toml`, with the hold
+counts and credits set: at 99 full holds, the rig's price in hand, Orrin still refuses it
+for the work; at a hundred the rig is bought; at 199 the jets are refused and at 200 they
+fit, a bought control can't come off, and E flies her in from the reach; set by a rock,
+Space sends the rig out with no key held and its long beam cuts from sixteen units off,
+aiming itself, and a tap of W drops the order and no more ore comes in), the radio (`radio.toml`: Lantern Dock's channel in the first
 second, kept while a hold is mined at the first rocks, the Kiln's taking over once on
-the long flight there, the music stopped on docking, the Kiln's channel cued again on
-flying off, and Lantern Dock's taking over once on the way back in; `radio-tune.toml`: R to Cinder Kiln held by hand
+the way in there, the music stopped on docking, the Kiln's channel cued again on
+flying off, kept back over the field, and Lantern Dock's taking over once by its berth; `radio-tune.toml`: R to Cinder Kiln held by hand
 out past Lantern Dock, Off and On, Prev, R past the last channel to off and on again,
 and R doing nothing docked; `radio-hot-load.toml`: a hot load's fact in flight
 cueing the playing channel once more; `radio-resume.toml`: a resume in flight cueing
-it once more, and one with the radio off or docked cueing nothing), both complete station trips, collision under held thrust (stopped on the
+it once more, and one with the radio off or docked cueing nothing), a complete station trip (`kiln.toml`), collision under held thrust (stopped on the
 rock's surface, then glancing off round it, the rock unmoved but turning 3 degrees a
 second), flying straight off the
 dock (`undock.toml`: Shift alone stays moored, W leaves on the tick it is pressed facing
 away from the station in a straight line and coasts to a stop in a second, D leaves
 Cinder Kiln turning), traffic (`traffic.toml`: Little Mercy waits, sets off, is bumped
-aside by the ship and still moors off Cinder Kiln; Quiet Lamp moors there, flies back
-and moors off Lantern Dock; their arrivals never dock the player), refused
-out-of-place actions, repeat trips through depletion with an empty-sale check (the unit that works rock1
-out and fills the hold logs both),
+aside by the ship and still moors off Cinder Kiln; Quiet Lamp moors there, sets off home
+and moors off Lantern Dock, each set on the last stretch of its leg; their arrivals never
+dock the player), refused
+out-of-place actions, a repeat trip (`repeat.toml`: the rock's beat and the full hold's
+logged, a counted docking regrowing a worked-out rock to half, the regrown stone mined
+again, and the second hold selling for less),
 the station itself (rooms from signs and M, refused sales outside the exchange,
 a building of another station, the log held shut inside a room, keeper talk, the
-sale receipt and log lines, the skiff and launch), talk (an introduction once,
+sale receipt and log lines, the ore pile growing, the skiff and launch), talk (an introduction once,
 one line per click, the repeat line following the hold and the sale, one log
 entry per conversation with no repeats, talk ended by launch, and hints
 retiring), one conversation (a sale in the middle of an introduction leaves it one entry, and the speaker keeps their sign while their bubble shows), trade
@@ -1409,12 +1410,14 @@ before Ines asks for more (`galley-lived.toml`: the crews at her table, her than
 ask on the visit that first finds it open, nor after stepping out and straight back in,
 her line and Bram's meanwhile, and the ask once flown out and docked again), Ines's first-plate word heard at the site (`first-plate.toml`: her
 everyday line leads with it after the first sale, then counts on alone once heard), and
-the fitting loop (`fit.toml`: ore runs that leave the lens one hold out of reach, the
-rack stocked and priced; a part that can't be paid for, in the wrong socket or short of power doing nothing; the lens
+the fitting loop (`fit.toml`, from set credits and holds: the lens one hold out of
+reach, the rack stocked and priced; a part that can't be paid for, in the wrong socket or short of power doing nothing; the lens
 bought and fitted with one receipt and Orrin's line, taken off (the flight staying
-the locked preset) and fitted again for nothing; the next hold mined two a second; the
-pods, after more ore runs, making the hold 36, the ship 18 and 162° and its model the
-podded hull; the pods refused coming off with 36 aboard, then taken off once sold). `log-pins.toml` leaves Ines's offer unanswered, then makes
+the locked preset) and fitted again for nothing; the next hold mined at twice the pace;
+the pods making the hold 36, the ship 18 and 162° and its model the podded hull; the pods
+refused coming off with 36 aboard, then taken off once sold; `fit-click.toml`: the same
+fits by Choose, Put back, Fit here and Take it off here, the choice let go on leaving,
+Orrin's sign hidden while a part is chosen, and the fits logged at the station). `log-pins.toml` leaves Ines's offer unanswered, then makes
 32 quick launch-and-redock trips: the offer stays marked heard after its entry has
 been dropped, and each launch ends a visit. `tests/log.luau` checks visits (a return
 to the same station with nothing logged between is a new one), the short visit line,
@@ -1427,53 +1430,47 @@ line can be passed and when it slips, when Noor and each dockmaster offer, the w
 waiting on its delivery aboard, and the log's words at each step. Play
 records `engine.place_arrived` when a cut or glide lands; scenarios give it by hand
 where a check needs the view settled. `loop.inputs`,
-`kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
-routes, and so is `fit.inputs`. Twelve bots run in a window: `hand-mining.inputs` mines and
-docks with the keys a player presses and clicks a far rock (`hand-mining.bot.toml`, 1589
-ticks, nine notes), and eight more use real screen clicks, their flights between
-stations given as scripted Mine and Dock: `play.inputs` docks (the view glides in),
-points at and clicks the exchange building (a cut into the room), talks to Tova at
-her counter, lands the office's cut with a click and talks to Bram at his desk, goes
-back with Esc and with a right-click, shuts the log with Esc and takes twelve notes
-(`play.bot.toml`, 2148 ticks), and
-`trade-play.inputs` plays the whole trade loop, meeting Ines at the bare galley site
-before the first plate, through the galley and her gift with twelve notes
-(`trade.bot.toml`, 8594 ticks), and `greenhouse-play.inputs` carries
-on from it through Ines's greenhouse (`greenhouse.bot.toml`, 19067 ticks, 26 notes): her
-ask accepted and the plot on the deck, Sefa's introduction and the glassite handed over,
-an ore trip, the panes waiting on a full hold and then loaded as Ines's, handed to her,
-the scaffold and glaziers, two runs of ice, the greenhouse and its lamp strings, her
-thanks, Noor in the greenhouse and the station's dome from the reach, and `kettle-play.inputs`
-carries on from that through Cold Kettle's job (`kettle.bot.toml`, 26798 ticks, 42
-notes): Noor's ask accepted, out to the barge by hand keys, a line passed with a click
-on her, a hand swing round the ice that slips it, passed again and towed home, moored
-and the plate handed over with Bram's gold button, two trips out, the supper on the
-deck, the greenhouse in bloom with Hessa minding the tanks, and Noor's thanks in the
-galley, and `back-talk.inputs` plays
-that loop up to Ines's offer, then goes back with Esc on the unanswered offer and
-with a right-click on its first line, takes it the third time, goes back out with B while Tova speaks in her exchange, then comes back in and hears her again (`back-talk.bot.toml`, 7826 ticks, thirteen notes), and `fit-play.inputs` plays the fitting loop with real drags
-(`fit.bot.toml`, 44694 ticks, thirteen notes): ore runs until the lens is one hold away, the cradle on the first visit, the lens
-held with no credits and every socket's refusal, a click on the resting Buy 1 with a
-full hold (reported in `resting_clicks`, nothing bought), the lens fitted, the
-thrusters refused for power while held, Orrin's talk, mining with the lens, the pods
-fitted over the free mass, and the pods refused coming off with 36 aboard, and
-`flight.inputs` flies with the traffic (`flight.bot.toml`, 2366 ticks, nine notes): across
-Little Mercy's route with her label showing, bumping her aside (her label below her,
-clear of your ship), pointing at her, docking
-at Lantern Dock, flying straight off with W, coasting to a stop and mining from the
-rock's surface, and `radio-play.inputs` plays the radio (`radio.bot.toml`, 2487 ticks, ten
-notes): Lantern Dock from the first second and through mining, the ticker's next line,
-Next, Off and On, Prev and R clicked and pressed, docking at Cinder Kiln with the radio
-hidden, and flying off onto the Kiln's channel, and `zoom-play.inputs` flies with the
-traffic zoomed fully in and then fully out (`zoom.bot.toml`, 1850 ticks, six notes):
-Little Mercy off screen with no label drawn, her label yielding while it would sit on the
-message, named beside the ship clear of the HUD, then named zoomed out as she flies on, and after a Dock order to Cinder Kiln, Mercy
-and Quiet Lamp moored by it with none, and nothing jittering with nothing pressed. Nine declare 1280x720 physical pixels; `cradle-small.bot.toml` and
-`mixed-trade.bot.toml` declare 1200x675, the 960x540 logical window at 125%. The GM test
-report includes their frame times, dimensions, problems and deterministic replay
-results. On a display scaled to 125% that window is 1024x576 logical pixels, and
-the seven click bots run there without problems, and the hand-mining route, shot there
-while cutting, full and in the ring, fits too.
+`kiln.inputs` and `trade.inputs` are equivalent headless routes, and so is
+`fit.inputs` (sim runs, shots and the audio mixes play them); `flight.inputs` and
+`trade-play.inputs` are the performance scenes' routes. Eight bots run headless with a
+window's recording and world, each playing only the clicks, drags and keys that are its
+own; where a bot needs a later state it sets it with `[[edit]]` entries in its inputs
+file: `hand-mining.inputs` mines and docks with the keys a player presses and clicks a
+far rock (`hand-mining.bot.toml`, 1589 ticks, nine notes); `play.inputs` docks (the view
+glides in), points at and clicks the exchange building (a cut into the room), talks to
+Tova at her counter, lands the office's cut with a click and talks to Bram at his desk,
+goes back with Esc and with a right-click, shuts the log with Esc and takes twelve notes
+(`play.bot.toml`, 2148 ticks); `kettle-play.inputs` plays through Cold Kettle's job
+(`kettle.bot.toml`, 26798 ticks, 42 notes): Noor's ask accepted, out to the barge by
+hand keys, a line passed with a click on her, a hand swing round the ice that slips it,
+passed again and towed home, moored and the plate handed over with Bram's gold button,
+two trips out, the supper on the deck, the greenhouse in bloom with Hessa minding the
+tanks, and Noor's thanks in the galley; `fit-play.inputs` plays the fitting loop with
+real drags from set credits and holds (`fit.bot.toml`, 1630 ticks, thirteen notes): the
+cradle on the first visit, the lens held with too few credits and every socket's
+refusal, a click on the resting Buy 1 with a full hold (reported in `resting_clicks`,
+nothing bought), the lens fitted, the thrusters refused for power while held, Orrin's
+talk, mining with the lens, the pods fitted over the free mass, and the pods refused
+coming off with 36 aboard; `radio-play.inputs` plays the radio (`radio.bot.toml`, 2487
+ticks, ten notes): Lantern Dock from the first second and through mining, the ticker's
+next line, Next, Off and On, Prev and R clicked and pressed, docking at Cinder Kiln with
+the radio hidden, and flying off onto the Kiln's channel; and `zoom-play.inputs` zooms
+with the scroll wheel (`zoom.bot.toml`, 590 ticks, six notes): zoomed fully in, Little
+Mercy off screen with no label drawn, her label yielding while it would sit on the
+message, named beside the ship clear of the HUD, then zoomed fully out and named as she
+flies on, and off Cinder Kiln, Mercy and Quiet Lamp moored by it with none, and nothing
+jittering with nothing pressed; `trade-click.inputs` clicks the trade through
+(`trade-click.bot.toml`, 860 ticks, seven notes): the galley site's sign, Ines and her
+introduction, plate sold with the exchange's Sell button until the fortieth builds the
+galley, her gift taken with its answer button, rations bought with Buy max, the log
+opened and shut, and rations sold at Cinder Kiln; and `greenhouse-click.inputs` clicks
+Ines's greenhouse through (`greenhouse-click.bot.toml`, 1760 ticks, eleven notes): her ask
+accepted, Sefa's introduction and the glassite handed over, the panes loaded and
+delivered, each with its answer button, the thirtieth ice sold with its Sell button,
+Ines's thanks and Noor's introduction. All declare 1280x720 physical pixels. The GM test report
+includes their dimensions, problems and deterministic replay results. On a display
+scaled to 125% that window is 1024x576 logical pixels; the click bots run there, and the
+hand-mining route, shot there while cutting, full and in the ring, fits too.
 
 The sound has its own numeric checks: each bed's loudness, peak and loop seam, the
 mining hum's level, and the mix in flight, mining, docked with talk, trading, fitting
