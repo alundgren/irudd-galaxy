@@ -12,10 +12,10 @@
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 0, y = 0 }
 "engine.motion" = {}
-# The locked flight preset (#47) at the core's view of 64 units: top speed, thrust and
-# braking are 0.3, 0.45 and 0.35 view heights a second, letting go of thrust stops the
-# ship in a second, a little inertia, and turns at 180 degrees a second.
-"engine.flight" = { speed = 20, accel = 30, brake = 23.3, stop_time = 1.0, inertia = 0.4, turn = 180 }
+# The flight feel Andreas chose flying the game (direction.md, 2.1), at the core's view of
+# 64 units: top speed 0.3 view heights a second, thrust and braking 0.47, letting go of
+# thrust stops the ship in 0.7 seconds, little inertia, and turns at 180 degrees a second.
+"engine.flight" = { speed = 20, accel = 30, brake = 30, stop_time = 0.7, inertia = 0.25, turn = 180 }
 "engine.helm" = {}
 "engine.steer" = {}
 "engine.body" = { mass = 1 }

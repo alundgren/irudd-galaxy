@@ -70,13 +70,13 @@ field = "place"
 equals = "core.reach"
 
 [[expect]]
-tick = 1453
+tick = 1450
 facts = "core.docked"
 equals = 0
 
-# Clamped at the Kiln 568 ticks after the order.
+# Clamped at the Kiln 565 ticks after the order.
 [[expect]]
-tick = 1454
+tick = 1451
 facts = "core.docked"
 equals = 1
 

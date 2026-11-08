@@ -1,6 +1,6 @@
 # A click's turn settles the nose on the rock, and the beam holds as the rock shrinks
 # (rules.SETTLE, cutter.holds). As the playtester found it: a scripted order flies the ship
-# to a glassite crystal (glassite2) and is cancelled so she coasts to a stop some 4.3
+# to a glassite crystal (glassite2) and is cancelled so she coasts to a stop some 4.0
 # units from its centre, well inside the cutter's reach; D turns the nose 90 degrees away.
 # A click on the crystal turns her back onto it, and the nose settles near its centre
 # rather than at the edge of the aim (it used to stop there, some 40 degrees off the

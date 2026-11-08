@@ -67,7 +67,7 @@ galaxy play --modules game/modules
 
 | Control | Action |
 | --- | --- |
-| W / S | Forward / reverse thrust; let go and the ship coasts to a stop in a second |
+| W / S | Forward / reverse thrust; let go and the ship coasts to a stop in 0.7 seconds |
 | A / D | Turn left / right, 180° a second |
 | W, A, S or D docked | Fly straight off the dock: no separate undock step |
 | Shift | Boost |
@@ -104,9 +104,10 @@ by hand to clear an obstruction when approaching from the far side of a station.
 ## The opening hour
 
 The first hour is work by hand: cutting, flying and selling, with nothing to wait on.
-The space is wide rather than the ship slow; the flight numbers stay locked (cruise
-20 units a second, boost 40). The bottom stack names each station off screen and the
-way it lies (`rules.bearings`), so the far ones are always findable.
+The space is wide rather than the ship slow; the flight numbers stay as Andreas chose
+them (cruise 20 units a second, boost 40; `game/docs/direction.md`, 2.1). The bottom
+stack names each station off screen and the way it lies (`rules.bearings`), so the far
+ones are always findable.
 
 | Leg | Units | Cruise | Boost |
 | --- | --- | --- | --- |
@@ -355,12 +356,13 @@ What each takes over, and what stays yours:
 
 ## Flight and traffic
 
-The ship flies by the locked flight preset (#47), at the core's view of 64 units:
-top speed 20 units a second (0.3 view heights), thrust 30 and braking 23.3 units a
-second squared, turns at 180° a second, and keeps a little inertia (0.4): the nose
-swings through a turn while the old heading carries on for a moment, and letting go
-of thrust coasts to a stop in exactly a second. From rest W flies a straight line
-wherever the nose points. Moored, the ship faces the station; it leaves facing away,
+The ship flies by the feel Andreas chose flying the game on 2026-11-08
+(`game/docs/direction.md`, 2.1), at the core's view of 64 units: top speed 20 units a
+second (0.3 view heights), thrust and braking 30 units a second squared, turns at 180° a
+second, and keeps only a little inertia (0.25): the nose swings through a turn while the
+old heading carries on for a moment, and letting go of thrust coasts to a stop in 0.7
+seconds. From rest W flies a straight line wherever the nose points. Moored, the ship
+faces the station; it leaves facing away,
 so W, A, S or D flies it off on the tick the key is pressed, and U or Launch leaves
 the berth without flying on (`scripts/launch.luau`). The view glides back out from the
 station to the ship's view in a second, the reverse of docking in, with no fade and no
@@ -372,6 +374,8 @@ braking 16 and a 0.7-second stop. Its ship's `fit` loads with `hull_speed` 12, t
 bare hull it was built with (a new game sets 20), so the cradle shows the speed that
 ship really flies and a part changes only what it says: its thrusters still give 15.
 Such a save has no traders either. Start a new game for the locked flight and traffic.
+A save from before 2026-11-08 keeps the feel it was saved with (braking 23.3, a
+one-second stop, inertia 0.4); a new game flies the chosen feel.
 
 Everything that looks solid is solid, and nothing takes damage: ships, traders,
 rocks and stations bump and push. A ship that flies into a rock or a station
@@ -421,9 +425,9 @@ glides out after a launch: from a room it starts low among the moored traders.
 
 Measured on films of the ship's probes (`galaxy film --probes-only`, then
 `galaxy-gm film show`): turns at 180.1° a second; top speed 20, 95% of it 0.67 seconds
-after W; letting go at full speed coasts 9.7 units and stops 1.0 seconds later; in a
-90° turn under thrust the course lags the nose by up to 27° and tracks it again a
-third of a second after the turn ends. The mining approach parks 0.004 units from the
+after W; letting go at full speed coasts 6.7 units and stops 0.7 seconds later; in a
+90° turn under thrust the course lags the nose by up to 12° and tracks it again a
+sixth of a second after the turn ends. The mining approach parks 0.004 units from the
 rock's surface and stays within 0.05 of it while the rock is cut down (rock1 on seed 7:
 6.9 seconds, seven cuts, the rock turning).
 
@@ -1332,7 +1336,7 @@ it once more, and one with the radio off or docked cueing nothing), a complete s
 rock's surface, then glancing off round it, the rock unmoved but turning 3 degrees a
 second), flying straight off the
 dock (`undock.toml`: Shift alone stays moored, W leaves on the tick it is pressed facing
-away from the station in a straight line and coasts to a stop in a second, D leaves
+away from the station in a straight line and coasts to a stop in 0.7 seconds, D leaves
 Cinder Kiln turning), traffic (`traffic.toml`: Little Mercy waits, sets off, is bumped
 aside by the ship and still moors off Cinder Kiln; Quiet Lamp moors there, sets off home
 and moors off Lantern Dock, each set on the last stretch of its leg; their arrivals never

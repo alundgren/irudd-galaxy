@@ -1,6 +1,6 @@
 # A beam holds on a glassite crystal as it shrinks (cutter.holds). A scripted order flies
 # the ship out to the glassite drift and is cancelled short of the first crystal
-# (glassite1), so she coasts to a stop some 6.9 units off it, near the edge of the
+# (glassite1), so she coasts to a stop some 6.6 units off it, near the edge of the
 # cutter's reach. One click puts the beam on, no key is held, and it cuts the crystal down
 # to pebbles: its shrinking never lifts the beam (it used to slip off at 2 of 8).
 seed = 7
@@ -11,7 +11,7 @@ tick = 1
 name = "core.mine"
 payload = { rock = "core.glassite1" }
 [[input]]
-tick = 616
+tick = 621
 name = "core.cancel"
 payload = { down = true }
 [[input]]

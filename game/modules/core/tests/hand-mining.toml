@@ -7,7 +7,7 @@
 # the rest comes slowly (cutting.toml moves the beam instead), and it fills the hold: the
 # beam lets go with the hold's own beat. Turned onto Lantern Dock, W held
 # flies her there; let go short of it, a touch re-aims her, and a last press of W coasts
-# the ship to a stop in the berth's ring, where the clamps take her in.
+# the ship slowly into the berth's ring, where the clamps take her in.
 # hand-mining.inputs is the same route for a window (hand-mining.bot.toml).
 seed = 7
 ticks = 1640
@@ -31,7 +31,7 @@ source = "keyboard"
 payload = { down = true }
 
 [[input]]
-tick = 13
+tick = 15
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
@@ -67,7 +67,7 @@ source = "keyboard"
 payload = { down = true }
 
 [[input]]
-tick = 359
+tick = 366
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
@@ -139,7 +139,7 @@ source = "keyboard"
 payload = { down = true }
 
 [[input]]
-tick = 1508
+tick = 1512
 name = "core.ahead"
 source = "keyboard"
 payload = { down = false }
@@ -292,15 +292,15 @@ component = "pilot"
 field = "message"
 equals = "Hold full: 24 ore aboard."
 
-# Flown into Lantern Dock's ring by hand and stopped there: the clamps take her in.
+# Flown into Lantern Dock's ring by hand and slowed there: the clamps take her in.
 [[expect]]
-tick = 1562
+tick = 1531
 entity = "ship"
 component = "engine.steer"
 field = "mode"
 equals = "dock"
 [[expect]]
-tick = 1562
+tick = 1531
 facts = "core.clamped"
 equals = 1
 [[expect]]
