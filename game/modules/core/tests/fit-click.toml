@@ -11,6 +11,11 @@
 # hold sold, the lens is in reach.
 seed = 7
 ticks = 140
+# The chart glass is in: Orrin offers the rest of his rack only after it.
+[[edit]]
+entity = "chart"
+component = "part"
+set = { found = true, owned = true, fitted = true }
 [[edit]]
 entity = "ship"
 component = "pilot"
@@ -237,12 +242,6 @@ equals = ""
 # removal at the cradle) is logged at the station, so it is one visit with its docking.
 [[expect]]
 tick = 140
-entity = "log1"
-component = "entry"
-field = "at"
-equals = "core.kiln"
-[[expect]]
-tick = 140
 entity = "log2"
 component = "entry"
 field = "at"
@@ -256,6 +255,12 @@ equals = "core.kiln"
 [[expect]]
 tick = 140
 entity = "log4"
+component = "entry"
+field = "at"
+equals = "core.kiln"
+[[expect]]
+tick = 140
+entity = "log5"
 component = "entry"
 field = "at"
 equals = "core.kiln"

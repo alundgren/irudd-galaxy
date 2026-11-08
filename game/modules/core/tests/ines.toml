@@ -81,7 +81,7 @@ payload = { talk = "core.lantern_cook_talk", line = "core.lantern_cook_now" }
 # Her introduction, in the log.
 [[expect]]
 tick = 35
-entity = "log2"
+entity = "log3"
 component = "entry"
 field = "text"
 equals = "Ines Varga at Lantern Dock: “I'm Ines. This scaffold is going to be my galley.” “The crews here eat cold tins between shifts. I want them at a table, eating hot.” “Every plate you sell to Tova goes into it. I'll be counting.”"
@@ -115,7 +115,7 @@ name = "core.sell"
 # it is heard (first-plate.toml).
 [[expect]]
 tick = 62
-entity = "log4"
+entity = "log5"
 component = "entry"
 field = "text"
 equals = "Sold 13 plate to Lantern Dock for 455 cr. 13 plate went into the galley: 13 of 40. Ines Varga, from the site: “That's the first of it! I can almost hear the stove.”"

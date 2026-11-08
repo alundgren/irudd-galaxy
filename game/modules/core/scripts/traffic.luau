@@ -12,6 +12,7 @@ local kit = require("./kit")
 local salvage = require("./salvage")
 local log = require("./log")
 local cutter = require("./cutter")
+local chart = require("./chart")
 
 local DWELL = 240 -- ticks a trader waits at a mooring (8 seconds)
 
@@ -51,6 +52,7 @@ end
 -- (faster than FLYING): never while the beam cuts or she lies still at a rock, so it
 -- doesn't cover the hold-full message, and never while a dock order flies her in, so the
 -- docking's message doesn't cover it.
+-- Mags's word on where the buyers lie (chart.FULL) comes the same way, before any hail.
 local HAIL = 150
 local FLYING = 8
 
@@ -60,6 +62,13 @@ local function hail(ctx)
     if pilot.holds < 1 or pilot.mining or cutter.speed(ctx) <= FLYING then return end
     local steer = ctx.get("ship", "engine.steer")
     if steer and steer.mode == "dock" then return end
+    -- Flying off with the first full hold, Mags says first where both buyers lie (one
+    -- radio line a second, so the hails wait for the next).
+    if not pilot.directed then
+        ctx.patch("ship", "pilot", { directed = true })
+        log.add(ctx, chart.FULL)
+        return
+    end
     local ship = ctx.get("ship", "engine.position")
     for _, id in ctx.query("trader") do
         local trader = ctx.get(id, "trader")

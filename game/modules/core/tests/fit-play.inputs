@@ -9,7 +9,13 @@
 # The state between is set by edits: the ship starts just off Cinder Kiln's berth with a
 # hold of ore and 2,879 credits, one hold short of the lens; it is set beside rock5 to
 # mine, given the pods' price, and set back off the berth with 36 aboard. The clicks and
-# drags are this bot's: tests/fit.toml checks the same rules as events.
+# drags are this bot's: tests/fit.toml checks the same rules as events. The chart glass
+# is already in, so Orrin's rack is open.
+[[edit]]
+entity = "core.chart"
+component = "core.part"
+set = { found = true, owned = true, fitted = true }
+
 [[edit]]
 entity = "core.ship"
 component = "core.pilot"
@@ -141,11 +147,19 @@ tick = 558
 widget = "talk.core.kiln_fitter_intro"
 
 [[click]]
-tick = 573
+tick = 568
+widget = "choice.core.kiln_fitter_hold"
+
+[[click]]
+tick = 578
 widget = "talk.core.kiln_fitter_intro"
 
 [[click]]
 tick = 588
+widget = "talk.core.kiln_fitter_intro"
+
+[[click]]
+tick = 598
 widget = "talk.core.kiln_fitter_intro"
 
 [[click]]

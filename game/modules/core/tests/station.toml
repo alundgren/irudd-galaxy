@@ -133,13 +133,13 @@ field = "scale"
 equals = 1.08
 [[expect]]
 tick = 278
-entity = "log1"
+entity = "log2"
 component = "entry"
 field = "text"
 equals = "Docked at Lantern Dock."
 [[expect]]
 tick = 278
-entity = "log2"
+entity = "log3"
 component = "entry"
 field = "text"
 equals = "Sold 24 ore to Lantern Dock for 379 cr."

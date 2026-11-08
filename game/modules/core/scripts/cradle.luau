@@ -16,15 +16,18 @@ local signs = require("./signs")
 local cradle = {}
 
 -- Every part in the world, in tray order, as fit.luau tables, each with the full holds
--- the pilot has cut so far (fit.verdict weighs a part's `holds` against them).
+-- the pilot has cut so far (fit.verdict weighs a part's `holds` against them) and how
+-- much of what it is made from is aboard (`have`, against its `units`).
 function cradle.parts(ctx)
     local list = {}
     local pilot = ctx.get("ship", "pilot")
     local brought = pilot and pilot.holds or 0
+    local hold = ctx.get("ship", "hold") or {}
     for _, id in ctx.query("part") do
         local p = ctx.get(id, "part")
         p.id = id
         p.brought = brought
+        p.have = (p.ware or "") ~= "" and (hold[p.ware] or 0) or 0
         table.insert(list, p)
     end
     table.sort(list, function(a, b) return a.order < b.order end)
@@ -83,15 +86,22 @@ function cradle.fit(event, ctx)
     local load = rules.load(ctx.get("ship", "hold"))
     if fit.verdict(p, socket, parts, pilot.credits, load, fit.hull_hold(ctx)) ~= "" then return end
     local cost = p.owned and 0 or p.price
+    -- A part the fitter makes takes what it is made from out of the hold.
+    local made = not p.owned and (p.units or 0) > 0
+    if made then ctx.patch("ship", "hold", { [p.ware] = p.have - p.units }) end
     p.owned, p.fitted = true, true
     ctx.patch(p.id, "part", { owned = true, fitted = true })
     cradle.apply(ctx, parts)
     local name = string.lower(p.name)
     local where = ctx.get(facility.station, "port").name
     ctx.patch("ship", "pilot", { credits = pilot.credits - cost, sale = -cost, chosen_part = "",
-        deal = "Fitted the " .. name .. (cost > 0 and "." or ", from the locker.") })
+        deal = (made and "Made and fitted the " or "Fitted the ") .. name .. (cost > 0 and "." or ", from the locker.") })
     say(ctx, facility, p.said)
-    log.add(ctx, "Fitted the " .. name .. " at " .. where .. (cost > 0 and " for " .. cost .. " cr" or "") .. ": " .. p.effect .. ".")
+    if made then
+        log.add(ctx, "Orrin made the " .. name .. " at " .. where .. " from " .. fit.price_text(p) .. ": " .. p.effect .. ".")
+    else
+        log.add(ctx, "Fitted the " .. name .. " at " .. where .. (cost > 0 and " for " .. cost .. " cr" or "") .. ": " .. p.effect .. ".")
+    end
     trade.day(ctx) -- the fitter goes to look her over
     sign(ctx, facility, pilot, "")
     ctx.record("fitted", { part = p.id, credits = cost })
@@ -211,7 +221,8 @@ function cradle.preview(ctx, ui, pilot, right)
     local parts = cradle.parts(ctx)
     local chosen = find(parts, pilot.chosen_part)
     if not chosen then return nil end
-    local doing = chosen.fitted and "If you take off the " or "If you fit the "
+    local make = not chosen.owned and (chosen.units or 0) > 0
+    local doing = chosen.fitted and "If you take off the " or make and "If Orrin makes the " or "If you fit the "
     local lines = { ui.text { id = "preview_title", width = PREVIEW - 20, size = kit.SIZE.small, look = kit.LOOK.plate_name,
         text = doing .. string.lower(chosen.name) } }
     for i, c in fit.change_list(chosen, parts, fit.hull_speed(ctx), fit.hull_hold(ctx)) do
@@ -222,6 +233,15 @@ function cradle.preview(ctx, ui, pilot, right)
             table.insert(spans, c.good and " better" or " worse")
         end
         table.insert(lines, ui.text { id = "change_" .. i, width = PREVIEW - 20, size = kit.SIZE.small, spans = spans })
+    end
+    -- A part made from a drawing is made here, in the box, once what it is made from is
+    -- shown: what it does, then Make it (resting with the reason while it can't be).
+    if make then
+        table.insert(lines, ui.text { id = "change_does", width = PREVIEW - 20, size = kit.SIZE.small,
+            text = string.upper(string.sub(chosen.effect, 1, 1)) .. string.sub(chosen.effect, 2) })
+        local why = fit.verdict(chosen, chosen.socket, parts, pilot.credits, rules.load(ctx.get("ship", "hold")), fit.hull_hold(ctx))
+        table.insert(lines, kit.button(ui, { id = "make", width = PREVIEW - 20, height = CHOOSE, size = 16, pad = 4, text = "Make it",
+            resting = why ~= "" and why or nil, on = "fit", payload = { socket = chosen.socket, value = chosen.id } }, "primary"))
     end
     -- No hover: Put back says what it does, and at 960x540 a hover has no room but over
     -- this box's own lines.
@@ -275,12 +295,15 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
     for _, s in fit.SOCKETS do
         local accepts, notes, inside, waiting = {}, {}, nil, nil
         for _, p in parts do
-            accepts[p.id] = fit.verdict(p, s.id, parts, pilot.credits, load, fit.hull_hold(ctx))
-            if accepts[p.id] == "" then notes[p.id] = fit.note(p) end
+            -- Only a part on the rack or the ship can be picked up, so only those get a verdict.
+            if fit.offered(p, parts) then
+                accepts[p.id] = fit.verdict(p, s.id, parts, pilot.credits, load, fit.hull_hold(ctx))
+                if accepts[p.id] == "" then notes[p.id] = fit.note(p) end
+            end
             if p.fitted and p.socket == s.id then inside = card(ui, p) end
-            if not p.fitted and p.socket == s.id then waiting = p end
+            if not p.fitted and p.socket == s.id and fit.offered(p, parts) then waiting = p end
         end
-        if not inside and chosen and not chosen.fitted then
+        if not inside and chosen and not chosen.fitted and chosen.socket ~= "rack" then
             inside = offer(s.id, "offer_" .. s.id, INSIDE, FITTED, "Fit here")
         elseif not inside and waiting then
             inside = choose(waiting, INSIDE)
@@ -293,12 +316,23 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
     -- The control rack: the hand controls, always fitted, then controls to buy (parts in
     -- the "rack" socket). A control costs no power or mass and, once bought, never comes
     -- off (direction doc 5); one that can't be bought yet rests with its reason.
-    local rack = { ui.text { id = "rack", width = 80, size = 16, text = "Controls",
-        hover = "Always fitted: the hand cutter and hand berthing. Controls cost no power or mass and never come off." } }
+    -- A control Orrin makes from a drawing (the chart glass) is chosen first, so its preview
+    -- shows what it is made from before Make it; once in, it joins the always-fitted list.
+    local always = "the hand cutter and hand berthing"
     for _, p in parts do
-        if p.socket == "rack" then
+        if p.socket == "rack" and p.fitted and (p.units or 0) > 0 then always ..= ", the " .. string.lower(p.name) end
+    end
+    local rack = { ui.text { id = "rack", width = 80, size = 16, text = "Controls",
+        hover = "Always fitted: " .. always .. ". Controls cost no power or mass and never come off." } }
+    for _, p in parts do
+        if p.socket == "rack" and fit.offered(p, parts) and not (p.fitted and (p.units or 0) > 0) then
             local about = p.name .. ": " .. p.effect .. "."
-            if p.fitted then
+            if not p.fitted and (p.units or 0) > 0 then
+                local why = fit.verdict(p, "rack", parts, pilot.credits, load, fit.hull_hold(ctx))
+                table.insert(rack, kit.button(ui, { id = "rack_" .. short(p.id), width = INNER - 96, height = 44, size = 16, pad = 4,
+                    text = p.name .. " · " .. fit.price_text(p), hover = about, resting = why ~= "" and why or nil,
+                    on = "choose", payload = { value = p.id } }, "primary"))
+            elseif p.fitted then
                 table.insert(rack, ui.text { id = "rack_" .. short(p.id), width = (INNER - 96) // 2, size = 16, icon = "check",
                     text = p.name, hover = about })
             else
@@ -317,7 +351,7 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
     for _, s in fit.SOCKETS do
         local here, on_ship = nil, nil
         for _, p in parts do
-            if p.socket == s.id and not p.fitted then here = card(ui, p) end
+            if p.socket == s.id and not p.fitted and fit.offered(p, parts) then here = card(ui, p) end
             if p.socket == s.id and p.fitted then on_ship = p end
         end
         if not here and chosen and chosen.fitted and chosen.socket == s.id then
@@ -330,8 +364,17 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
         end
         table.insert(tray, here or ui.text { id = "off_" .. s.id, width = TRAY, height = LOOSE, size = 16, text = "On the ship" })
     end
+    -- Before the chart glass nothing is offered and nothing is on the ship: the empty rack
+    -- says so once, across the tray.
+    local any = false
     for _, p in parts do
-        accepts[p.id] = fit.verdict(p, "locker", parts, pilot.credits, load, fit.hull_hold(ctx))
+        if p.socket ~= "rack" and (p.fitted or fit.offered(p, parts)) then any = true end
+    end
+    if not any then
+        tray = { ui.text { id = "off_rack", width = INNER - 8, height = LOOSE, size = 16, text = "Nothing on the rack yet" } }
+    end
+    for _, p in parts do
+        if fit.offered(p, parts) then accepts[p.id] = fit.verdict(p, "locker", parts, pilot.credits, load, fit.hull_hold(ctx)) end
     end
     table.insert(children, ui.drop_target { id = "tray", width = INNER, size = 16, pad = 4, on = "unfit", accepts = accepts,
         text = "Parts tray: drop a part here to take it off",

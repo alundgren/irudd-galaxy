@@ -12,6 +12,7 @@ local places = require("./places")
 local project = require("./project")
 local salvage = require("./salvage")
 local rumour = require("./rumour")
+local chart = require("./chart")
 
 -- Who is speaking and where: "Tova Reyes at Lantern Dock".
 local function source(ctx, talk)
@@ -153,14 +154,21 @@ return {
             end
             if not receipt then receipt = project.chosen(ctx, talk, choice, open, ctx.get("ship", "hold")) end
             if not receipt then receipt = salvage.chosen(ctx, talk, choice, open) end
+            -- The tag held to the light: the drawing and memory 3, each a line of the log.
+            local lines = chart.held(ctx, talk, choice)
             -- Told what the player saw: the keeper remembers it, and word of it spreads.
             if rumour.chosen(ctx, talk, answer and answer.next) then ctx.record("heard", {}) end
             local id, entry = heard(ctx, talk)
             if id then
                 ctx.patch(id, "entry", { text = entry.text .. " " .. said, open = open })
-                if receipt then log.add(ctx, receipt) end
+                if lines then
+                    log.add_all(ctx, lines)
+                elseif receipt then
+                    log.add(ctx, receipt)
+                end
             else
                 -- One new entry per handler: the receipt joins the conversation's.
+                if lines then receipt = table.concat(lines, " ") end
                 log.say(ctx, source(ctx, talk) .. ": " .. said .. (receipt and " " .. receipt or ""), talk, open)
             end
         end,

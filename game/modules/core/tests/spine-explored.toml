@@ -1,0 +1,78 @@
+# The ship remembers from the start (direction doc 2.2): its engine.explorer records where
+# it flies from the first tick, before any chart glass, and the glass shows that memory
+# the moment it is fitted. The ship starts in the ore drift, is set off Lantern Dock, then
+# off Cinder Kiln, docks there and has the chart glass made and fitted. The glass shows
+# those three places (ctx.explored is true there: scripts/spine.luau) and leaves the ice
+# and glassite drifts, never flown near, under fog (ctx.explored false). The fit is world
+# state like any other: it is the part's, and the memory the ship's.
+seed = 7
+ticks = 70
+
+[[edit]]
+tick = 5
+entity = "ship"
+component = "engine.position"
+set = { x = -170, y = -190 }
+[[edit]]
+tick = 10
+entity = "ship"
+component = "engine.position"
+set = { x = 200, y = -249 }
+
+# The memory is of the open reach and already holds cells, with nothing fitted to show it.
+[[expect]]
+tick = 11
+entity = "ship"
+component = "engine.explored"
+field = "place"
+equals = "core.reach"
+[[expect]]
+tick = 11
+entity = "chart"
+component = "part"
+field = "fitted"
+equals = false
+
+[[input]]
+tick = 11
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 50
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+
+[[edit]]
+tick = 55
+entity = "chart"
+component = "part"
+set = { found = true }
+[[edit]]
+tick = 55
+entity = "ship"
+component = "hold"
+set = { plate = 20 }
+[[edit]]
+tick = 55
+entity = "ship"
+component = "pilot"
+set = { credits = 2500 }
+[[input]]
+tick = 60
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.chart" }
+
+[[expect]]
+tick = 62
+entity = "chart"
+component = "part"
+field = "fitted"
+equals = true
+[[expect]]
+tick = 62
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "The chart glass shows what she has flown near: the ore drift, Lantern Dock and Cinder Kiln. The rest lies under fog."

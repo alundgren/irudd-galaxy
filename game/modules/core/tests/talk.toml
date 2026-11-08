@@ -115,7 +115,7 @@ equals = true
 # The whole introduction is one entry, in reading order, naming speaker and station.
 [[expect]]
 tick = 226
-entity = "log2"
+entity = "log3"
 component = "entry"
 field = "text"
 equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the exchange.” “I buy ore, and plate for our galley: sheet the Kiln fires from ore.” “My prices drop as my stock fills.”"
@@ -151,7 +151,7 @@ source = "talk"
 payload = { talk = "core.lantern_trader_talk", line = "core.lantern_trader_now" }
 [[expect]]
 tick = 235
-entity = "log3"
+entity = "log4"
 component = "entry"
 field = "text"
 equals = "Tova Reyes at Lantern Dock: “I'll take your 24 ore whenever you like.”"
@@ -172,7 +172,7 @@ tick = 245
 entity = "ship"
 component = "pilot"
 field = "logged"
-equals = 3
+equals = 4
 
 # Out to the station and in again: while the cut runs no sign is worn; once it
 # lands, only the exchange's keeper wears hers. After a sale her line follows it.
@@ -232,7 +232,7 @@ source = "talk"
 payload = { talk = "core.lantern_trader_talk", line = "core.lantern_trader_now" }
 [[expect]]
 tick = 275
-entity = "log5"
+entity = "log6"
 component = "entry"
 field = "text"
 equals = "Tova Reyes at Lantern Dock: “Thanks. It's all on the pile already.”"

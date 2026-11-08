@@ -53,13 +53,13 @@ field = "message"
 equals = "Hold full: 24 ore aboard."
 [[expect]]
 tick = 200
-entity = "log1"
+entity = "log2"
 component = "entry"
 field = "text"
 equals = "Rock cut down to pebbles. 8 more rocks hold ore."
 [[expect]]
 tick = 200
-entity = "log2"
+entity = "log3"
 component = "entry"
 field = "text"
 equals = "Hold full: 24 ore aboard."

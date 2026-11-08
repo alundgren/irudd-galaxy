@@ -10,9 +10,11 @@ it, then trade between them: Cinder Kiln turns ore into plate, and Lantern Dock 
 plate to build a galley. Once the galley is built, its cook sells rations that the Kiln's
 crews buy, and then asks you to help her build a greenhouse: glassite for its panes, the
 panes carried to her, ice for its beds. The hold takes 24 units of any mix. At the
-Kiln's fitting cradle, Orrin fits parts bought with what you earn: a lens that mines
-faster, pods for a bigger hold and thrusters for a higher top speed, within the hull's
-power and mass. Five traders fly their own routes across
+Kiln's fitting cradle, Orrin first makes the chart glass from a drawing hidden in the
+glass tag on your canopy frame: a minimap of everywhere you have flown near, the rest
+under fog. After it he fits parts bought with what you earn: a lens that mines faster,
+pods for a bigger hold and thrusters for a higher top speed, within the hull's power and
+mass. Five traders fly their own routes across
 the reach while you work, and in flight the radio plays each station's channel
 over the tug's quiet hum. Out in the reach the rocks turn slowly, the stations' rings
 turn and their lamps breathe, steam drifts off the stacks, and the stars drift in layers
@@ -22,16 +24,29 @@ objective.
 
 The reach is wide: the ore drift is where you start, and each station is several
 screens away from it (below, "The opening hour"). A hold takes real work to cut, a round
-trip takes a minute or two, and what you earn buys one or two small parts in the first
-hour. The two controls that fly for you come several hours in, once you have done the
-work by hand.
+trip takes a minute or two, and what you earn buys the chart glass and a small part or
+two in the first hour. The two controls that fly for you come several hours in, once you
+have done the work by hand. Nothing on screen points the way: you find the stations by
+sight and by what people tell you (below, "Finding the way"), until the chart glass
+remembers where you have been.
 
-Why you are out here arrives in order, a line at a time, with no wall of text. The first
-message is Bram Okafor on Lantern Dock's radio: "Welcome, pilot. Our galley needs plate:
-the Kiln fires it from ore." Under his line, each on its own, come the goal it gives
-(`WANTED` Lantern Dock's galley: 40 plate) and a lesson ("Your log keeps every
-WANTED."), so plate and WANTED are both named before either can be acted on. In
-flight the radio plays the nearer
+Who you are and why you are out here arrive in order, a line at a time, with no wall of
+text. A new game opens on the pilot's first memory, plain facts, as the log's first line
+and the first message: "The hospital ship's card said: from the reach, found in the ice,
+no kin recorded. This is the reach." (`beings/player.md`, memory 1). The first time you
+fly by hand, Bram Okafor welcomes you on Lantern Dock's radio: "Welcome, pilot. Nobody
+sells a chart of the reach; we fly by eye. Orrin fits out tugs at Cinder Kiln, south-east
+of the ore drift." Under his line, each on its own, come the goal it gives, the pilot's
+own (`GOAL` Find a way to chart the reach), and a lesson ("Your log keeps your goal.");
+the log pins the goal, with what is still to bring, until the chart glass is in. As you
+fly off with the first full hold, Mags Ferrow says on Cinder Kiln's radio where both
+buyers lie: "Full hold. Cinder Kiln buys ore, south-east of the drift. Lantern Dock does
+too, south-west." At the Kiln's fitting cradle Orrin's introduction spots the glass tag
+on your canopy frame: "See the glass tag on your canopy frame? That tag's no charm. Hold
+it to the light." The answer `Hold it to the light` shows the drawing of the chart glass
+and releases memory 3 into the log ("A small chart glowing in front of a child's face, a
+way drawn on it, fading."), and Orrin names its price: "Bring me 20 plate from Sefa and
+2500 cr, and I'll make it for your cockpit." In flight the radio plays the nearer
 station's channel, so on the way to Cinder Kiln it says "We buy ore for the kiln and sell
 the plate it makes." In each room the panel says "Click Sefa to talk" (Tova, Bram, and so
 on) until that keeper's introduction has been heard, because the introduction says what
@@ -42,8 +57,9 @@ the room's title quotes their own words about it until then (`keeper.trades`): T
 rations from my stove. Cinder Kiln's crews buy them." It sits on one line with the
 click at the Kiln, so a full hold's whole list still fits there at 960x540. The
 dockmasters' introductions say both stations buy ore and each pays less as its stock
-fills, so spreading your loads pays. From the first call at Lantern Dock, the galley's
-WANTED pin in the log keeps the reason in view.
+fills, so spreading your loads pays, and where the other station lies. At Lantern Dock,
+Ines Varga asks for plate for her galley, thanks you for the first of it and wishes for a
+hot meal; the galley is a choice, and nothing on the way to the chart glass waits on it.
 
 You fly, aim, cut and dock by hand: fly up to a rock, point the nose at it and hold
 Space, and the cutter's beam bites, chips fly back up it, and each unit lands in the hold
@@ -55,11 +71,11 @@ docking jets fly you into a berth from anywhere, and the reach rig flies out to 
 cuts it from sixteen units off, aiming itself and holding its beam steady. The hand
 controls never go away.
 
-Use installed engine/GM 0.8.0 or newer: the screen kit needs its named looks, rich
-text spans, drawn icons and UI motion, and the world needs the effects (beams,
-`engine.emitter`, `[particles.*]`, halos and camera feel), which no 0.7.0 release has.
-This version was verified with `0.8.0-27fc2a29b73e`; an older engine is refused with
-how to install a newer one. No engine build is needed.
+Use installed engine/GM 0.9.0 or newer: the chart glass needs the ship's explored
+memory (`engine.explorer`, `engine.explored`, `ctx.explored`) and the fogged minimap
+(`ui.map`), which no 0.8.0 release has, and the screen kit and the world's effects need
+what 0.8.0 brought. This version was verified with `0.9.0-30f031c78f5b`; an older engine
+is refused with how to install a newer one. No engine build is needed.
 
 ```sh
 galaxy play --modules game/modules
@@ -80,7 +96,7 @@ galaxy play --modules game/modules
 | U | Docked: launch without flying on |
 | L | Open or close the ship log |
 | R | In flight: the radio's next channel; past the last it turns off, and R again turns it on |
-| Drag, or click | In the fitting cradle: a part onto its socket to fit it, or onto the tray to take it off; or Choose a part, then Fit here |
+| Drag, or click | In the fitting cradle: a part onto its socket to fit it, or onto the tray to take it off; or Choose a part, then Fit here. The chart glass: click it on the rack, then Make it |
 | Mouse wheel | Zoom in flight; scroll the log |
 | F8 | Take a playtest note |
 | Shift+Esc | Quit; the engine saves the session (closing the window does too) |
@@ -105,9 +121,9 @@ by hand to clear an obstruction when approaching from the far side of a station.
 
 The first hour is work by hand: cutting, flying and selling, with nothing to wait on.
 The space is wide rather than the ship slow; the flight numbers stay as Andreas chose
-them (cruise 20 units a second, boost 40; `game/docs/direction.md`, 2.1). The bottom
-stack names each station off screen and the way it lies (`rules.bearings`), so the far
-ones are always findable.
+them (cruise 20 units a second, boost 40; `game/docs/direction.md`, 2.1). Nothing on
+screen says where a station lies: the way is found by sight and by what people say
+(below, "Finding the way"), and from the chart glass on, by where you have been.
 
 | Leg | Units | Cruise | Boost |
 | --- | --- | --- | --- |
@@ -207,10 +223,14 @@ tuning against drift. It doesn't prove the hour is fun.
 - The first hold sells for 379 cr, then 347 a hold: the better price takes it to the other
   station each time, so neither's stock fills (always at one station, a hold is down to
   264 by the fifth).
-- The cutting lens, 3000 cr, comes after the 10th hold: 9.8 minutes on the route, about
-  13 by hand. The hold pods, 3500 cr, follow after the 20th (18.4 minutes, about 24 by
-  hand). The tuned thrusters, 9000 cr, are in reach about the 41st hold (some 42 minutes
-  on the route, close to an hour by hand). The first hour buys the two small parts.
+- The chart glass comes first (below, "The spine's pace"): 10.3 minutes on the spine
+  route, after the 9th hold. Carried on the same way (each hold to the other station, a
+  part bought at the first Kiln visit that pays for it), the cutting lens, 3000 cr, is
+  fitted after the 19th hold, 21.8 minutes in (about 29 by hand), and the hold pods,
+  3500 cr, after the 29th, 31.7 minutes in (about 42 by hand). Before the chart glass
+  came first, the lens came after the 10th hold (9.8 minutes on the route, about 13 by
+  hand: the ratio of 1.33 used for "by hand" here). The tuned thrusters, 9000 cr, are
+  past the hour. The first hour buys the chart glass and the two small parts.
 - The reach rig, the first assist, needs 100 full holds and 15000 cr. On the bare-hull
   route that never buys a part, it fits 101 minutes in, so close to two hours or more by
   hand. The docking jets need 200 full holds and 30000 cr; on the same route, with the rig
@@ -223,6 +243,52 @@ at 27, the Kiln still far off halfway there and reached 19 seconds after the ord
 first hold's 379 cr, and the lens's price and the assists' gates. `tests/beats.toml`
 guards the first trip's messages, and `tests/assists.toml` checks the gates from set hold
 counts.
+
+### Finding the way
+
+Nothing on screen points to a place: no arrows, no edge markers, no compass words
+(direction doc 2.2). In view, each station wears its name. Before the chart glass,
+everything the spine needs is said by people, vague but true and with no numbers. Each
+way was flown as said, from rest where the line is said, on the plain heading its words
+give, W held, and checked against where the place lies in `start.toml`: the place named
+comes into the flight view (the view reaches about 57 units across and 32 up or down
+from the ship at 16:9). `tests/spine-directions.toml` keeps each one: at the closest pass
+the place lies within 50 units across and 28 up or down of the ship.
+
+| Who, and when | Said from | The words | Flown: the closest pass, across and up or down |
+| --- | --- | --- | --- |
+| Bram, welcoming you on the first flight; Mags, on the first full hold | the ore drift | Cinder Kiln is south-east of the drift | Cinder Kiln 27 and 22 off |
+| Mags, on the first full hold | the ore drift | Lantern Dock is south-west of it | Lantern Dock 7 and 8 off |
+| Bram, his introduction | Lantern Dock | "Cinder Kiln is out east, a touch south." | 2 and 8 off (near due east it passes 48 off) |
+| Mags, her introduction | Cinder Kiln | "Lantern Dock is out west, a touch north." | 2 and 24 off (near due west it passes 32 off) |
+| Tova, an empty hold | Lantern Dock | "Empty hold? The ore floats north-east of us." | 5 and 2 off the drift's heart |
+| Sefa, an empty hold | Cinder Kiln | "Empty hold? The ore floats north-west of us." | over the drift's rocks, 28 and 33 off its heart |
+
+Mags's introduction also names who fits ships: "Orrin at our cradle fits out new tugs."
+The ways to the ice and the glassite drifts (Hessa's hail, "If my lamps go dark out
+west, come looking.", said in the first flights near the drift, west of which the ice
+lies; Sefa's "Fly north from our berth, a touch east. It's far.") lead to jobs after the
+chart glass, and nothing on the way to it needs them.
+
+### The spine's pace
+
+**A simulated route, not play.** `tests/spine-pace.toml` plays a new world along the
+spine with scripted orders and guards the ticks: seed 7, the bare hull, scripted Mine
+and Dock orders (a little better than a hand flies, the steady beam), two seconds between
+clicks. W by hand first (Bram's welcome); the first full hold goes to Cinder Kiln, where
+Orrin's introduction finds the tag and the drawing; then each hold goes to the other
+station, and at the first Kiln visit with the credits for it, the plate is bought from
+Sefa and the chart glass made and fitted.
+
+| From a new game | On the route | By hand, about (the route times 1.33, as above) |
+| --- | --- | --- |
+| The chart glass's drawing found | 1.1 minutes (tick 2003, the first Kiln visit) | 1.5 minutes |
+| The chart glass fitted | 10.3 minutes (tick 18453, after the 9th hold) | 14 minutes |
+
+The plate costs 598 cr at fresh prices, so the chart glass costs about 3100 cr in all,
+some nine holds of near ore. The by-hand figures scale the route by the ratio the
+opening's pacing uses (above); finding the stations by eye the first time adds to them.
+These are measurements, not targets.
 
 ## Mining and docking by hand
 
@@ -939,8 +1005,32 @@ barge state are new entities. Start a new game to play it.
 
 ## Fitting the ship
 
-The fitting cradle stands on Cinder Kiln's deck from the start, with three parts on
-its rack, priced, so the first visit already shows what to aim for:
+The fitting cradle stands on Cinder Kiln's deck from the start. Until Orrin has seen the
+glass tag, his rack is empty (`Nothing on the rack yet`): he has no drawing to work
+from. Held to the light at his introduction, the tag gives him the drawing of the chart
+glass (`part.blueprint`, found: `part.found`), the first named upgrade, which he makes
+rather than sells:
+
+| Part | Where | Made from | Does |
+| --- | --- | --- | --- |
+| Chart glass | the control rack | 20 plate from your hold and 2500 cr | a minimap in the cockpit: every place you've flown near shows clear, the rest under fog |
+
+Plate is Sefa's, at the Kiln's exchange, so nothing it needs depends on the map: no
+glassite and no far ice. In the control rack it draws no power and weighs nothing, and it
+never comes off. The rack shows it as one button with what it is made from (`Chart glass
+· 20 plate and 2500 cr`); a click shows what Orrin would do in the dark box beside the
+panel (`If Orrin makes the chart glass`, `20 plate from your hold`, `2500 cr`, what it
+does) and `Make it`, resting with the reason while it can't be made: `it needs 20 plate
+in your hold; you carry 0`, then `it costs 2500 cr; you have 1200`. Made, the receipt
+says `Made and fitted the chart glass.` with the credits spent, the log says what it was
+made from and what it does, and the chart glass shows at once what the ship has already
+flown near ("The chart glass shows what she has flown near: the ore drift, Lantern Dock
+and Cinder Kiln. The rest lies under fog."). Orrin then says what comes next, once
+(`kiln_fitter_next`): the rest of his rack, Ines's galley (as it stands), Sefa's
+knowledge of the glassite, and the tag's second drawing, a full chart he can't make yet.
+
+With the chart glass in, the rest of the rack opens (`part.after`), three parts bought
+with credits:
 
 | Part | Socket | Price | Does | Power | Mass |
 | --- | --- | --- | --- | --- | --- |
@@ -948,15 +1038,17 @@ its rack, priced, so the first visit already shows what to aim for:
 | Hold pods | Hold | 3500 cr | the hold carries 36 instead of 24 | 0 | 3 |
 | Tuned thrusters | Engine | 9000 cr | top speed 25 instead of 20 | 2 | 1 |
 
-They are priced for the first hour: the lens after some ten ore runs, the pods after as
-many again, and the thrusters past the hour (below, "The opening hour").
+Before it, each says why it waits (`Orrin: "The chart glass first."`). They are priced
+for the first hour after the chart glass: the lens after some ten ore runs more, the pods
+after as many again, and the thrusters past the hour (below, "The opening hour").
 
 The hull has 3 power: whatever is fitted always runs, so a part that would draw
 more is refused, and the lens and the thrusters can't run together. It carries 3
 mass freely; each unit over costs 10% of top speed and turn rate (never below
 half), so the pods with anything else make the ship slower with wider turns. The
 control rack holds the controls the ship flies by: the hand cutter and hand berthing
-are always there, and the reach rig and the docking jets are bought from a row of
+are always there (and the chart glass, once made, joins them on the rack's hover:
+`Always fitted: ...`), and the reach rig and the docking jets are bought from a row of
 buttons under the sockets (`Reach rig · 15000 cr`), resting until the work is done with
 Orrin's own words and the count so far (`Orrin: "Bring in 100 full holds and I'll fit
 it." You've brought 12`), then with the reason while they can't be paid for. Controls cost no power or mass and never come off. The rules are
@@ -1082,8 +1174,10 @@ even when something else is logged while you are still listening. A line already
 The ship log (`scripts/log.luau` keeps the entries, `scripts/logbook.luau` draws it)
 is a small book button at the bottom left (`Log`, with a blue `N new` tag when
 something came in since you last looked); L or the book opens it at the top left.
-Pinned at the top is what is still waiting: an offer you heard and haven't answered
-(`OFFER`, under who made it and where, with its answers), the greenhouse job's next
+Pinned at the top is what is still waiting: your own goal until the chart glass is in
+(`GOAL`: `A chart of the reach`, then `Chart glass` at Cinder Kiln with what is still to
+bring, `Still to bring: 15 more plate and 1500 more cr.`), an offer you heard and haven't
+answered (`OFFER`, under who made it and where, with its answers), the greenhouse job's next
 step (`JOB`) and what a station you have docked at is building from your deliveries
 (`WANTED`: `13 of 40 plate in`). Pins
 outlast the 60 entries the log keeps: a heard offer is marked on its gift (`heard`),
@@ -1112,7 +1206,7 @@ kind. Each kind of thing has its own look, so a glance tells them apart:
 | A key hint | dark ink pill, thin gold frame | `kit.pill(ui, w)`, or `look = kit.LOOK.pill` on a text |
 | The radio, and a person's line on it | a slim dark strip with a violet frame; the speaker's name on the amber tag, then where from, quieter | `kit.radio(ui, w)`, `spans = kit.speaker("Bram", "Lantern Dock")` |
 | What just happened in flight | a lighter plum card, no frame, the ship's icon | `kit.note(ui, w)`, or `look = kit.LOOK.note` on a text |
-| A goal someone gave | warm midnight, thin gold frame, a cream `WANTED` tag | `kit.goal(ui, w)`, or `look = kit.LOOK.goal` on a text |
+| A goal | warm midnight, thin gold frame, a cream `GOAL` tag | `kit.goal(ui, w)`, or `look = kit.LOOK.goal` on a text |
 | A lesson about the game | a paper card, ink frame, black words | `kit.lesson(ui, w)`, or `look = kit.LOOK.lesson` on a text |
 | A place (a room panel, the open log) | parchment, ink frame, soft shadow | `kit.place(ui, w)` |
 | A place's title | large and heavy | `kit.heading(ui, w)` |
@@ -1158,30 +1252,31 @@ line (`cue = "flash"`) flashes pale gold, or a lighter plum on dark, for half a 
 Where things sit: the status chip top right (credits with the coin beside the hold
 with the crate, then a row of each ware aboard with its icon; `scripts/chip.luau`
 gives every piece its own width, so all five wares fit and the chip stays two rows
-tall). While the beam cuts, the hold's count reads short (`4/24`, the crate says what it
+tall). In flight, once the chart glass is fitted, its map sits in the chip under them
+(`chart.map` in `scripts/chart.luau`, the engine's `ui.map`): 276 pixels square, 640
+units of the reach across, north up like the flight view, the ship's heading at its
+centre. Where the ship has flown near (its `engine.explorer`, radius 48, about the flight
+view, records into `engine.explored` from the first tick) is parchment and the rest a deep
+ink fog (`map_*` in `style.toml`); the stations and the drifts are marked only on ground
+already flown near. It hides while the log is open and docked. While the beam cuts, the hold's count reads short (`4/24`, the crate says what it
 is) and the units this cut has brought in sit beside it (`+2`). The log's book sits
 bottom left, the radio top left in flight, the station plate top left when docked (the
 station's name, `Unclaimed`, as no faction holds a core station yet, and `Docked here`),
 and a stack at the bottom in flight (`scripts/hud.luau`), one surface per kind of thing
 and a gap between them, so they never run together: the latest message (a person on
 the radio, their name first on its tag, or what just happened), the goal it gives, a
-lesson, the stations off screen, and the one key that fits where the ship is. A
+lesson, and the one key that fits where the ship is. Nothing in it points anywhere: no
+station off screen is named and no way to one is given. A
 message never mixes kinds: `scripts/notice.luau` carries its goal, lesson and key
 (`press`) beside it, shown only while it shows, so "Cutting." comes with the pill
 "Let go of Space · stop" rather than the words in its line, and a hint with no key in it
 ("Fly slowly into a berth's glowing ring to dock") is a lesson. Each line is centred
-under the ship; short surfaces are only as wide as their words, and two share a line
-when both fit (the goal and the lesson, the bearings and the key), within `layout.BOTTOM`,
-which clears the log's book at 960x540. So the opening's five surfaces cover less of
-the reach than the one panel before them did: at 1280x720, 59,200 pixels against 62,800,
-and 61,500 once the key is `Hold Space · cut the rock`. Rocks and stations are click targets: under the pointer a rock lifts
+under the ship; short surfaces are only as wide as their words, and the goal and the
+lesson share a line when both fit, within `layout.BOTTOM`, which clears the log's book
+at 960x540. Rocks and stations are click targets: under the pointer a rock lifts
 and outlines and says what a click does and how much of its ware is left, and a station
 shows its posted prices. In flight each station wears its name under it while it is in
-view, a `yield` label like the traders'. Unless it is well on screen (within 40 units
-across and 24 up or down, inside the starting 64-unit view), a station is named in
-the bottom stack with the way to it in compass words (`Cinder Kiln
-south-east · Lantern Dock south-west`, `rules.bearings`) on a small dark label like the
-stations' own names, so the way home is never lost when the stations are off screen. A trading room has two tables, each headed by a row
+view, a `yield` label like the traders'; off screen it is named nowhere. A trading room has two tables, each headed by a row
 in the keeper's name: what they buy from you (`Sefa buys`, Pays you, Stock, Hold) and
 what they sell to you (`Sefa sells`, Asks you, Stock, Hold), each good's verbs under its row,
 and each receipt a `CONFIRMED` tag.
@@ -1278,7 +1373,7 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are a hundred and ten Luau rule tests (hold, depletion, prices against stock and their
+There are a hundred and sixteen Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
@@ -1293,9 +1388,22 @@ in `tests/mining.luau` the cutter's reach from the nose, aim within the slack, a
 for every second of beam time however it is broken up, the berth ring, regrowth to half
 and the worked-out message for an empty and a full hold, and in `tests/cutting.luau` the
 stone's heat, cold to warm to glazed and back, and simulated holds guarding how much an
-attentive hand beats clicking once and waiting, under "Cutting takes judgment") and
-sixty-eight scenarios (two of them, `sound.toml` and `sound-talk.toml`, under the sound
-below):
+attentive hand beats clicking once and waiting, under "Cutting takes judgment", and in
+`tests/chart.luau` the first flight by hand and not a script's order, the goal's pin
+before the drawing (no numbers in its way) and after it (what is still to bring), and the
+drawing's words and price) and sixty-nine scenarios (two of them, `sound.toml` and
+`sound-talk.toml`, under the sound below):
+the navigation spine (`spine-opening.toml`: memory 1 as a new world's first line and
+message, nothing pointing, Bram's welcome once on the first flight by hand and not on a
+script's order, the goal and its lesson, Mags's word on both buyers flying off with the
+first full hold; `spine-tag.toml`: no drawing and nothing on the rack before the tag, the
+tag held to the light once, the drawing and memory 3 in the log, Orrin's price as the part's
+price, the chart glass refused short of plate and short of credits and made from both, the
+lens open after it, the galley never needed; `spine-explored.toml`: the ship's memory kept
+from the first tick, true where it flew and the ice and glassite under fog, shown the
+moment the chart glass is in; `spine-directions.toml`: every way said before the chart
+glass flown as said; `spine-pace.toml`: the scripted spine route, under "The opening
+hour"),
 the opening's pace (`opening.toml`, above under "The opening hour"), cutting with
 judgment (`cutting.toml`: Sefa's word on the first hand beam, the seam warming, glazing
 with its look, beam and line, the beam moved to the spall and back, the hold full in 17
@@ -1554,7 +1662,12 @@ run, through the ice and the greenhouse built. Saves made before Cold Kettle's j
 the build before it (mid-greenhouse, and with the lamp night over), load and play with
 their credits, hold and greenhouse, without the job; start a new game for it. Resumed or hot
 loaded in flight, the radio cues the channel it was playing once more, so the same
-track fades in without input; docked, off or with no signal it cues nothing. Bot
+track fades in without input; docked, off or with no signal it cues nothing. A save taken in the cradle just after the chart glass is made (the
+`[[input]]` entries of `spine-pace.toml` as an inputs file, run to tick 18500) resumes for
+300 ticks to the same hash as an uninterrupted 18800-tick run: the chart glass comes back
+fitted, and the ship's memory (`engine.explorer`, `engine.explored`) with every cell it
+had. A save from before the navigation spine is refused with the engine's message (the
+pilot's `bearings` field is gone); start a new game for the spine. Bot
 input ticks and play's `--ticks` are absolute world ticks, including when resuming.
 The scenario schema cannot express save/load steps, so these checks run through the
 installed CLI separately; `radio-resume.toml` gives the resume input directly.
@@ -1569,8 +1682,9 @@ sits low on its front so it clears the dockmaster's name sign; the greenhouse's 
 in front of its dome, clear of the exchange above it. With four rooms the station key
 drops its icons so every name fits whole at 960x540.
 
-The fitting loop is the thinnest one too: one fitter, three parts on one rack, one
-part per socket and no hulls, blueprints or parts ordered from friends. The fit is
+The fitting loop is the thinnest one too: one fitter, one blueprint (the chart glass)
+and three parts after it, one part per socket and no hulls or parts ordered from
+friends. The fit is
 instant, with no crane or fitting moment. While a part is held, a socket that will take it says `Drop here` with the part's
 cost and effect, but not the whole change (the mass cost of the pods); only the
 click way previews that, in its box beside the panel. The cradle's sign

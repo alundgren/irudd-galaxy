@@ -1,0 +1,134 @@
+# The opening (scripts/chart.luau): a new world opens on memory 1, the log's first line and
+# the message, with nothing in the log or on screen pointing anywhere. The first flight by
+# hand brings Bram's welcome over the radio, once: nobody sells a chart of the reach, and
+# Orrin at Cinder Kiln fits out tugs, south-east of the ore drift. It gives the pilot's own
+# goal (no one's WANTED), and the log pins it. Flying off with the first full hold, Mags
+# says on the radio where both buyers lie, once.
+seed = 7
+ticks = 140
+
+[[expect]]
+tick = 1
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "The hospital ship's card said: from the reach, found in the ice, no kin recorded. This is the reach."
+[[expect]]
+tick = 1
+entity = "ship"
+component = "pilot"
+field = "goal"
+equals = ""
+[[expect]]
+tick = 1
+entity = "ship"
+component = "pilot"
+field = "logged"
+equals = 1
+
+# A script's order is not the pilot's first flight.
+[[input]]
+tick = 2
+name = "core.ahead"
+source = "script"
+payload = { down = true }
+[[input]]
+tick = 3
+name = "core.ahead"
+source = "script"
+payload = { down = false }
+[[expect]]
+tick = 4
+entity = "ship"
+component = "pilot"
+field = "welcomed"
+equals = false
+
+# W by hand: Bram's welcome, the goal it gives and the lesson, each on its own.
+[[input]]
+tick = 10
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 20
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[expect]]
+tick = 11
+entity = "log2"
+component = "entry"
+field = "text"
+equals = "Bram on Lantern Dock's radio: “Welcome, pilot. Nobody sells a chart of the reach; we fly by eye. Orrin fits out tugs at Cinder Kiln, south-east of the ore drift.”"
+[[expect]]
+tick = 11
+entity = "ship"
+component = "pilot"
+field = "goal"
+equals = "Find a way to chart the reach"
+[[expect]]
+tick = 11
+entity = "ship"
+component = "pilot"
+field = "lesson"
+equals = "Your log keeps your goal."
+[[expect]]
+tick = 11
+entity = "ship"
+component = "pilot"
+field = "welcomed"
+equals = true
+
+# Said once.
+[[input]]
+tick = 30
+name = "core.left"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 32
+name = "core.left"
+source = "keyboard"
+payload = { down = false }
+[[expect]]
+tick = 40
+entity = "ship"
+component = "pilot"
+field = "logged"
+equals = 2
+
+# A first hold cut: flying off, Mags names both buyers and the way to each from the drift.
+[[edit]]
+tick = 50
+entity = "ship"
+component = "pilot"
+set = { holds = 1 }
+[[edit]]
+tick = 50
+entity = "ship"
+component = "hold"
+set = { ore = 24 }
+[[input]]
+tick = 60
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[expect]]
+tick = 100
+entity = "log3"
+component = "entry"
+field = "text"
+equals = "Mags on Cinder Kiln's radio: “Full hold. Cinder Kiln buys ore, south-east of the drift. Lantern Dock does too, south-west.”"
+[[expect]]
+tick = 140
+entity = "ship"
+component = "pilot"
+field = "directed"
+equals = true
+[[expect]]
+tick = 140
+entity = "ship"
+component = "pilot"
+field = "logged"
+equals = 3

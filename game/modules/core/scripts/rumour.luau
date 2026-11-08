@@ -1,7 +1,8 @@
 -- A rumour the player follows out and brings back (research: "Discovery and lore drip"):
 -- the first strand of a web of open questions, kept to one thread of three beats.
 --
---   LEAD   while a job needs the rumour's ware (Ines's greenhouse, glassite), the keeper
+--   LEAD   while a job needs the rumour's ware (Ines's greenhouse, glassite), or once the
+--          chart glass is in and glassite is one of the choices it opens, the keeper
 --          who buys it (Sefa at Cinder Kiln) says where it grows, in her own words: a
 --          bearing and a landmark, never a marker (direction doc 2 and 9).
 --   FIND   out there, by what she named, lies something nobody mentioned: an old stone
@@ -16,6 +17,7 @@
 -- Plain rules (no ctx) come first, so tests can call them; world reads and writes follow.
 local project = require("./project")
 local places = require("./places")
+local chart = require("./chart")
 
 local rumour = {}
 
@@ -105,7 +107,9 @@ function rumour.offers(ctx, station, done, busy)
     local here = places.of(ctx, r.keeper) == station and met(ctx, r.keeper, done)
         and not (busy and busy[r.keeper])
     local want = {
-        [r.lead] = here and not r.found and not r.heard and done ~= r.lead and wanting(ctx, r) ~= nil,
+        -- Once the chart glass is in, glassite is one of the choices Orrin names, so she
+        -- says where it grows whether or not a job needs it yet.
+        [r.lead] = here and not r.found and not r.heard and done ~= r.lead and (wanting(ctx, r) ~= nil or chart.fitted(ctx)),
         [r.tell] = here and r.found and not r.told,
     }
     for talk, on in want do

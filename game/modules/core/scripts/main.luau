@@ -551,14 +551,6 @@ return {
             if barge and gap <= salvage.REACH then near = "barge" end
         end
         if near ~= pilot.near then ctx.patch("ship", "pilot", { near = near }) end
-        -- The way to each station off screen, once a second.
-        local stations = {}
-        for _, id in ctx.query("port") do
-            local p = ctx.get(id .. "_exterior", "engine.position")
-            if p then table.insert(stations, { name = ctx.get(id, "port").name, x = p.x, y = p.y }) end
-        end
-        local bearings = rules.bearings(at, stations)
-        if bearings ~= pilot.bearings then ctx.patch("ship", "pilot", { bearings = bearings }) end
         if pilot.mining and pilot.target ~= "" then
             cut(ctx, pilot)
         elseif pilot.approach and pilot.target ~= "" and cutter.can_cut(ctx, pilot.target, true) then
