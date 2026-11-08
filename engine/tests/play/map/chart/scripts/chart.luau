@@ -58,6 +58,7 @@ return {
 						{ entity = "rock1" },
 						{ entity = "rock2" },
 						{ entity = "rock3" },
+						{ entity = "crate", text = "Crate", always = true },
 					},
 				},
 			},

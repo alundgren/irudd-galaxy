@@ -1,4 +1,4 @@
-//! `ui.map`: the open plane around a followed thing or a fixed point, painted in Rust
+//! `ui.map`: the place around a followed thing or a fixed point, painted in Rust
 //! every frame from the world, so the screen's Luau never runs again because something
 //! moved. Explored cells (`engine.explored`, [`galaxy_api::explored`]) are clear, the rest
 //! is fog, marks show only on explored ground unless `always`, and the followed thing is
@@ -23,8 +23,9 @@ pub(super) type Memories = BTreeMap<String, (String, Arc<Memory>)>;
 /// One map's paint for this frame, in pixels from the map's top-left corner.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Frame {
-    /// Explored runs, already clipped to the map.
-    pub clear: Vec<Rect>,
+    /// The ground as tiles that never overlap and together cover the map: explored
+    /// (`true`) or under fog. Clipped to the map.
+    pub tiles: Vec<(Rect, bool)>,
     pub marks: Vec<Mark>,
     /// The followed thing: where, and its turn on screen (radians clockwise from up).
     pub me: Option<(Vec2, f32)>,
@@ -69,7 +70,19 @@ pub(super) fn frame(
     let path = b.widget.path.as_str();
     let size = Vec2::new(b.rect.w, b.rect.h);
     let mut out = Frame::default();
-    let open = |id: &str| galaxy_sim::places::place_of(world, id).is_empty();
+    let place_of = |id: &str| galaxy_sim::places::place_of(world, id);
+    let memory_place = |id: &str| match world.component(id, EXPLORED) {
+        Some(c) => galaxy_sim::explore::memory_place(&c.fields),
+        None => place_of(id),
+    };
+    // The space the map shows: the followed thing's place, else the memory's, else the
+    // open plane. Only memory, marks and things in that space are drawn.
+    let space = match (&spec.follow, &spec.memory) {
+        (Some(id), _) => place_of(id),
+        (None, Some(id)) => memory_place(id),
+        (None, None) => "",
+    };
+    let open = |id: &str| place_of(id) == space;
     let position = |id: &str| world.component(id, POSITION).map(|c| &c.fields);
     let (cx, cy) = match (&spec.follow, spec.center) {
         (Some(id), _) => match position(id) {
@@ -93,6 +106,10 @@ pub(super) fn frame(
     };
     let memory = spec.memory.as_ref().and_then(|id| {
         match world.component(id, EXPLORED) {
+            // Memory of another place: everything here is unexplored.
+            Some(_) if memory_place(id) != space => {
+                Some((Arc::new(Memory::default()), DEFAULT_CELL))
+            }
             Some(c) => {
                 let text = c.fields.get("cells").and_then(Value::as_str).unwrap_or("");
                 let cell = number(&c.fields, "cell", DEFAULT_CELL);
@@ -127,8 +144,7 @@ pub(super) fn frame(
         }
     };
     match (&spec.memory, &memory) {
-        (None, _) => out.clear.push(whole),
-        (Some(_), None) => {}
+        (None, _) => out.tiles.push((whole, true)),
         (Some(_), Some((m, cell))) if explored::check_cell(*cell).is_ok() => {
             let half_w = spec.span * 0.5;
             let half_h = f64::from(size.y) / scale * 0.5;
@@ -137,26 +153,43 @@ pub(super) fn frame(
                 let hi = explored::cell_of(hi, 0.0, *cell).map(|c| c.0);
                 lo.zip(hi)
             };
-            if let (Some((x0, x1)), Some((y0, y1))) = (
+            match (
                 range(cx - half_w, cx + half_w),
                 range(cy - half_h, cy + half_h),
             ) {
-                for row in y0..=y1 {
-                    for (s, e) in m.runs(row, x0, x1 + 1) {
-                        let a = to_px(s as f64 * cell, (row + 1) as f64 * cell);
-                        let b = to_px(e as f64 * cell, row as f64 * cell);
-                        // A pixel of overlap with the next row and run: their soft edges
-                        // would otherwise leave a faint seam of fog between them.
-                        let r = Rect::new(a.x, a.y, b.x - a.x + 1.0, b.y - a.y + 1.0);
-                        let r = intersection(r, whole);
-                        if r.w > 0.0 && r.h > 0.0 {
-                            out.clear.push(r);
+                (Some((x0, x1)), Some((y0, y1))) => {
+                    for row in y0..=y1 {
+                        // The row's band, its explored runs, and fog in the gaps. Shared
+                        // edges come from the same sums, so neighbours meet exactly.
+                        let top = to_px(0.0, (row + 1) as f64 * cell).y.max(0.0);
+                        let bottom = to_px(0.0, row as f64 * cell).y.min(size.y);
+                        if bottom <= top {
+                            continue;
+                        }
+                        let mut x = 0.0f32;
+                        for (s, e) in m.runs(row, x0, x1 + 1) {
+                            let a = to_px(s as f64 * cell, 0.0).x.max(0.0);
+                            let b = to_px(e as f64 * cell, 0.0).x.min(size.x);
+                            if a > x {
+                                out.tiles
+                                    .push((Rect::new(x, top, a - x, bottom - top), false));
+                            }
+                            if b > a {
+                                out.tiles
+                                    .push((Rect::new(a, top, b - a, bottom - top), true));
+                            }
+                            x = x.max(b);
+                        }
+                        if x < size.x {
+                            out.tiles
+                                .push((Rect::new(x, top, size.x - x, bottom - top), false));
                         }
                     }
                 }
+                _ => out.tiles.push((whole, false)),
             }
         }
-        _ => {}
+        _ => out.tiles.push((whole, false)),
     }
     if let Some(id) = &spec.follow
         && let Some(p) = position(id)
@@ -205,7 +238,7 @@ pub(super) fn frame(
                     let ink = look.fill.or(look.text).unwrap_or(b.style.map_mark);
                     if galaxy_render::screen_style::contrast(ink, b.style.map_clear) < 3.0 {
                         problems.push(format!(
-                            "{at_mark}: look `{name}` needs contrast at least 3:1 on [screen]                              map_clear"
+                            "{at_mark}: look `{name}` needs contrast at least 3:1 on [screen] map_clear"
                         ));
                     }
                 }
@@ -248,19 +281,28 @@ pub(super) fn frame(
     out
 }
 
-fn disc(style: &ScreenStyle, centre: Vec2, size: f32, fill: Color, alpha: f32) -> Panel {
-    let mut p = style.surface(
-        Rect::new(centre.x - size * 0.5, centre.y - size * 0.5, size, size),
-        fill,
-    );
+/// A round mark: `fill` inside a ring of `ring` `ring_px` wide, as one panel, so it fades
+/// as one.
+fn disc(centre: Vec2, size: f32, fill: Color, ring: Color, ring_px: f32, alpha: f32) -> Panel {
+    let mut p = Panel::new(Rect::new(
+        centre.x - size * 0.5,
+        centre.y - size * 0.5,
+        size,
+        size,
+    ));
     p.radius = size * 0.5;
-    p.border_px = 0.0;
+    p.fill = fill;
+    p.border = ring;
+    p.border_px = ring_px;
+    p.shadow = false;
     p.opacity = alpha;
     p
 }
 
-/// Paints `frame` into the map box `rect`: fog, explored ground, marks, the heading
-/// marker and the frame, in one layer clipped to the map.
+/// Paints `frame` into the map box `rect`: its ground as tiles, its frame, marks and the
+/// heading marker, in one layer clipped to the map. The ground and frame are hard-edged
+/// tiles that never overlap, so the map fades evenly; each mark and the marker is one
+/// panel with its halo as a ring.
 pub(super) fn paint(
     frame: Option<&Frame>,
     rect: Rect,
@@ -274,22 +316,45 @@ pub(super) fn paint(
         clip: Some(clip),
         ..Default::default()
     };
-    let flat = |r: Rect, fill: Color| {
-        let mut p = style.surface(r, fill);
-        p.radius = 0.0;
+    let tile = |r: Rect, fill: Color| {
+        let mut p = Panel::new(r);
+        p.shape = PanelShape::Tile;
+        p.fill = fill;
         p.border_px = 0.0;
+        p.shadow = false;
         p.opacity = alpha;
         p
     };
-    layer.panels.push(flat(rect, style.map_fog));
+    // The frame is the outer ring of tiles; the ground fills what is inside it.
+    let e = style.border_px.max(1.0).min(rect.w * 0.5).min(rect.h * 0.5);
+    let (x0, y0, x1, y1) = (rect.x, rect.y, rect.x + rect.w, rect.y + rect.h);
+    let inner = Rect::new(x0 + e, y0 + e, rect.w - 2.0 * e, rect.h - 2.0 * e);
+    for r in [
+        Rect::new(x0, y0, rect.w, e),
+        Rect::new(x0, y1 - e, rect.w, e),
+        Rect::new(x0, y0 + e, e, rect.h - 2.0 * e),
+        Rect::new(x1 - e, y0 + e, e, rect.h - 2.0 * e),
+    ] {
+        layer.panels.push(tile(r, style.map_edge));
+    }
     let origin = Vec2::new(rect.x, rect.y);
     let empty = Frame::default();
     let frame = frame.unwrap_or(&empty);
-    for r in &frame.clear {
-        layer.panels.push(flat(
-            Rect::new(r.x + rect.x, r.y + rect.y, r.w, r.h),
-            style.map_clear,
-        ));
+    let ground = if frame.tiles.is_empty() {
+        vec![(Rect::new(0.0, 0.0, rect.w, rect.h), false)]
+    } else {
+        frame.tiles.clone()
+    };
+    for (r, clear) in ground {
+        let r = intersection(Rect::new(r.x + origin.x, r.y + origin.y, r.w, r.h), inner);
+        if r.w > 0.0 && r.h > 0.0 {
+            let fill = if clear {
+                style.map_clear
+            } else {
+                style.map_fog
+            };
+            layer.panels.push(tile(r, fill));
+        }
     }
     for m in &frame.marks {
         let at = origin + m.at;
@@ -299,9 +364,26 @@ pub(super) fn paint(
             .unwrap_or(style.map_mark);
         let has_icon = m.image.is_some() || m.glyph.is_some();
         let size = if has_icon { ICON } else { DOT };
-        layer
-            .panels
-            .push(disc(style, at, size + 2.0 * HALO, style.map_clear, alpha));
+        if has_icon {
+            // A plain backing the icon is drawn on, as text is on a panel.
+            layer.panels.push(disc(
+                at,
+                size + 2.0 * HALO,
+                style.map_clear,
+                style.map_clear,
+                0.0,
+                alpha,
+            ));
+        } else {
+            layer.panels.push(disc(
+                at,
+                DOT + 2.0 * HALO,
+                ink,
+                style.map_clear,
+                HALO,
+                alpha,
+            ));
+        }
         if let Some(icon) = &m.image {
             layer.images.push(UiImage {
                 rect: Rect::new(at.x - ICON * 0.5, at.y - ICON * 0.5, ICON, ICON),
@@ -315,8 +397,6 @@ pub(super) fn paint(
                 .color(ink.with_alpha(alpha));
             t.weight = 600;
             layer.texts.push(t);
-        } else {
-            layer.panels.push(disc(style, at, DOT, ink, alpha));
         }
         if let Some(label) = &m.label {
             let fill = look.and_then(|l| l.fill).unwrap_or(style.paper);
@@ -345,25 +425,22 @@ pub(super) fn paint(
     }
     if let Some((at, turn)) = frame.me {
         let at = origin + at;
-        for (grow, fill) in [(HALO * 2.0, style.map_clear), (0.0, style.map_self)] {
-            let size = ME + Vec2::splat(grow);
-            let mut p = style.surface(
-                Rect::new(at.x - size.x * 0.5, at.y - size.y * 0.5, size.x, size.y),
-                fill,
-            );
-            p.shape = PanelShape::Triangle;
-            p.rotate = turn;
-            p.radius = 1.0;
-            p.border_px = 0.0;
-            p.opacity = alpha;
-            layer.panels.push(p);
-        }
+        let size = ME + Vec2::splat(2.0 * HALO);
+        let mut p = Panel::new(Rect::new(
+            at.x - size.x * 0.5,
+            at.y - size.y * 0.5,
+            size.x,
+            size.y,
+        ));
+        p.shape = PanelShape::Triangle;
+        p.rotate = turn;
+        p.radius = 1.0;
+        p.fill = style.map_self;
+        p.border = style.map_clear;
+        p.border_px = HALO;
+        p.shadow = false;
+        p.opacity = alpha;
+        layer.panels.push(p);
     }
-    let mut edge = style.surface(rect, style.map_edge.with_alpha(0.0));
-    edge.radius = 0.0;
-    edge.border = style.map_edge;
-    edge.border_px = style.border_px.max(1.0);
-    edge.opacity = alpha;
-    layer.panels.push(edge);
     overlay.widgets.push(layer);
 }

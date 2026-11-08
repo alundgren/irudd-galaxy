@@ -6,7 +6,7 @@ under fog of war. The code is `crates/api/src/explored.rs` (the cells and their 
 `crates/script/src/host.rs`, `ui.map` parsing in `crates/script/src/screens.rs` and
 painting in `crates/view/src/screens/map.rs`.
 
-![The chart in tests/play/map after the ship has flown two legs of its route](screens/map.png)
+![The chart in tests/play/map/chart after the ship has flown two legs of its route in the reach](screens/map.png)
 
 ## Trying it
 
@@ -19,18 +19,20 @@ galaxy play --modules tests/play/map          # M hides the chart; the arrows fl
 galaxy sim run --modules tests/play/map --ticks 300 --state --entity chart.ship
 ```
 
-A ship flies a route by itself. From the first tick it remembers the ground within 24
-units of it; the chart in the corner follows it, with that ground clear and the rest under
-fog. Rocks show on the chart once flown near; the hub is always shown, clamped to the edge
-while it is off the chart.
+A ship flies a route by itself inside one place, the reach, as a game's open area
+would. From the first tick it remembers the ground within 24 units of it; the chart in
+the corner follows it, with that ground clear and the rest under fog. Rocks show on the
+chart once flown near; the hub is always shown, clamped to the edge while it is off the
+chart. A crate in another place, the dock, never shows, though its coordinates fall on
+explored ground. M closes the chart, which fades out still showing the ground.
 
 ## Memory
 
 A module puts `engine.explorer { radius }` on any thing. After the tick's other services
 (flight, motion, walking, collide, ground, the cadence and settling holds), the explore
-service marks, for each explorer on the open plane, the grid cell under it and every cell
-whose centre is within `radius` of it, into `engine.explored { cell, cells }` on the same
-thing, making that component the first time. `cell` is the cell size in world units
+service marks, for each explorer, the grid cell under it and every cell whose centre is
+within `radius` of it, into `engine.explored { cell, cells, place }` on the same thing,
+making that component the first time. `cell` is the cell size in world units
 (default 8); a module that wants another size puts `engine.explored { cell = 4 }` in its
 start state. Changing `cell` later reinterprets the cells, so clear them with it.
 
@@ -53,11 +55,18 @@ differ: after a load, a hot-load, an edit or a script write. Marking checks the 
 round the explorer; only a tick that uncovers a new cell re-encodes the text and writes
 the component, with the cause `explore`. A ship sitting still writes nothing.
 
-**Places.** Places have their own coordinates (`places-and-beings.md`). An explorer with
-an `engine.location` in a place marks nothing: the memory is of the open plane, and the
-place's coordinates would land on unrelated open-plane cells. A ship docked in a station
-keeps its memory and marks again when it flies out. Memory per place could be added later
-by keying `engine.explored` by place; nothing needs it yet.
+**Places.** Places have their own coordinates (`places-and-beings.md`), so a memory is of
+one place: `place` names it, empty for the open plane. The service makes the memory in
+the place its explorer is in, and marks it only while the explorer is in that place; a
+ship flying in a game's open area (itself a place) records in that place's coordinates,
+and the same ship docked in a station room records nothing there, keeping its memory for
+when it flies out. Cells from one place therefore never show in another. A memory with
+no cells (new, or cleared by an edit) moves to its explorer's place on the next tick. A
+module whose explorer starts somewhere else than the place it should remember puts
+`engine.explored { place = "<that place>" }` in its start state. `place` must name an
+`engine.place`, and that place can't be removed while a memory names it. One memory per thing keeps saves and edits simple; a thing that should
+remember several places needs one explorer-and-memory thing per place, which modules can
+already make.
 
 **Guards.** `cell` must be at least 0.25 world units and `radius` at least 0, and the
 radius may span at most 64 cells (a radius meant in cells, or a tiny cell, would mark
@@ -68,31 +77,39 @@ states load, when a save resumes, and on every batch (script, input or edit) tha
 `galaxy-gm check` reports a bad start state.
 
 **Setting it.** Tests set memory at once with edits (`world-edits.md`): `set <ship>
-engine.explored cells="0:0+4;1:0+4"` sets it, `put <ship> engine.explored` clears it (the
-explorer marks round itself again next tick), and an `[[edit]]` with `put = { cells = ...
-}` does the same in a scenario. A script with `engine.explored` in its `writes` can do the
+engine.explored cells="0:0+4;1:0+4"` sets it (add `place=<place>` when it is of a place),
+`put <ship> engine.explored` clears it (the explorer marks round itself again next tick,
+in the place it is in), and an `[[edit]]` with `put = { cells = ..., place = ... }` does
+the same in a scenario. A script with `engine.explored` in its `writes` can do the
 same with `ctx.patch`.
 
-**Reading it.** `ctx.explored(entity, x, y)` says whether the point is in a remembered
-cell; false when the entity has no memory. It is charged to the step budget by the length
+**Reading it.** `ctx.explored(entity, x, y)` says whether the point, in the memory's
+place's coordinates, is in a remembered cell; false when the entity has no memory. It is charged to the step budget by the length
 of the text.
 
 ## The map
 
 `ui.map { id, width, height, span, memory, follow | center = { x, y }, marks }` is a
-screen widget (`screens.md`). The screen's Luau returns it once; Rust reads the followed
+screen widget (`screens.md`). It shows one place: the followed thing's (else the
+memory's, else the open plane). The screen's Luau returns it once; Rust reads the followed
 thing, the marks' positions and the memory from the world every frame and paints:
 
-- fog (`[screen] map_fog`) over the whole map, then each explored run of each row in view
-  as one rectangle of `map_clear` (overlapping its neighbours by a pixel, so no seams);
-- each mark whose cell is explored, or every `always` mark (clamped to the edge when off
-  the map), as a dot of `map_mark` (or its look's fill) or a module icon, on a halo of
-  `map_clear` so it reads on fog too, with an optional label on a tag;
-- the followed thing as a triangle turned to its heading, on its own halo;
-- a frame of `map_edge`.
+- a frame of `map_edge`, and inside it the ground as tiles: each row of cells in view is
+  cut into its explored runs (`map_clear`) and the fog between them (`map_fog`). A memory
+  of another place shows as fog;
+- each mark in the map's place whose cell is explored, or every `always` mark in that
+  place (clamped to the edge when off the map), as a dot of `map_mark` (or its look's
+  fill) or a module icon, with a ring of `map_clear` so it reads on fog too, and an
+  optional label on a tag;
+- the followed thing as a triangle turned to its heading, with its own ring.
 
 It all goes in one layer clipped to the map, after its parent's surface, so it scrolls,
-slides and fades with its screen. The decoded memory is kept per entity and re-read only
+slides and fades with its screen; a closing screen's map keeps reading the world while it
+fades out. Frame and ground tiles are `PanelShape::Tile`: the renderer puts their edges on
+whole physical pixels, so neighbouring tiles meet with no seam and no overlap at any
+display scale, and the map fades evenly instead of showing lighter lines where
+translucent rectangles overlap. Each dot and the marker is one panel with its ring as
+its border, so it fades as one. The decoded memory is kept per entity and re-read only
 when the text changes. The map has no Luau-visible state, so notes, audit and films redraw
 it from the replayed world exactly. Marks and the heading marker need 3:1 contrast on
 `map_clear`, and fog 1.5:1 against it; the style check refuses less.

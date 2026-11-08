@@ -1691,15 +1691,25 @@ impl Renderer {
 
 fn panel_gpu(p: &Panel, scale: f32) -> PanelGpu {
     let r = p.rect;
-    PanelGpu {
-        rect: [
+    let tile = p.shape == PanelShape::Tile;
+    let rect = if tile {
+        // Whole pixels: the shader's soft edge then falls exactly between pixels.
+        let (x0, y0) = ((r.x * scale).round(), (r.y * scale).round());
+        let x1 = ((r.x + r.w.max(0.0)) * scale).round();
+        let y1 = ((r.y + r.h.max(0.0)) * scale).round();
+        [x0, y0, x1 - x0, y1 - y0]
+    } else {
+        [
             r.x * scale,
             r.y * scale,
             r.w.max(0.0) * scale,
             r.h.max(0.0) * scale,
-        ],
+        ]
+    };
+    PanelGpu {
+        rect,
         params: [
-            p.radius.max(0.0) * scale,
+            if tile { 0.0 } else { p.radius.max(0.0) * scale },
             p.border_px.max(0.0) * scale,
             if p.shadow {
                 p.shadow_px.max(0.0) * scale
@@ -1712,9 +1722,9 @@ fn panel_gpu(p: &Panel, scale: f32) -> PanelGpu {
         fill: p.fill.to_array(),
         border: p.border.to_array(),
         shape: [
-            p.rotate,
+            if tile { 0.0 } else { p.rotate },
             match p.shape {
-                PanelShape::Box => 0.0,
+                PanelShape::Box | PanelShape::Tile => 0.0,
                 PanelShape::Triangle => 1.0,
             },
             p.opacity.clamp(0.0, 1.0),

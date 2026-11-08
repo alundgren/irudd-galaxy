@@ -2396,7 +2396,24 @@ pub static TOPICS: &[Topic] = &[
                 and delta = logical pixels for scroll (positive down). Scrollbar parts use \
                 widget = entries::thumb, entries::track-start or entries::track-end with \
                 pickup/move/drop. Use separate ticks to \
-                take a [[note]] mid-drag. Pointer gestures and clicks at one tick run gestures first.                 Fog of war: engine.explorer { radius } on a thing makes the engine remember,                 every tick, the grid cells within radius of it on the open plane (not inside a                 place) in its engine.explored { cell = 8, cells }, which saves, replays and                 takes edits like any component (put it with an empty cells to clear it; set                 cells = 'y:x+count,...;...' to set it). ctx.explored(entity, x, y) asks whether                 a point is remembered. ui.map { id, width, height, span, memory, follow or                 center = { x, y }, marks = { { entity, text?, icon?, look?, always? } } } shows                 span world units across around the followed thing (a heading marker), north                 up, with remembered cells clear and the rest under fog; a mark shows only on                 remembered ground unless always (then clamped to the edge). Rust paints it                 every frame, so moving never runs the screen's Luau again. Colours are                 [screen] map_fog, map_clear, map_edge, map_self and map_mark. check reports a                 memory with neither component, a mark that doesn't exist and a bad span.",
+                take a [[note]] mid-drag. Pointer gestures and clicks at one tick run gestures first. \
+                Fog of war: engine.explorer { radius } on a thing makes the engine remember, \
+                every tick, the grid cells within radius of it in its \
+                engine.explored { cell = 8, cells, place }, which saves, replays and takes edits \
+                like any component. A memory is of one place: the one its explorer was in when \
+                it began (empty place is the open plane); it records only while the explorer \
+                is there, and an empty memory follows its explorer. Put it with no cells to \
+                clear it, or set cells = 'y:x+count,...;...' (and place) to set it. \
+                ctx.explored(entity, x, y) asks whether a point in the memory's place is \
+                remembered. ui.map { id, width, height, span, memory, follow or \
+                center = { x, y }, marks = { { entity, text?, icon?, look?, always? } } } shows \
+                span world units across around the followed thing (a heading marker), north \
+                up, in the followed thing's place, with remembered cells clear and the rest \
+                under fog; a mark shows only in that place and on remembered ground unless \
+                always (then clamped to the edge). Rust paints it every frame, so moving never \
+                runs the screen's Luau again. Colours are [screen] map_fog, map_clear, \
+                map_edge, map_self and map_mark. check reports a memory with neither \
+                component, a mark that doesn't exist and a bad span.",
         tasks: &[("Screen API and types", "gm types")],
         recipes: &[
             Recipe {
@@ -2443,7 +2460,7 @@ pub static TOPICS: &[Topic] = &[
                     "galaxy-gm check example",
                     "galaxy shot --modules example --ticks 240 --out chart.png",
                     "Inspect chart.png: the ship's heading marker is at the chart's centre, the ground it flew near is clear, the rest is fog, and rock1 shows only once flown near. galaxy play --modules engine/tests/play/map shows the same in a window.",
-                    "In a scenario, set memory at once with [[edit]] entity = 'ship', component = 'engine.explored', put = { cells = '0:0+4;1:0+4' } (put keeps the default cell; add cell = ... if yours differs), and assert it from a script with ctx.explored('ship', x, y).",
+                    "In a scenario, set memory at once with [[edit]] entity = 'ship', component = 'engine.explored', put = { cells = '0:0+4;1:0+4' } (put keeps the default cell; add cell = ... if yours differs, and place = '<place>' when the ship flies inside a place), and assert it from a script with ctx.explored('ship', x, y).",
                 ],
             },
         ],

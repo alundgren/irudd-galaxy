@@ -220,7 +220,25 @@ impl Screens {
             );
         }
         self.boxes = shown;
+        self.finish_motion();
+        self.update_motion(&previous);
         self.maps.clear();
+        let hovered = self.hovered_button();
+        // Panels on their way out draw first, under what is on screen now. A map among
+        // them keeps showing the world while it fades; its problems were reported live.
+        let leaving = self.leaving(size);
+        let mut quiet = Vec::new();
+        for (b, _) in &leaving {
+            frames(
+                b,
+                world,
+                &mut self.maps,
+                &mut self.memories,
+                &self.icons,
+                &mut self.measure,
+                &mut quiet,
+            );
+        }
         for root in &self.boxes {
             frames(
                 root,
@@ -235,11 +253,7 @@ impl Screens {
         if self.maps.is_empty() {
             self.memories.clear();
         }
-        self.finish_motion();
-        self.update_motion(&previous);
-        let hovered = self.hovered_button();
-        // Panels on their way out draw first, under what is on screen now.
-        for (b, t) in self.leaving(size) {
+        for (b, t) in leaving {
             let fx = Fx {
                 alpha: 1.0 - t,
                 dy: t * self.motion_slide(),

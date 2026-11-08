@@ -16,18 +16,40 @@ fn module() -> Module {
     Module::read(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/map/chart")).unwrap()
 }
 
-/// The map's layer: the one whose first panel is the fog.
+/// The map's layer: the one painted with tiles.
 fn map_layer(overlay: &Overlay) -> &UiLayer {
-    let fog = ScreenStyle::default().map_fog;
     overlay
         .widgets
         .iter()
-        .find(|l| l.panels.first().is_some_and(|p| p.fill == fog))
+        .find(|l| l.panels.iter().any(|p| p.shape == PanelShape::Tile))
         .expect("a map layer")
 }
 
 fn count(layer: &UiLayer, fill: galaxy_render::Color) -> usize {
     layer.panels.iter().filter(|p| p.fill == fill).count()
+}
+
+/// The ground tiles never overlap and cover the inside of the frame exactly.
+fn tiles_partition(layer: &UiLayer) {
+    let style = ScreenStyle::default();
+    let ground: Vec<_> = layer
+        .panels
+        .iter()
+        .filter(|p| p.shape == PanelShape::Tile && p.fill != style.map_edge)
+        .map(|p| p.rect)
+        .collect();
+    let area: f32 = ground.iter().map(|r| r.w * r.h).sum();
+    let clip = layer.clip.unwrap();
+    let e = style.border_px.max(1.0);
+    let inner = (clip.w - 2.0 * e) * (clip.h - 2.0 * e);
+    assert!((area - inner).abs() < 1.0, "{area} vs {inner}");
+    for (i, a) in ground.iter().enumerate() {
+        for b in &ground[..i] {
+            let w = (a.x + a.w).min(b.x + b.w) - a.x.max(b.x);
+            let h = (a.y + a.h).min(b.y + b.h) - a.y.max(b.y);
+            assert!(w <= 0.001 || h <= 0.001, "{a:?} overlaps {b:?}");
+        }
+    }
 }
 
 #[test]
@@ -44,6 +66,7 @@ fn the_chart_uncovers_where_the_ship_flew_without_running_luau_again() {
         view.screens.problems
     );
     let layer = map_layer(&first);
+    tiles_partition(layer);
     let start_clear = count(layer, style.map_clear);
     // Only the hub shows under fog (always); the rocks are far from the start.
     assert_eq!(count(layer, style.map_mark), 1);
@@ -73,6 +96,7 @@ fn the_chart_uncovers_where_the_ship_flew_without_running_luau_again() {
         "moving never calls the screen again"
     );
     let layer = map_layer(&last);
+    tiles_partition(layer);
     assert!(
         count(layer, style.map_clear) > start_clear,
         "more ground is clear after flying"
@@ -189,7 +213,7 @@ fn a_memory_set_by_hand_is_what_the_map_clears() {
     let clear: Vec<_> = layer
         .panels
         .iter()
-        .filter(|p| p.fill == style.map_clear && p.radius == 0.0)
+        .filter(|p| p.fill == style.map_clear && p.shape == PanelShape::Tile)
         .collect();
     assert_eq!(clear.len(), 1);
     // 2 px a world unit: cell x 20..30, y 0..10 is 40..60 px right of centre, 0..20 up.
@@ -197,6 +221,44 @@ fn a_memory_set_by_hand_is_what_the_map_clears() {
     let centre = clip.center();
     assert!((r.x - (centre.x + 40.0)).abs() < 0.01, "{r:?} {clip:?}");
     assert!((r.y - (centre.y - 20.0)).abs() < 0.01, "{r:?} {clip:?}");
-    assert!((r.w - 21.0).abs() < 0.01 && (r.h - 21.0).abs() < 0.01);
+    assert!((r.w - 20.0).abs() < 0.01 && (r.h - 20.0).abs() < 0.01);
     assert_eq!(count(layer, style.map_mark), 1);
+}
+
+#[test]
+fn a_closing_chart_keeps_its_ground_while_it_fades() {
+    let style = ScreenStyle::default();
+    let mut session = Session::new(vec![module()], 1).unwrap();
+    let mut view = View::detached(session.modules(), 1);
+    for _ in 0..120 {
+        view.before_step(&session.world);
+        session.step(&[]).unwrap();
+        view.scene(&session.world, 1.0, SIZE, 0.0);
+    }
+    let close = galaxy_sim::Input {
+        tick: 121,
+        source: "keyboard".into(),
+        name: "chart.chart".into(),
+        payload: serde_json::json!({ "down": true })
+            .as_object()
+            .unwrap()
+            .clone(),
+        via: None,
+    };
+    view.before_step(&session.world);
+    session.step(&[close]).unwrap();
+    view.scene(&session.world, 1.0, SIZE, 0.0);
+    view.before_step(&session.world);
+    session.step(&[]).unwrap();
+    // motion_out is 0.25 s: two ticks in, the chart is part way out.
+    let overlay = view.scene(&session.world, 1.0, SIZE, 0.0).overlay;
+    let layer = map_layer(&overlay);
+    tiles_partition(layer);
+    let ground: Vec<_> = layer
+        .panels
+        .iter()
+        .filter(|p| p.fill == style.map_clear && p.shape == PanelShape::Tile)
+        .collect();
+    assert!(!ground.is_empty(), "the explored ground is still drawn");
+    assert!(ground.iter().all(|p| p.opacity > 0.0 && p.opacity < 1.0));
 }

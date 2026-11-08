@@ -543,10 +543,11 @@ recordings. A wall clock would break notes and films.
 
 ## Maps
 
-`ui.map { id, width, height, span, memory, follow | center = { x, y }, marks }` shows the
-open plane `span` world units across, north up, centred on the `follow` entity (drawn as
-a heading marker) or a fixed `center`. Cells in `memory`'s `engine.explored` are drawn
-clear, the rest under fog; with no `memory` it is all clear. A mark
+`ui.map { id, width, height, span, memory, follow | center = { x, y }, marks }` shows
+`span` world units across, north up, centred on the `follow` entity (drawn as a heading
+marker) or a fixed `center`, in the followed thing's place (else the memory's, else the
+open plane); things in other places are not drawn. Cells in `memory`'s `engine.explored`
+are drawn clear, the rest under fog; with no `memory` it is all clear. A mark
 `{ entity, text?, icon?, look?, always? }` is a dot (or a module icon) with an optional
 short label, shown only on explored ground unless `always`, which clamps it to the edge
 when outside. Height defaults to the width. The screen's Luau returns the widget once;

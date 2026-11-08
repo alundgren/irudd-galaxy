@@ -145,11 +145,68 @@ fn a_runaway_radius_or_cell_is_refused_at_start() {
 }
 
 #[test]
-fn inside_a_place_nothing_is_marked() {
+fn memory_is_kept_in_the_place_it_was_made_in() {
     let start = format!(
-        "{START}\"engine.location\" = {{ place = \"scout.room\" }}\n\
-         [entities.room]\n\"engine.place\" = {{}}\n"
+        "{START}\"engine.location\" = {{ place = \"scout.reach\" }}
+         [entities.reach]
+\"engine.place\" = {{ width = 2000, depth = 1500 }}
+         [entities.dock]
+\"engine.place\" = {{}}
+"
     );
-    let s = run(&start, 30);
-    assert!(s.world.component("scout.scout", EXPLORED).is_none());
+    let mut s = run(&start, 30);
+    // Flying inside the reach records in the reach's coordinates.
+    let memory = s.world.component("scout.scout", EXPLORED).unwrap();
+    assert_eq!(memory.fields["place"], "scout.reach");
+    assert!(explored(&s.world, 0.0, 0.0) && explored(&s.world, 25.0, 0.0));
+    // In another place it records nothing: the reach's cells are not the dock's.
+    let before = cells(&s.world);
+    s.edit(
+        "test",
+        &[Edit::parse_text("place scout.scout scout.dock").unwrap()],
+    )
+    .unwrap();
+    s.edit(
+        "test",
+        &[Edit::parse_text("set scout.scout engine.position x=500 y=500").unwrap()],
+    )
+    .unwrap();
+    for _ in 0..10 {
+        s.step(&[]).unwrap();
+    }
+    assert_eq!(cells(&s.world), before);
+    assert_eq!(
+        s.world.component("scout.scout", EXPLORED).unwrap().fields["place"],
+        "scout.reach"
+    );
+    // Cleared, the memory starts again where its explorer is.
+    s.edit(
+        "test",
+        &[Edit::parse_text("put scout.scout engine.explored").unwrap()],
+    )
+    .unwrap();
+    s.step(&[]).unwrap();
+    let memory = s.world.component("scout.scout", EXPLORED).unwrap();
+    assert_eq!(memory.fields["place"], "scout.dock");
+    assert!(explored(&s.world, 500.0, 500.0) && !explored(&s.world, 0.0, 0.0));
+    // A memory of something that isn't a place is refused.
+    let e = s
+        .edit(
+            "test",
+            &[Edit::parse_text("set scout.scout engine.explored place=scout.scout").unwrap()],
+        )
+        .unwrap_err();
+    assert!(e.contains("is not an engine.place"), "{e}");
+    // Nor can the place a memory is of be removed from under it, with nothing else in it.
+    s.edit(
+        "test",
+        &[Edit::parse_text("place scout.scout scout.reach").unwrap()],
+    )
+    .unwrap();
+    for text in ["remove scout.dock engine.place", "remove scout.dock"] {
+        let e = s
+            .edit("test", &[Edit::parse_text(text).unwrap()])
+            .unwrap_err();
+        assert!(e.contains("is not an engine.place"), "{text}: {e}");
+    }
 }

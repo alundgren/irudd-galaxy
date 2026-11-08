@@ -65,9 +65,9 @@
 //!   circle of `radius`, or with radius 0 its model's footprint. Overlaps push apart by
 //!   `mass`; a `fixed` body, or one with no `engine.motion`, never moves. Things that
 //!   don't fly lose `drag` of their speed per second after a push.
-//! - `engine.explorer { radius }` and `engine.explored { cell, cells }`: explored memory.
-//!   Each tick the explore service marks the cells within `radius` of an explorer on the
-//!   open plane into its `engine.explored` ([`crate::explored`],
+//! - `engine.explorer { radius }` and `engine.explored { cell, cells, place }`: explored
+//!   memory. Each tick the explore service marks the cells within `radius` of an explorer into its
+//!   `engine.explored`, in the place it is in (`place`) ([`crate::explored`],
 //!   `engine/docs/map-and-fog.md`).
 //!
 //! Places, locations, beings, spots, doors, walks and clocks are described in
@@ -728,6 +728,11 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
         "cells",
         "explored cells as rows of runs `y:x+count,...;...`; the explore service adds to it",
     ),
+    (
+        "explored",
+        "place",
+        "the place these cells are in, empty for the open plane; an empty memory moves to its explorer's place",
+    ),
     ("body", "fixed", "never moves"),
     (
         "body",
@@ -979,7 +984,7 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
         ("waypoint", fields(&[("next", Id)])),
         ("explorer", numbers(&[("radius", 40.0)])),
         ("explored", {
-            let mut f = fields(&[("cells", Text)]);
+            let mut f = fields(&[("cells", Text), ("place", Id)]);
             f.extend(numbers(&[("cell", crate::explored::DEFAULT_CELL)]));
             f
         }),
