@@ -264,6 +264,8 @@ pub struct View {
     /// Whether scenes run the live focus check; off while `check_talk` runs its own.
     focus_live: bool,
     focus_cache: talk::FocusCache,
+    /// Hover checks' part scans, reused while the poses stay the same.
+    part_scans: hovers::PartScans,
     pub hover_checks: Option<BTreeMap<String, Value>>,
     /// The thing whose `ui.target` the pointer is over in the last scene: drawn lifted
     /// and outlined.
@@ -366,6 +368,7 @@ impl View {
             talk_focus: Vec::new(),
             focus_live: true,
             focus_cache: talk::FocusCache::default(),
+            part_scans: Default::default(),
             reduced_motion: false,
             hover_checks: None,
             targeted: None,

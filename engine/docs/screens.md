@@ -585,6 +585,34 @@ events. Mesh triangle probes fall back to logical pixels for partly covered part
 Repeated target/text/talk/readability observations merge. This covers authored states,
 not arbitrary future script branches.
 
+**Keeping the part scan fast.** A named part's point is the first, in a fixed order (the
+part's triangle centres, then each logical pixel of its screen bounds, row by row), that
+no hovered widget covers and whose ray picks the part: the nearest front face over every
+visible posed mesh is one of the part's triangles. `check` stages thousands of scenes
+(every talk line of every life pose), and casting each ray against every triangle took
+most of its time, so three things cut the work without changing a single point found
+(`view/src/hovers/check.rs`):
+
+- *Sure misses are skipped.* Each posed mesh has padded bounds in its own space; a ray
+  that misses them isn't tested against its triangles. A ray that hits none of the part's
+  own triangles can't pick it, so it skips the full nearest-hit search.
+- *Triangles by screen tile.* Per set of poses, each mesh's triangles are binned into
+  32-pixel screen tiles by their projected, padded corner bounds. A triangle with a corner
+  behind the camera is in every tile, one off screen in none. A ray tests only its tile's
+  triangles, in mesh order, so the nearest hit and its tie-break are the whole mesh's.
+- *Scans are kept per set of poses.* Whether a ray picks a part depends on the camera,
+  frame size and posed meshes, not on the screens; only whether a widget covers the point
+  does. The view keeps each part's scan for the last 8 sets of poses (compared bit for bit,
+  as the focus check does): the points that pick, runs of covered points whose rays weren't
+  cast, and how far it got. A scan under other screens (the next talk line's bubble, a
+  scroll offset) walks those first and only casts what it hasn't.
+
+Tests in that file check every fifth pixel's nearest hit against the whole meshes, for the
+scene camera and one inside a room, and compare kept scans with fresh ones as panels come
+and go. Other options were parallel scans (they spend cores and still cast every ray) and
+a bounding volume hierarchy per mesh (more code for the same cut, since rays share one
+eye).
+
 `galaxy-gm look <recording> --note 3` resolves the saved F8 pointer; `--point 320,240`
 substitutes a logical-pixel point. `--tick 45 --point 320,240` uses the tick endpoint
 (`alpha = 1`) at 1280x720, or `--size 1600x900`. Notes use their exact scale, size,
