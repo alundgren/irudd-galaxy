@@ -124,11 +124,19 @@ This is not a once-per-line check: camera shake or zoom, a fractional movement o
 a changed or hot-loaded mesh, an arriving or departing prop, and opening, scrolling,
 clipping or hiding a screen all change the snapshot on the very frame they change the
 visibility test's inputs. Changes to fields the test never reads, such as paint colour,
-need no retest. The original per-pixel algorithm still runs on a cache miss, including
-the first query, so those frames retain its cost. Memory is bounded to one input and
-verdict per view. The cache is not saved or recorded; a fresh audit or film recomputes
-the same verdict from its frame's inputs. Tests compare reused verdicts with forced-fresh
-pixel tests across geometry, camera, viewport, interpolation, morph, asset, UI clipping,
+need no retest.
+
+Below that, the view keeps the screen-independent half of the last 8 tests: per speaker,
+part and set of poses, whether the part is on screen, and in pixel order each pixel that
+shows it with the first mesh in front of it, as far as the test got. A test that differs
+only in its screens (`check` stages every line of a conversation over the same poses, each
+with its own bubble) replays those pixels against the new screens and casts rays only past
+where the last test stopped. A first test casts no more rays than the plain loop, which
+stops at the first covered pixel; it still runs on a miss, so a changed pose pays its cost.
+A ray skips the speaker's and the other meshes' triangles when it misses their padded
+bounds. Neither cache is saved or recorded; a fresh audit or film recomputes the same
+verdict from its frame's inputs. Tests compare reused verdicts with forced-fresh pixel
+tests across geometry, camera, viewport, interpolation, morph, asset, UI clipping,
 hierarchy and paint-order changes.
 
 For headless runtime measurements, set `GALAXY_FOCUS_MODULE` to a module folder,

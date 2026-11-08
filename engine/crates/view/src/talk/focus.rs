@@ -10,20 +10,28 @@ use crate::screens::{Boxed, Screens};
 #[derive(Default)]
 pub(crate) struct FocusCache {
     last: RefCell<Option<(Key, Result<(), String>)>>,
+    /// The screen-independent half of recent tests, so a test that differs only in
+    /// its screens (another talk line's bubble, say) casts no ray twice.
+    scans: RefCell<Vec<(Rays, FocusScan)>>,
     #[cfg(test)]
     evaluations: std::cell::Cell<u64>,
 }
 
 impl FocusCache {
+    /// Poses whose rays are kept.
+    const KEEP: usize = 8;
+
     #[cfg(test)]
     pub(super) fn evaluations(&self) -> u64 {
         self.evaluations.get()
     }
 
+    /// The verdict for `key`: the last one when every input is the same, else
+    /// `evaluate` with the scan these poses left, which it carries on.
     pub(super) fn check(
         &self,
         key: Key,
-        evaluate: impl FnOnce() -> Result<(), String>,
+        evaluate: impl FnOnce(&mut FocusScan) -> Result<(), String>,
     ) -> Result<(), String> {
         if let Some((previous, result)) = self.last.borrow().as_ref()
             && previous == &key
@@ -32,24 +40,61 @@ impl FocusCache {
         }
         #[cfg(test)]
         self.evaluations.set(self.evaluations.get() + 1);
-        let result = evaluate();
+        let mut scans = self.scans.borrow_mut();
+        let mut scan = match scans.iter().position(|(rays, _)| *rays == key.rays) {
+            Some(i) => scans.remove(i).1,
+            None => FocusScan::default(),
+        };
+        let result = evaluate(&mut scan);
+        if scans.len() >= Self::KEEP {
+            scans.remove(0);
+        }
+        scans.push((key.rays.clone(), scan));
         self.last.replace(Some((key, result.clone())));
         result
     }
 }
 
-#[derive(PartialEq, Eq)]
-pub(super) struct Key {
-    speaker: String,
-    part: String,
-    vertices: Range<usize>,
-    camera: [u32; 13],
-    size: [u32; 2],
-    geometry: Vec<Mesh>,
-    screens: Vec<Surface>,
+/// How far the pixel test got for one speaker part and set of poses, in pixel order:
+/// whether the part is on screen, and each pixel that shows it with the first mesh
+/// in front of it. Only the widget test is left to run against the screens.
+#[derive(Default)]
+pub(super) struct FocusScan {
+    /// The part's screen bounds, or why it is off screen; `None` before the first test.
+    pub(super) bounds: Option<Result<(Vec2, Vec2), String>>,
+    /// The speaker's mesh cut to the part.
+    pub(super) mesh: Option<galaxy_mesh::MeshData>,
+    /// Pixels that show the part, and the id of the mesh covering each, if any.
+    pub(super) pixels: Vec<(Vec2, Option<String>)>,
+    /// The next pixel of the bounds, row by row, not tested yet.
+    pub(super) next: usize,
 }
 
 #[derive(PartialEq, Eq)]
+pub(super) struct Key {
+    rays: Rays,
+    screens: Vec<Surface>,
+}
+
+/// Everything the test reads but the screens.
+#[derive(PartialEq, Eq, Clone)]
+pub(super) struct Rays {
+    speaker: String,
+    part: String,
+    vertices: Range<usize>,
+    posed: Posed,
+}
+
+/// Exactly what a ray cast from the screen reads: the camera, the frame size and every
+/// posed mesh. Equal values give equal hits for every pixel.
+#[derive(PartialEq, Eq, Clone)]
+pub(crate) struct Posed {
+    camera: [u32; 13],
+    size: [u32; 2],
+    geometry: Vec<Mesh>,
+}
+
+#[derive(PartialEq, Eq, Clone)]
 struct Mesh {
     id: String,
     positions: Vec<[u32; 3]>,
@@ -94,6 +139,20 @@ impl Key {
         geometry: &[Geometry],
         screens: &Screens,
     ) -> Self {
+        Self {
+            rays: Rays {
+                speaker: speaker.into(),
+                part: part.into(),
+                vertices,
+                posed: Posed::new(camera, size, geometry),
+            },
+            screens: screens.boxes.iter().map(Surface::of).collect(),
+        }
+    }
+}
+
+impl Posed {
+    pub(crate) fn new(camera: Camera, size: Vec2, geometry: &[Geometry]) -> Self {
         let projection = match camera.projection {
             Projection::Orthographic {
                 view_height,
@@ -117,9 +176,6 @@ impl Key {
         }
         camera_bits[9..].copy_from_slice(&projection);
         Self {
-            speaker: speaker.into(),
-            part: part.into(),
-            vertices,
             camera: camera_bits,
             size: size.to_array().map(f32::to_bits),
             geometry: geometry
@@ -137,7 +193,6 @@ impl Key {
                     inverse: g.inverse.to_cols_array().map(f32::to_bits),
                 })
                 .collect(),
-            screens: screens.boxes.iter().map(Surface::of).collect(),
         }
     }
 }
@@ -217,6 +272,7 @@ mod tests {
         assert_eq!(cached, view.live_focus(world, alpha, size, camera));
         assert_eq!(evaluations, view.focus_cache.evaluations.get());
         view.focus_cache.last.borrow_mut().take();
+        view.focus_cache.scans.borrow_mut().clear();
         let fresh = view.live_focus(world, alpha, size, camera);
         assert_eq!(cached, fresh, "cached verdict differs from the pixel test");
         cached.join("\n")

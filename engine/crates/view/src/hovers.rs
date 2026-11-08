@@ -1,6 +1,7 @@
 //! One picking path for live hover labels, recorded looks and staged checks.
 mod check;
 use crate::{View, screens::Boxed};
+pub(crate) use check::PartScans;
 use galaxy_api::engine::{ANCHOR, BEING, MODEL, SPOT};
 use galaxy_render::{
     Overlay,
