@@ -46,9 +46,10 @@ pub(super) struct Mark {
 /// Pixel size of a mark's dot and the halo round it.
 const DOT: f32 = 10.0;
 const HALO: f32 = 3.0;
-/// A mark's icon, and the heading marker's width and length.
+/// A mark's icon, and the heading marker's width and length: a long dart, so its tip
+/// and its notched tail can't be mistaken for each other.
 const ICON: f32 = 20.0;
-const ME: Vec2 = Vec2::new(16.0, 20.0);
+const ME: Vec2 = Vec2::new(18.0, 26.0);
 /// Map labels and glyph icons are the smallest readable text.
 const LABEL: f32 = 16.0;
 
@@ -299,6 +300,23 @@ fn disc(centre: Vec2, size: f32, fill: Color, ring: Color, ring_px: f32, alpha: 
     p
 }
 
+/// Where a mark's label tag of `size` goes: right of the mark, `gap` from its centre,
+/// or left of it when that would cross the map's right edge; kept inside `inner` so it
+/// is never clipped (a tag wider than the map starts at its left edge).
+fn label_at(at: Vec2, gap: f32, size: Vec2, inner: Rect) -> (f32, f32) {
+    let right = at.x + gap;
+    let x = if right + size.x <= inner.x + inner.w {
+        right
+    } else {
+        at.x - gap - size.x
+    };
+    let x = x.min(inner.x + inner.w - size.x).max(inner.x);
+    let y = (at.y - LABEL * 0.7 - 1.0)
+        .min(inner.y + inner.h - size.y)
+        .max(inner.y);
+    (x, y)
+}
+
 /// Paints `frame` into the map box `rect`: its ground as tiles, its frame, marks and the
 /// heading marker, in one layer clipped to the map. The ground and frame are hard-edged
 /// tiles that never overlap, so the map fades evenly; each mark and the marker is one
@@ -405,14 +423,11 @@ pub(super) fn paint(
                 .filter(|l| l.fill.is_some())
                 .and_then(|l| l.text)
                 .unwrap_or(style.text);
-            let width = m.label_width;
             let pad = 4.0;
-            let x = at.x + size * 0.5 + HALO + 2.0;
-            let y = at.y - LABEL * 0.7;
-            let mut tag = style.surface(
-                Rect::new(x, y - 1.0, width + 2.0 * pad, LABEL * 1.4 + 2.0),
-                fill,
-            );
+            let (w, h) = (m.label_width + 2.0 * pad, LABEL * 1.4 + 2.0);
+            let (x, top) = label_at(at, size * 0.5 + HALO + 2.0, Vec2::new(w, h), inner);
+            let y = top + 1.0;
+            let mut tag = style.surface(Rect::new(x, top, w, h), fill);
             tag.radius = style.radius.min(6.0);
             tag.border_px = 0.0;
             tag.opacity = alpha;
@@ -432,15 +447,23 @@ pub(super) fn paint(
             size.x,
             size.y,
         ));
-        p.shape = PanelShape::Triangle;
+        p.shape = PanelShape::Dart;
         p.rotate = turn;
-        p.radius = 1.0;
+        p.radius = 0.5;
         p.fill = style.map_self;
         p.border = style.map_clear;
         p.border_px = HALO;
         p.shadow = false;
         p.opacity = alpha;
-        layer.panels.push(p);
+        // Its own layer, over the marks' labels, so a label never hides the heading.
+        let mut top = UiLayer {
+            clip: Some(clip),
+            ..Default::default()
+        };
+        top.panels.push(p);
+        overlay.widgets.push(layer);
+        overlay.widgets.push(top);
+    } else {
+        overlay.widgets.push(layer);
     }
-    overlay.widgets.push(layer);
 }

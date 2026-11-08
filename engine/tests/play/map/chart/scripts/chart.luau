@@ -54,7 +54,7 @@ return {
 					span = 240,
 					marks = {
 						{ entity = "hub", text = "Hub", always = true },
-						{ entity = "beacon", text = "Beacon" },
+						{ entity = "beacon", text = "Beacon at Cinder Gate", always = true },
 						{ entity = "rock1" },
 						{ entity = "rock2" },
 						{ entity = "rock3" },

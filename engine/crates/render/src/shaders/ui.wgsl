@@ -13,7 +13,8 @@ struct Panel {
     fill: vec4<f32>,
     border: vec4<f32>,
     // x: rotation in radians (clockwise on screen), y: shape (0 rounded box, 1 triangle
-    // pointing up the screen), z: opacity of the whole panel and its shadow.
+    // pointing up the screen, 2 dart: that triangle with a notched base), z: opacity of
+    // the whole panel and its shadow.
     shape: vec4<f32>,
 };
 
@@ -68,7 +69,18 @@ fn shape_sd(rel0: vec2<f32>, half: vec2<f32>, r: f32, shape: vec4<f32>) -> f32 {
     let s = sin(shape.x);
     let rel = vec2<f32>(c * rel0.x + s * rel0.y, -s * rel0.x + c * rel0.y);
     if shape.y > 0.5 {
-        return sd_triangle(vec2<f32>(rel.x, rel.y + half.y), vec2<f32>(half.x, half.y * 2.0)) - r;
+        let body = sd_triangle(vec2<f32>(rel.x, rel.y + half.y), vec2<f32>(half.x, half.y * 2.0));
+        if shape.y > 1.5 {
+            // The notch: a triangle with its tip a quarter of the length up from the base,
+            // widening to the base's full width there, so the tail ends in two barbs.
+            let depth = half.y * 0.5;
+            let notch = sd_triangle(
+                vec2<f32>(rel.x, rel.y - (half.y - depth)),
+                vec2<f32>(half.x * 2.0, depth * 2.0),
+            );
+            return max(body, -notch) - r;
+        }
+        return body - r;
     }
     return sd_round_box(rel, half, r);
 }

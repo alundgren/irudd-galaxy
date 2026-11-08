@@ -22,8 +22,8 @@ galaxy sim run --modules tests/play/map --ticks 300 --state --entity chart.ship
 A ship flies a route by itself inside one place, the reach, as a game's open area
 would. From the first tick it remembers the ground within 24 units of it; the chart in
 the corner follows it, with that ground clear and the rest under fog. Rocks show on the
-chart once flown near; the hub is always shown, clamped to the edge while it is off the
-chart. A crate in another place, the dock, never shows, though its coordinates fall on
+chart once flown near; the hub and a beacon are always shown, clamped to the edge while
+off the chart, and the beacon's long label flips to its left near the edge. A crate in another place, the dock, never shows, though its coordinates fall on
 explored ground. M closes the chart, which fades out still showing the ground.
 
 ## Memory
@@ -100,10 +100,14 @@ thing, the marks' positions and the memory from the world every frame and paints
 - each mark in the map's place whose cell is explored, or every `always` mark in that
   place (clamped to the edge when off the map), as a dot of `map_mark` (or its look's
   fill) or a module icon, with a ring of `map_clear` so it reads on fog too, and an
-  optional label on a tag;
-- the followed thing as a triangle turned to its heading, with its own ring.
+  optional label on a tag. The tag sits right of the mark, or left of it when it would
+  cross the map's right edge, and is always kept whole inside the map;
+- the followed thing as a dart (`PanelShape::Dart`: a long arrowhead with a notched
+  tail) turned to its heading, with its own ring. A near-equilateral triangle read
+  backwards at a glance; the long tip and the notch can't be mistaken for each other.
+  It is drawn in a layer of its own over the rest, so no label hides it.
 
-It all goes in one layer clipped to the map, after its parent's surface, so it scrolls,
+It all goes in a layer clipped to the map, after its parent's surface, so it scrolls,
 slides and fades with its screen; a closing screen's map keeps reading the world while it
 fades out. Frame and ground tiles are `PanelShape::Tile`: the renderer puts their edges on
 whole physical pixels, so neighbouring tiles meet with no seam and no overlap at any
@@ -132,5 +136,5 @@ it from the replayed world exactly. Marks and the heading marker need 3:1 contra
   re-run whenever anything moved, which the screen contract forbids, and hundreds of
   widgets would hit the 512-widget cap. Painting in Rust from the world keeps screens
   event-only.
-- **A drawn heading arrow icon.** Panels already draw rotated triangles, so the marker
-  needs no art and turns smoothly.
+- **A drawn heading arrow icon.** Panels already draw rotated shapes, so the marker
+  needs no art, turns smoothly and fades as one panel.

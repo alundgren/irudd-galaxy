@@ -1726,6 +1726,7 @@ fn panel_gpu(p: &Panel, scale: f32) -> PanelGpu {
             match p.shape {
                 PanelShape::Box | PanelShape::Tile => 0.0,
                 PanelShape::Triangle => 1.0,
+                PanelShape::Dart => 2.0,
             },
             p.opacity.clamp(0.0, 1.0),
             0.0,

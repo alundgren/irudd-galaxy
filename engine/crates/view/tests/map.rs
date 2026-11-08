@@ -16,6 +16,16 @@ fn module() -> Module {
     Module::read(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/map/chart")).unwrap()
 }
 
+/// The heading marker, drawn in its own layer over the map's.
+fn marker(overlay: &Overlay) -> &galaxy_render::Panel {
+    overlay
+        .widgets
+        .iter()
+        .flat_map(|l| &l.panels)
+        .find(|p| p.shape == PanelShape::Dart)
+        .expect("a heading marker")
+}
+
 /// The map's layer: the one painted with tiles.
 fn map_layer(overlay: &Overlay) -> &UiLayer {
     overlay
@@ -68,13 +78,9 @@ fn the_chart_uncovers_where_the_ship_flew_without_running_luau_again() {
     let layer = map_layer(&first);
     tiles_partition(layer);
     let start_clear = count(layer, style.map_clear);
-    // Only the hub shows under fog (always); the rocks are far from the start.
-    assert_eq!(count(layer, style.map_mark), 1);
-    let me = layer
-        .panels
-        .iter()
-        .rfind(|p| p.shape == PanelShape::Triangle)
-        .unwrap();
+    // Only the hub and the beacon show under fog (always); the rocks are far away.
+    assert_eq!(count(layer, style.map_mark), 2);
+    let me = marker(&first);
     assert_eq!(me.fill, style.map_self);
     // The followed ship is at the map's centre.
     let clip = layer.clip.unwrap();
@@ -101,7 +107,7 @@ fn the_chart_uncovers_where_the_ship_flew_without_running_luau_again() {
         count(layer, style.map_clear) > start_clear,
         "more ground is clear after flying"
     );
-    assert!(count(layer, style.map_mark) >= 2, "a rock flown near shows");
+    assert!(count(layer, style.map_mark) >= 3, "a rock flown near shows");
     // The memory replays to the same world and the same paint.
     let recording = session.recording().unwrap();
     let mut replay = Replay::new(&recording).unwrap();
@@ -261,4 +267,68 @@ fn a_closing_chart_keeps_its_ground_while_it_fades() {
         .collect();
     assert!(!ground.is_empty(), "the explored ground is still drawn");
     assert!(ground.iter().all(|p| p.opacity > 0.0 && p.opacity < 1.0));
+}
+
+#[test]
+fn labels_stay_inside_the_map_and_the_marker_is_a_long_dart() {
+    // A long label on a mark near the right edge flips to the mark's left; one near the
+    // bottom right corner also stays inside. Angle 3/4 pi is north-west.
+    let start = "[entities.ship]\n\"engine.position\" = { angle = 2.356194 }\n\
+                 [entities.east]\n\"engine.position\" = { x = 45.0 }\n\
+                 [entities.corner]\n\"engine.position\" = { x = 48.0, y = -24.0 }\n";
+    let code = "return {screen=function(_,ui) return ui.map { width=200, height=100, \
+                follow='ship', span=100, marks={\
+                {entity='east', text='Cinder Gate Station', always=true},\
+                {entity='corner', text='Far Corner', always=true}} } end}";
+    let (s, mut v) = screen(start, code);
+    let overlay = v.scene(&s.world, 1.0, SIZE, 0.0).overlay;
+    assert!(v.screens.problems.is_empty(), "{:?}", v.screens.problems);
+    let style = ScreenStyle::default();
+    let layer = map_layer(&overlay);
+    let clip = layer.clip.unwrap();
+    let tags: Vec<_> = layer
+        .panels
+        .iter()
+        .filter(|p| p.fill == style.paper)
+        .collect();
+    assert_eq!(tags.len(), 2);
+    assert!(
+        tags.iter().all(|t| t.rect.w > 60.0),
+        "labels are measured: {tags:?}"
+    );
+    for t in &tags {
+        let r = t.rect;
+        assert!(
+            r.x >= clip.x
+                && r.y >= clip.y
+                && r.x + r.w <= clip.x + clip.w + 0.01
+                && r.y + r.h <= clip.y + clip.h + 0.01,
+            "{r:?} leaves {clip:?}"
+        );
+    }
+    // The east mark is 2 px a unit right of centre: its tag ends left of it.
+    let east = clip.center().x + 90.0;
+    assert!(tags.iter().any(|t| t.rect.x + t.rect.w < east), "{tags:?}");
+    for text in ["Cinder Gate Station", "Far Corner"] {
+        let t = layer.texts.iter().find(|t| t.text == text).unwrap();
+        assert!(
+            t.pos.x >= clip.x && t.pos.y >= clip.y,
+            "{text} at {:?}",
+            t.pos
+        );
+    }
+    let me = marker(&overlay);
+    // Drawn after the map's layer, so no label text covers it.
+    let at = |f: &dyn Fn(&UiLayer) -> bool| overlay.widgets.iter().position(f).unwrap();
+    assert!(
+        at(&|l| l.panels.iter().any(|p| p.shape == PanelShape::Dart))
+            > at(&|l| l.panels.iter().any(|p| p.shape == PanelShape::Tile))
+    );
+    assert!(me.rect.h > me.rect.w * 1.3, "a long dart: {:?}", me.rect);
+    // North-west on screen: an eighth of a turn anticlockwise from up.
+    assert!(
+        (me.rotate + std::f32::consts::FRAC_PI_4).abs() < 1e-4,
+        "{}",
+        me.rotate
+    );
 }
