@@ -30,8 +30,8 @@ Problems the runs reported (`problems` in the play report):
 - After: none at either size. The one resting click in `fit-play` is that run's own
   click on the resting Buy 1.
 
-The small window has its own bots: `tests/mixed-trade.bot.toml` and
-`tests/cradle-small.bot.toml` (960x540 logical at 125% display scaling).
+The small window had its own bots then, `mixed-trade` and `cradle-small` (960x540
+logical at 125% display scaling); both were dropped when the tests moved to set states.
 `tests/trade-panel.luau` checks that Sell everything and the receipt come before the
 wares and that the wares scroll within what 960x540 leaves them. Measured with
 `galaxy shot --crop ship` in the cradle, the ship's centre moved from x=419 to x=563 at
