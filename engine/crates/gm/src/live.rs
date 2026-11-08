@@ -1,7 +1,8 @@
 //! `galaxy-gm live ...`: reads a running `galaxy play` and hot-loads modules into it
 //! through the live socket (`galaxy_live`). Each command finds the running games, chooses
 //! one, sends one request and prints its reply with the game it went to; `live input`
-//! ([`input`]) holds keys over one connection for as long as its steps run.
+//! ([`input`]) holds keys over one connection for as long as its steps run; `live edit`
+//! ([`edits`]) edits the running world.
 
 mod input;
 
@@ -14,6 +15,7 @@ use galaxy_module::cli::{self, Output};
 use galaxy_module::module::Module;
 use galaxy_module::{Failure, discover};
 use galaxy_motion::Opts;
+use galaxy_sim::edit::Edit;
 use serde_json::{Value, json};
 
 /// Options each command takes besides `--game`.
@@ -25,6 +27,8 @@ pub(crate) const WATCH_OPTIONS: &[&str] =
 pub(crate) const SHOT_OPTIONS: &[&str] = &["game", "out"];
 pub(crate) const LOAD_OPTIONS: &[&str] = &["game"];
 pub(crate) const INPUT_OPTIONS: &[&str] = &["game", "follow"];
+pub(crate) const EDIT_OPTIONS: &[&str] = &["game", "file"];
+pub(crate) const DEBUG_OPTIONS: &[&str] = &["game"];
 
 /// Ticks a watch covers when not told: one second.
 const WATCH_TICKS: u64 = 30;
@@ -44,6 +48,8 @@ pub(crate) fn run(
         "shot" => SHOT_OPTIONS,
         "load" => LOAD_OPTIONS,
         "input" => INPUT_OPTIONS,
+        "edit" => EDIT_OPTIONS,
+        "debug" => DEBUG_OPTIONS,
         other => unreachable!("galaxy-gm has help for `live {other}` but does not run it"),
     };
     if let Some(name) = opts.names().find(|n| *n != "game" && !known.contains(n)) {
@@ -57,7 +63,7 @@ pub(crate) fn run(
             }
         )));
     }
-    if !matches!(what, "load" | "input") && !positional.is_empty() {
+    if !matches!(what, "load" | "input" | "edit" | "debug") && !positional.is_empty() {
         return Err(usage(format!(
             "live {what} takes options only, not `{}`",
             positional.join(" ")
@@ -116,6 +122,34 @@ pub(crate) fn run(
             },
             30,
         ),
+        "edit" => {
+            let file = text("file").map(|f| discover::resolve(&cwd, Path::new(&f)));
+            (
+                Op::Edit {
+                    edits: edits(positional, file.as_deref()).map_err(|e| match e {
+                        LoadArg::Usage(m) => usage(m),
+                        LoadArg::Failure(f) => f,
+                    })?,
+                },
+                10,
+            )
+        }
+        "debug" => {
+            let Some((event, pairs)) = positional.split_first() else {
+                return Err(usage(
+                    "live debug needs a debug event, such as \"live debug <event> <field>=<value>\""
+                        .into(),
+                ));
+            };
+            let payload = galaxy_sim::edit::read_pairs(pairs).map_err(&usage)?;
+            (
+                Op::Debug {
+                    event: event.clone(),
+                    payload,
+                },
+                10,
+            )
+        }
         _ => {
             let dirs = load_dirs(&cwd, positional).map_err(|e| match e {
                 LoadArg::Usage(m) => usage(m),
@@ -151,6 +185,61 @@ pub(crate) fn game_json(game: &Game, why: &str) -> Value {
         "build": game.discovery.build,
         "chosen": why,
     })
+}
+
+/// The edits `live edit` makes: its arguments, each one edit or several joined with `;`,
+/// or the `[[edit]]` entries of `--file`, which take no tick: a live edit is made now.
+fn edits(positional: &[String], file: Option<&Path>) -> Result<Vec<Edit>, LoadArg> {
+    match (positional.is_empty(), file) {
+        (false, Some(_)) => Err(LoadArg::Usage(
+            "live edit takes edits as arguments or --file <edits.toml>, not both".into(),
+        )),
+        (true, None) => Err(LoadArg::Usage(
+            "live edit needs an edit, such as \"set <entity> <component> <field>=<value>\", \
+             or --file <edits.toml>"
+                .into(),
+        )),
+        (false, None) => positional
+            .iter()
+            .flat_map(|a| a.split(';'))
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .map(|l| Edit::parse_text(l).map_err(LoadArg::Usage))
+            .collect(),
+        (true, Some(path)) => {
+            let bad = |e: String| {
+                LoadArg::Failure(
+                    Failure::bad_input(format!("{}: {e}", path.display()))
+                        .with("path", path.display().to_string()),
+                )
+            };
+            let text = std::fs::read_to_string(path).map_err(|e| bad(e.to_string()))?;
+            let table: toml::Table = toml::from_str(&text).map_err(|e| bad(e.to_string()))?;
+            if let Some(other) = table.keys().find(|k| *k != "edit") {
+                return Err(bad(format!(
+                    "`{other}`: an edits file holds [[edit]] entries only"
+                )));
+            }
+            let list = table
+                .get("edit")
+                .and_then(toml::Value::as_array)
+                .ok_or_else(|| bad("no [[edit]] entries".into()))?;
+            list.iter()
+                .map(|v| {
+                    let t = v
+                        .as_table()
+                        .ok_or_else(|| bad("an [[edit]] is a table".into()))?;
+                    if t.contains_key("tick") {
+                        return Err(bad(
+                            "a live edit is made now, between the next two ticks; leave out tick"
+                                .into(),
+                        ));
+                    }
+                    Edit::from_toml(t).map(|(_, e)| e).map_err(bad)
+                })
+                .collect()
+        }
+    }
 }
 
 enum LoadArg {

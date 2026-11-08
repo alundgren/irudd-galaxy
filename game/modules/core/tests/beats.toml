@@ -1,56 +1,60 @@
-# Both beats on one unit (scripts/main.luau, cut): Mine orders on rock4 (12 ore), then
-# rock2 (6) and rock6 (6), so the 24th unit cuts rock6 down and fills the hold at once.
-# The log keeps both, the rock's first and the full hold last, so the hold's is the
-# message showing.
+# Both beats on one unit (scripts/main.luau, cut): the unit that cuts rock6 down also
+# fills the hold. The log keeps both, the rock's first and the full hold last, so the
+# hold's is the message showing.
+#
+# Starts with 23 ore aboard, rock4 and rock2 already worked out and rock6 down to its
+# last unit, the ship a few units off rock6 with a Mine order on it.
 seed = 7
-ticks = 962
-
+ticks = 80
+[[edit]]
+entity = "ship"
+component = "hold"
+set = { ore = 23 }
+[[edit]]
+entity = "rock4"
+component = "ore"
+set = { left = 0 }
+[[edit]]
+entity = "rock2"
+component = "ore"
+set = { left = 0 }
+[[edit]]
+entity = "rock6"
+component = "ore"
+set = { left = 1 }
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = -9, y = 24, angle = 1.5707963267948966 }
 [[input]]
 tick = 1
 name = "core.mine"
 source = "script"
-payload = { rock = "core.rock4" }
-
-[[input]]
-tick = 455
-name = "core.mine"
-source = "script"
-payload = { rock = "core.rock2" }
-
-[[input]]
-tick = 695
-name = "core.mine"
-source = "script"
 payload = { rock = "core.rock6" }
-
 [[expect]]
-tick = 961
+tick = 80
 facts = "core.hold_full"
 equals = 1
-
 [[expect]]
-tick = 961
+tick = 80
 entity = "rock6"
 component = "ore"
 field = "left"
 equals = 0
-
 [[expect]]
-tick = 961
-entity = "log5"
+tick = 80
+entity = "log1"
 component = "entry"
 field = "text"
 equals = "Rock cut down to pebbles. 8 more rocks hold ore."
-
 [[expect]]
-tick = 961
-entity = "log6"
+tick = 80
+entity = "log2"
 component = "entry"
 field = "text"
 equals = "Hold full: 24 ore aboard."
-
 [[expect]]
-tick = 961
+tick = 80
 entity = "ship"
 component = "pilot"
 field = "message"

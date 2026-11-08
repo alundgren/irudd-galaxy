@@ -35,6 +35,7 @@ min_engine_version = "0.2.0"   # the oldest engine that can run it
 
 scripts = ["scripts/main.luau"]   # entry scripts (script-host.md)
 events = ["opened", "pressed"]    # event kinds it records or takes as input
+debug = ["opened"]                # optional: of those, ones only a debug input sends
 writes = ["engine.position"]      # other modules' or the engine's component types it writes
 contact_speed = 0.5               # optional: record engine.contact at this closing speed
 
@@ -51,6 +52,10 @@ none). Component types, event kinds and fields have one-part names; everything a
 names is `<module>.<name>` to everyone else (`world-and-sim.md`). Versions are
 `MAJOR.MINOR.PATCH` (`MAJOR.MINOR` means `.0`), compared number by number. Unknown fields
 are an error, so typos are caught.
+
+`debug` events are for tests, agents and the owner: only an input with source `debug`
+sends one (a scenario's `[[input]] source = "debug"`, `galaxy-gm live debug`), a key may
+not be bound to one, and a session that took one counts as edited (`world-edits.md`).
 
 A key in `[keys]` sends its event when it goes down (payload `down = true`) and when it
 goes up (`down = false`), as an input from the source `keyboard`, so it is recorded and

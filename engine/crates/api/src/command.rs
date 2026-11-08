@@ -95,6 +95,9 @@ pub enum Cause {
         version: String,
         files: String,
     },
+    /// An edit from outside the rules (a scenario's start state, an inputs file, `galaxy-gm
+    /// live edit`): `source` is where it came from.
+    Edit { source: String },
 }
 
 /// Who acts for a cause, for capabilities.
@@ -108,7 +111,10 @@ impl Cause {
     pub fn actor(&self) -> Actor<'_> {
         match self {
             Cause::Start { module } | Cause::Script { module, .. } => Actor::Module(module),
-            Cause::Input { .. } | Cause::Engine { .. } | Cause::HotLoad { .. } => Actor::Engine,
+            Cause::Input { .. }
+            | Cause::Engine { .. }
+            | Cause::HotLoad { .. }
+            | Cause::Edit { .. } => Actor::Engine,
         }
     }
 }

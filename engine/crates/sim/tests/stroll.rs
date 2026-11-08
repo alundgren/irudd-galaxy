@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use galaxy_api::engine::{HOT_LOADED, SCRIPT_FAILED};
 use galaxy_module::module::{Module, ModuleFiles};
 use galaxy_sim::scenario::{InputsFile, run_module_tests};
-use galaxy_sim::{BuildStamp, Recording, Session, World, replay, save};
+use galaxy_sim::{BuildStamp, Prepared, Recording, Session, World, replay, save};
 use serde_json::{Value, json};
 
 fn tests_dir() -> PathBuf {
@@ -248,4 +248,33 @@ fn a_module_may_not_write_what_it_was_not_granted() {
         field(&session.world, "stroll.w1", "stroll.walker", "steps"),
         0
     );
+}
+
+/// `galaxy-gm test` starts each scenario from one [`Prepared`] set, on several threads at
+/// once: each session plays as [`Session::new`]'s would, scripts and model outlines alike.
+#[test]
+fn a_prepared_session_plays_as_a_new_one_on_any_thread() {
+    let script = InputsFile::read(&tests_dir().join("sessions/stroll.toml")).unwrap();
+    let inputs = script.by_tick();
+    let none = Default::default();
+    let with_models = vec![Module::read(&tests_dir().join("play/drift")).unwrap()];
+    for (modules, seed, inputs) in [(modules(), 7, &inputs), (with_models, 3, &none)] {
+        let play = |mut session: Session| {
+            for tick in 1..=240 {
+                session
+                    .step(inputs.get(&tick).map_or(&[][..], Vec::as_slice))
+                    .unwrap();
+            }
+            session.world.hash()
+        };
+        let new = play(Session::new(modules.clone(), seed).unwrap());
+        let prepared = Prepared::new(modules);
+        let hashes: Vec<String> = std::thread::scope(|scope| {
+            let runs: Vec<_> = (0..3)
+                .map(|_| scope.spawn(|| play(Session::prepared(&prepared, seed).unwrap())))
+                .collect();
+            runs.into_iter().map(|r| r.join().unwrap()).collect()
+        });
+        assert!(hashes.iter().all(|h| *h == new), "{new} vs {hashes:?}");
+    }
 }

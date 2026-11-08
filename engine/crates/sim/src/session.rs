@@ -26,12 +26,17 @@ use std::collections::BTreeMap;
 
 use galaxy_api::Registry;
 use galaxy_api::command::{Batch, Cause, Command, Fields};
-use galaxy_api::engine::{CADENCE_TICKS, HOT_LOADED, RESUME_SOURCE, RESUMED, SCRIPT_FAILED, START};
+use galaxy_api::engine::{
+    CADENCE_TICKS, DEBUG_SOURCE, EDITED, HOT_LOADED, RESUME_SOURCE, RESUMED, SCRIPT_FAILED, START,
+};
+use galaxy_module::ids;
 use galaxy_module::module::Module;
+use galaxy_script::vm::Code;
 use galaxy_script::{Abort, Event, ScriptSet, Target};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use crate::edit::{Action, Edit};
 use crate::recording::{BuildStamp, RecEvent, Recording};
 use crate::services;
 use crate::shape::Shapes;
@@ -86,16 +91,43 @@ pub struct Session {
     resume_pending: bool,
 }
 
-/// Loads every module's scripts against `registry`. Problems are listed with their
-/// module.
+/// A module set worked out once for many new sessions ([`Session::prepared`]): the
+/// modules, their models' solid outlines and a bytecode cache their scripts compile into.
+/// Outlines and bytecode are pure functions of the module files, so a session started
+/// from here is the one [`Session::new`] starts; sessions share nothing else. `galaxy-gm
+/// test` starts every scenario of a run from one.
+#[derive(Clone)]
+pub struct Prepared {
+    modules: Vec<Module>,
+    shapes: Shapes,
+    code: Code,
+}
+
+impl Prepared {
+    pub fn new(modules: Vec<Module>) -> Prepared {
+        Prepared {
+            shapes: Shapes::of(&modules),
+            modules,
+            code: Code::default(),
+        }
+    }
+
+    pub fn modules(&self) -> &[Module] {
+        &self.modules
+    }
+}
+
+/// Loads every module's scripts against `registry`, compiling into `code`. Problems are
+/// listed with their module.
 fn load_scripts(
     modules: Vec<Module>,
     registry: &Registry,
+    code: &Code,
 ) -> Result<BTreeMap<String, Loaded>, String> {
     let mut out = BTreeMap::new();
     let mut problems = Vec::new();
     for module in modules {
-        match ScriptSet::load(&module, registry) {
+        match ScriptSet::load_with(&module, registry, code) {
             Ok(scripts) => {
                 out.insert(module.id().to_owned(), Loaded { module, scripts });
             }
@@ -112,8 +144,28 @@ fn load_scripts(
 impl Session {
     /// A new world from `modules`' start states.
     pub fn new(modules: Vec<Module>, seed: u64) -> Result<Session, String> {
+        Session::start(modules, seed, None, &Code::default())
+    }
+
+    /// [`Session::new`] with `prepared`'s modules, without working out their outlines or
+    /// compiling their scripts again.
+    pub fn prepared(prepared: &Prepared, seed: u64) -> Result<Session, String> {
+        Session::start(
+            prepared.modules.clone(),
+            seed,
+            Some(prepared.shapes.clone()),
+            &prepared.code,
+        )
+    }
+
+    fn start(
+        modules: Vec<Module>,
+        seed: u64,
+        shapes: Option<Shapes>,
+        code: &Code,
+    ) -> Result<Session, String> {
         let registry = Registry::new(&modules.iter().collect::<Vec<_>>())?;
-        let modules = load_scripts(modules, &registry)?;
+        let modules = load_scripts(modules, &registry, code)?;
         let mut world = World::new(seed);
         for (id, loaded) in &modules {
             let mut batch = Batch::new(Cause::Start { module: id.clone() });
@@ -146,7 +198,7 @@ impl Session {
         }
         Ok(Session {
             world,
-            shapes: Shapes::of(modules.values().map(|l| &l.module)),
+            shapes: shapes.unwrap_or_else(|| Shapes::of(modules.values().map(|l| &l.module))),
             modules,
             registry,
             log: Vec::new(),
@@ -161,7 +213,7 @@ impl Session {
     /// still fits its schema (new fields get their defaults).
     pub fn resume(modules: Vec<Module>, mut world: World) -> Result<Session, String> {
         let registry = Registry::new(&modules.iter().collect::<Vec<_>>())?;
-        let modules = load_scripts(modules, &registry)?;
+        let modules = load_scripts(modules, &registry, &Code::default())?;
         world.conform(&registry, |w| {
             w.cause(Cause::Engine {
                 service: "load".into(),
@@ -206,8 +258,33 @@ impl Session {
         self.modules.values().map(|l| &l.module)
     }
 
-    /// Checks an input can be run: its name is a declared event kind and its payload fits.
+    /// Whether `event` is one of a module's debug-only events (`debug` in its manifest).
+    pub fn is_debug(&self, event: &str) -> bool {
+        ids::split(event).is_some_and(|(ns, name)| {
+            self.modules
+                .get(ns)
+                .is_some_and(|l| l.module.manifest.debug.iter().any(|d| d == name))
+        })
+    }
+
+    /// Checks an input can be run: its name is a declared event kind and its payload fits,
+    /// and a debug-only event comes with source `debug`, the only thing that source sends.
     pub fn check_input(&self, input: &Input) -> Result<(), String> {
+        let debug = self.is_debug(&input.name);
+        if debug && input.source != DEBUG_SOURCE {
+            return Err(format!(
+                "`{}` is a debug event: send it with source = \"{DEBUG_SOURCE}\" (or galaxy-gm \
+                 live debug), not from {}",
+                input.name, input.source
+            ));
+        }
+        if !debug && input.source == DEBUG_SOURCE {
+            return Err(format!(
+                "source {DEBUG_SOURCE} sends only debug events (`debug` in a manifest), and \
+                 `{}` is not one",
+                input.name
+            ));
+        }
         let command = Command::Record {
             kind: input.name.clone(),
             payload: input.payload.clone(),
@@ -230,6 +307,11 @@ impl Session {
             via: None,
         });
         for input in resumed.iter().chain(inputs) {
+            // Keys can't be bound to a debug event, but a screen's button names its event
+            // at run time: one that names a debug event does nothing.
+            if input.source != DEBUG_SOURCE && self.is_debug(&input.name) {
+                continue;
+            }
             let input = Input {
                 tick,
                 ..input.clone()
@@ -495,7 +577,7 @@ impl Session {
             .collect();
         list.push(module.clone());
         let registry = Registry::new(&list.iter().collect::<Vec<_>>())?;
-        let modules = load_scripts(list, &registry)?;
+        let modules = load_scripts(list, &registry, &Code::default())?;
         let cause = Cause::HotLoad {
             module: id.clone(),
             version: module.manifest.version.to_string(),
@@ -524,6 +606,138 @@ impl Session {
                 module: id,
                 files: module.files,
                 presentation_only: false,
+            });
+        }
+        Ok(())
+    }
+
+    /// Checks one edit against the world as it is now and returns its command: full IDs in
+    /// a loaded module's namespace (or the engine's), a declared component type, an entity
+    /// that exists for everything but `put`, a component it has for `set`, and fields the
+    /// type declares with values of their types. Each refusal names what was wrong.
+    /// In a batch, what the `earlier` edits put counts as there.
+    pub fn check_edit(&self, edit: &Edit, earlier: &[Edit]) -> Result<Command, String> {
+        let put = |entity: &str, component: Option<&str>| {
+            earlier.iter().any(|e| {
+                e.entity == entity
+                    && e.put.is_some()
+                    && component.is_none_or(|c| e.component.as_deref() == Some(c))
+            })
+        };
+        let has = |entity: &str, component: &str| {
+            self.world.component(entity, component).is_some() || put(entity, Some(component))
+        };
+        let action = edit.action()?;
+        let known = |id: &str, what: &str| -> Result<(), String> {
+            let Some((ns, _)) = ids::split(id) else {
+                return Err(format!(
+                    "`{id}` is not a full {what} ID (<module>.<name>, such as example.door)"
+                ));
+            };
+            if ns != ids::ENGINE && !self.modules.contains_key(ns) {
+                return Err(format!(
+                    "`{id}`: no loaded module `{ns}` (loaded: {})",
+                    self.modules.keys().cloned().collect::<Vec<_>>().join(", ")
+                ));
+            }
+            Ok(())
+        };
+        known(&edit.entity, "entity")?;
+        if let Some(component) = &edit.component {
+            known(component, "component type")?;
+            self.registry.schema(component)?;
+        }
+        let exists = self.world.entities.contains_key(&edit.entity) || put(&edit.entity, None);
+        if !exists && !matches!(action, Action::Put(..)) {
+            return Err(format!(
+                "there is no entity `{}` (put a component on it to make it)",
+                edit.entity
+            ));
+        }
+        match action {
+            Action::Set(component, _) if !has(&edit.entity, component) => {
+                return Err(format!(
+                    "`{}` has no `{component}` to set (put adds a whole component)",
+                    edit.entity
+                ));
+            }
+            Action::Remove(Some(component)) if !has(&edit.entity, component) => {
+                return Err(format!("`{}` has no `{component}` to remove", edit.entity));
+            }
+            Action::Place(place, spot) => {
+                for id in std::iter::once(place).chain(spot) {
+                    known(id, "entity")?;
+                    if !self.world.entities.contains_key(id) && !put(id, None) {
+                        return Err(format!("there is no entity `{id}` to move to"));
+                    }
+                }
+            }
+            _ => {}
+        }
+        crate::edit::refuse_kept(&edit.entity, &action, &self.world)?;
+        let command = edit.command()?;
+        self.registry.check(galaxy_api::Actor::Engine, &command)?;
+        Ok(command)
+    }
+
+    /// Edits the world between two ticks, from outside its rules: `edits` apply in order
+    /// as one batch with an `edit` cause from `source` (`scenario`, `inputs`, `live`),
+    /// whole or not at all. The engine's own checks run as for any batch (places, talk and
+    /// lives stay consistent), and the batch records an `engine.edited` fact, an event on
+    /// the next tick, naming the entities and components edited, so scripts can react. The
+    /// recording keeps the edit on this tick; a replay makes it again at the same point.
+    pub fn edit(&mut self, source: &str, edits: &[Edit]) -> Result<(), String> {
+        if edits.is_empty() {
+            return Err("an edit names at least one change".into());
+        }
+        let tick = self.world.tick;
+        let mut commands = Vec::new();
+        let mut entities: Vec<&str> = Vec::new();
+        let mut components: Vec<&str> = Vec::new();
+        for (i, edit) in edits.iter().enumerate() {
+            let command = self
+                .check_edit(edit, &edits[..i])
+                .map_err(|e| format!("edit {} (`{}`): {e}", i + 1, edit.text()))?;
+            commands.push(command);
+            for id in std::iter::once(edit.entity.as_str())
+                .chain(edit.place.as_deref())
+                .chain(edit.spot.as_deref())
+            {
+                if !entities.contains(&id) {
+                    entities.push(id);
+                }
+            }
+            if let Some(c) = edit.component.as_deref()
+                && !components.contains(&c)
+            {
+                components.push(c);
+            }
+        }
+        let Value::Object(payload) = json!({
+            "source": source,
+            "entities": entities,
+            "components": components,
+        }) else {
+            unreachable!()
+        };
+        commands.push(Command::Record {
+            kind: EDITED.to_owned(),
+            payload,
+        });
+        let batch = Batch {
+            cause: Cause::Edit {
+                source: source.to_owned(),
+            },
+            commands,
+        };
+        self.world
+            .apply(&batch, &self.registry)
+            .map_err(|e| format!("the edit after tick {tick} was refused, nothing changed: {e}"))?;
+        if let Some(rec) = &mut self.recording {
+            rec.events.push(RecEvent::Edit {
+                tick,
+                source: source.to_owned(),
+                edits: edits.to_vec(),
             });
         }
         Ok(())

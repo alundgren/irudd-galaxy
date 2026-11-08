@@ -1,0 +1,9 @@
+# Ines's greenhouse by real clicks (tests/greenhouse-click.inputs), from set states: each
+# greenhouse answer button, Sefa's and Noor's introductions, Ines's thanks, and the
+# exchange's Sell button for ice.
+inputs = "tests/greenhouse-click.inputs"
+ticks = 1760
+size = [1280, 720]
+# The UI scale the routes are written at: 125% display scaling, on any machine.
+scale = 1.25
+seed = 1

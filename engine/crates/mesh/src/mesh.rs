@@ -123,8 +123,20 @@ impl MeshData {
 
     /// Nearest front surface and one vertex of its triangle, for named-part picking.
     pub fn raycast_vertex(&self, origin: Vec3, dir: Vec3) -> Option<(f32, usize)> {
+        self.raycast_among(self.indices.as_chunks::<3>().0, origin, dir)
+    }
+
+    /// [`MeshData::raycast_vertex`] over only `triangles` (index triples into this mesh),
+    /// with the same arithmetic per triangle: a ray that hits none of them here hits
+    /// none of them in the whole mesh either.
+    pub fn raycast_among(
+        &self,
+        triangles: &[[u32; 3]],
+        origin: Vec3,
+        dir: Vec3,
+    ) -> Option<(f32, usize)> {
         let mut best: Option<(f32, usize)> = None;
-        for t in self.indices.as_chunks::<3>().0 {
+        for t in triangles {
             let [a, b, c] = t.map(|i| Vec3::from(self.vertices[i as usize].position));
             let (e1, e2) = (b - a, c - a);
             let p = dir.cross(e2);

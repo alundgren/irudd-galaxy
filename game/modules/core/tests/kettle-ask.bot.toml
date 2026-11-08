@@ -1,0 +1,9 @@
+# Noor's ask for Cold Kettle by real clicks (tests/kettle-ask.inputs), from a finished
+# greenhouse set as tests/kettle.toml sets it: into the galley, her ask read and accepted.
+# size is physical pixels. 2 notes.
+inputs = "tests/kettle-ask.inputs"
+ticks = 670
+size = [1280, 720]
+# The UI scale the route was written at: 125% display scaling, on any machine.
+scale = 1.25
+seed = 7

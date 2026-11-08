@@ -32,7 +32,8 @@ The other routes, as the review gave them:
   421, dock at Cinder Kiln at 480, L at 900, drawn at 905.
 - Fitting visit: `tests/fit.inputs` to tick 560, Back at 565, L at 566, drawn at 650
   once the view has settled.
-- Pins: `tests/log-pins.toml`'s inputs (seed 7), then L at 5500, drawn at 5560.
+- Pins: Ines's offer left unanswered, then 32 launch-and-redock trips (64 newer entries;
+  seed 7), then L at 5500, drawn at 5560.
 - Log in flight: L at tick 200, drawn at 220.
 
 ## Clearing the ship at 960x540

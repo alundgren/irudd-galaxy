@@ -3,9 +3,15 @@
 # entry, written on the tick the ship arrives, already belongs to the station. Opening
 # the log marks what is in it as seen (the book's "N new" goes), and Lines opens one
 # visit and closes it again.
+#
+# Starts as a new game with 23 ore aboard, so the first unit fills the hold out in the
+# reach; then the ship is set just off Lantern Dock's berth and docks.
 seed = 3
-ticks = 1638
-
+ticks = 320
+[[edit]]
+entity = "ship"
+component = "hold"
+set = { ore = 23 }
 [[input]]
 tick = 1
 name = "core.ahead"
@@ -17,50 +23,74 @@ payload = { down = false }
 [[input]]
 tick = 60
 name = "core.mine"
+[[expect]]
+tick = 100
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 24
+[[expect]]
+tick = 100
+entity = "log1"
+component = "entry"
+field = "text"
+equals = "Hold full: 24 ore aboard."
+[[edit]]
+tick = 110
+entity = "ship"
+component = "engine.position"
+set = { x = -178, y = -197 }
+[[edit]]
+tick = 110
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0.0, vy = 0.0 }
 [[input]]
-tick = 960
+tick = 111
 name = "core.dock"
+source = "script"
 payload = { station = "core.lantern" }
 
+# The docking's entry, written on the tick she arrives, belongs to the station.
 [[expect]]
-tick = 1538
-entity = "log5"
+tick = 256
+entity = "log2"
 component = "entry"
 field = "text"
 equals = "Docked at Lantern Dock."
 [[expect]]
-tick = 1538
-entity = "log5"
+tick = 256
+entity = "log2"
 component = "entry"
 field = "at"
 equals = "core.lantern"
 
+# Opening the log marks both entries seen; Lines opens the flight's visit, then closes it.
 [[input]]
-tick = 1578
+tick = 296
 name = "core.log"
 [[expect]]
-tick = 1579
+tick = 297
 entity = "ship"
 component = "logbook"
 field = "seen"
-equals = 5
-
+equals = 2
 [[input]]
-tick = 1588
+tick = 306
 name = "core.log_visit"
-payload = { first = 4 }
+payload = { first = 1 }
 [[expect]]
-tick = 1589
+tick = 307
 entity = "ship"
 component = "logbook"
 field = "visit"
-equals = 4
+equals = 1
 [[input]]
-tick = 1598
+tick = 316
 name = "core.log_visit"
-payload = { first = 4 }
+payload = { first = 1 }
 [[expect]]
-tick = 1599
+tick = 317
 entity = "ship"
 component = "logbook"
 field = "visit"

@@ -122,6 +122,7 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
                 v.reload(Some(r), replay.session.modules());
             }
         }
+        replay.at_note(note.number).map_err(Failure::runtime)?;
         let hash = replay.session.world.hash();
         let identical = note.hash.as_ref().is_none_or(|h| *h == hash);
         diverged |= !identical;

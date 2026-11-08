@@ -1,39 +1,32 @@
 # Traffic: Little Mercy waits moored off Lantern Dock, sets off on her own after her
 # wait, and is bumped aside when the player's ship flies across her route; she still
-# reaches her mooring off Cinder Kiln. The ship turns south and flies out to wait on her
-# lane, well south of the field. Quiet Lamp flies the long way round the field, moors
-# off Cinder Kiln, flies back and moors off Lantern Dock. The traders' arrivals never
-# dock the player, and nothing takes damage.
+# reaches her mooring off Cinder Kiln. Quiet Lamp moors off Cinder Kiln at the end of its
+# leg out, sets off home after its wait, and moors off Lantern Dock. The traders'
+# arrivals never dock the player, and nothing takes damage.
+#
+# Mercy's start is the new game's. Once she is under way she is set on her lane 150 units
+# short of Cinder Kiln, with the ship just north of the lane flying south across it, so
+# they meet; Lamp is set on the last stretch of each leg.
 seed = 7
-ticks = 5200
+ticks = 900
 
-[[input]]
-tick = 1
-name = "right"
-payload = { down = true }
+# Quiet Lamp on the last stretch of its leg out, to its mooring off Cinder Kiln.
+[[edit]]
+entity = "lamp"
+component = "engine.position"
+set = { x = 215.0, y = -215.0 }
+[[edit]]
+entity = "lamp"
+component = "engine.steer"
+set = { mode = "follow", target = "core.lamp_out5" }
 
-[[input]]
-tick = 16
-name = "right"
-payload = { down = false }
-
-[[input]]
-tick = 370
-name = "ahead"
-payload = { down = true }
-
-[[input]]
-tick = 777
-name = "ahead"
-payload = { down = false }
-
+# Little Mercy waits out her mooring, then sets off.
 [[expect]]
 tick = 60
 entity = "mercy"
 component = "trader"
 field = "moored"
 equals = true
-
 [[expect]]
 tick = 120
 entity = "mercy"
@@ -41,70 +34,118 @@ component = "engine.steer"
 field = "mode"
 equals = "follow"
 
-# Unbumped she would be at y -257.0 here; the ship's push moved her south.
+# On her lane, the ship flies south across it just ahead of her and coasts to a stop:
+# she is pushed aside, south of where she was flying.
+[[edit]]
+tick = 200
+entity = "mercy"
+component = "engine.position"
+set = { x = 127.756, y = -272.058 }
+[[edit]]
+tick = 200
+entity = "ship"
+component = "engine.position"
+set = { x = 148.5, y = -235.333, angle = -1.5707963267948966 }
+[[edit]]
+tick = 200
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0.0, vy = -20.0 }
+[[input]]
+tick = 200
+name = "ahead"
+payload = { down = true }
+[[input]]
+tick = 277
+name = "ahead"
+payload = { down = false }
 [[expect]]
-tick = 841
+tick = 341
 entity = "mercy"
 component = "engine.position"
 field = "y"
-at_most = -257.4
+at_most = -278.4
+[[expect]]
+tick = 341
+facts = "bump"
+at_least = 1
 
+# Quiet Lamp moored off Cinder Kiln at the end of its leg out.
 [[expect]]
-tick = 1750
-entity = "mercy"
-component = "trader"
-field = "moored"
-equals = true
-[[expect]]
-tick = 1750
-entity = "mercy"
-component = "engine.position"
-field = "x"
-at_least = 215.9
-[[expect]]
-tick = 1750
-entity = "mercy"
-component = "engine.position"
-field = "x"
-at_most = 216.1
-
-[[expect]]
-tick = 1750
+tick = 320
 entity = "lamp"
 component = "trader"
 field = "leg"
 equals = "out"
 [[expect]]
-tick = 1750
+tick = 320
 entity = "lamp"
 component = "trader"
 field = "moored"
 equals = true
 
+# Little Mercy still reaches her mooring off Cinder Kiln.
 [[expect]]
-tick = 2000
+tick = 590
+entity = "mercy"
+component = "trader"
+field = "moored"
+equals = true
+[[expect]]
+tick = 590
+entity = "mercy"
+component = "engine.position"
+field = "x"
+at_least = 215.9
+[[expect]]
+tick = 590
+entity = "mercy"
+component = "engine.position"
+field = "x"
+at_most = 216.1
+
+# After its wait Quiet Lamp sets off home; set on the last stretch of that leg, it moors
+# off Lantern Dock.
+[[expect]]
+tick = 590
 entity = "lamp"
 component = "trader"
 field = "leg"
 equals = "home"
 [[expect]]
-tick = 2000
+tick = 590
 entity = "lamp"
 component = "trader"
 field = "moored"
 equals = false
-
+[[edit]]
+tick = 600
+entity = "lamp"
+component = "engine.position"
+set = { x = -185.0, y = -165.0, angle = -2.17 }
+[[edit]]
+tick = 600
+entity = "lamp"
+component = "engine.motion"
+set = { vx = -4.5, vy = -6.6 }
+[[edit]]
+tick = 600
+entity = "lamp"
+component = "engine.steer"
+set = { mode = "follow", target = "core.lamp_home5" }
 [[expect]]
+tick = 900
 entity = "lamp"
 component = "trader"
 field = "moored"
 equals = true
 [[expect]]
+tick = 900
 entity = "lamp"
 component = "engine.position"
 field = "x"
 at_most = -208.9
-
 [[expect]]
+tick = 900
 facts = "docked"
 equals = 0

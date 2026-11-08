@@ -2,7 +2,7 @@
 # of the field, as she comes along it from Lantern Dock; cross her path and bump her,
 # point at her, dock at Lantern Dock, fly straight off it with W, and send a Mine order
 # out to the field, where the ship parks on a rock's surface and cuts a hold while she
-# flies on. Nine notes.
+# flies on. Nine notes. The route for rock-field.perf.toml; no bot plays it.
 [[input]]
 tick = 1
 name = "core.right"

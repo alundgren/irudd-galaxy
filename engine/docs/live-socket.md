@@ -17,6 +17,8 @@ galaxy-gm live history --inputs --last 10      # what the player just did
 galaxy-gm live watch --entity walker --component engine.position --field x --ticks 60
 galaxy-gm live shot --out now.png              # what the window shows
 galaxy-gm live load                            # hot-load modules whose files changed
+galaxy-gm live edit "set walker engine.position x=4"   # edit the world (world-edits.md)
+galaxy-gm live debug grant coins=300           # send a module's debug event
 ```
 
 Playing it from another process, with `galaxy play --modules tests/play/drift`:
@@ -54,7 +56,7 @@ appears in replies, logs, reports or the recording: listings of games leave it o
 `{"id": 1, "token": "...", "op": "state", "args": {"entity": "walker"}}` and
 `{"id": 1, "ok": true, "result": {...}}`, or an error carrying the CLI's exit code, error
 kind, message and fields, so the client prints it as its own. The ops are `status`,
-`state`, `history`, `watch`, `shot`, `load` and `input`; their arguments are checked
+`state`, `history`, `watch`, `shot`, `load`, `input`, `edit` and `debug`; their arguments are checked
 (sizes, tick ranges, key names) before they reach the game. A connection may carry
 requests one after another (`client::Connection`); `live input` sends all its lines over
 one. `PROTOCOL` is bumped on an incompatible change, and a
@@ -97,6 +99,23 @@ the session folder has it even if the game is killed later; its replay applies t
 the end (`saves-and-replay.md`). While an F8 note is open a load is refused
 (`hot_load_refused`): a note kept after a load on the same tick would hold a world its
 replay can't reach at that note.
+
+**Editing.** `edit` carries edits in the inputs file's vocabulary (`world-edits.md`),
+parsed by `galaxy-gm live edit` from its text form or an edits file. The game makes their
+names full against the running world the way `state` reads them (a unique last part), then
+edits it between two ticks through the host (`Host::edit`, `Session::edit` with source
+`live`), as one batch, recorded, and writes its recording, so the session replays to it.
+A mistake (an unknown name, field or type) is exit 4, `bad_input`, and nothing changes;
+while an F8 note is open an edit is refused, as a load is, so a kept note's world stays
+one its replay reaches. State the engine keeps itself (walks, trips, talk progress) is
+refused with what to use instead.
+
+**Debug events.** `debug` carries an event and a payload. The game picks the event among
+the loaded modules' debug events (`debug` in a manifest; a unique last part is enough),
+checks it as an input with source `debug`, and hands it to the host (`Host::debug`), which
+runs it on the next tick through the same queue as the window's inputs, marked `via` live.
+It needs no window. `status` reports `edited`, the count of edits and debug events the
+world has taken (`world-edits.md`).
 
 **Playing by hand.** An agent playtester plays through an OS automation tool that can only
 tap keys: down and up land in the same tick, so a held key (thrust, a cut, turning while

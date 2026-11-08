@@ -1,0 +1,404 @@
+# Ines's greenhouse by real clicks, from set states (greenhouse-click.bot.toml): her ask
+# accepted, Sefa's introduction and the glassite handed over, the panes loaded, delivered
+# to Ines, the thirtieth ice sold with the exchange's Sell button building the greenhouse,
+# Ines's thanks and Noor's introduction, each talk advanced and answered through its own
+# buttons. The greenhouse scenarios check the same steps as events; this route is the
+# clicks. Rooms glide open, so a click after opening or leaving one waits for the glide.
+#
+# Starts just off Lantern Dock's berth with the fortieth plate aboard: docked, it is sold
+# by events to build the galley, then Ines's gift is set answered and the galley lived in.
+# Between the steps the ship is set just off the next berth (with 8 glassite for Sefa, a
+# trip away so the panes are ready, and the greenhouse one ice short).
+
+[[edit]]
+entity = "core.lantern_galley"
+component = "core.build"
+set = { given = 39 }
+
+[[edit]]
+entity = "core.ship"
+component = "core.hold"
+set = { plate = 1 }
+
+[[edit]]
+entity = "core.ship"
+component = "engine.position"
+set = { x = -178, y = -197 }
+
+[[input]]
+tick = 1
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 100
+name = "core.open"
+
+[[input]]
+tick = 110
+name = "core.sell"
+
+[[input]]
+tick = 120
+name = "core.close"
+
+[[edit]]
+tick = 125
+entity = "core.lantern_galley"
+component = "core.build"
+set = { opened = 0 }
+
+[[edit]]
+tick = 125
+entity = "core.lantern_cook_gift"
+component = "core.gift"
+set = { answered = true, taken = true }
+
+# Ines introduces herself in her galley, then asks for a greenhouse; Accept.
+
+[[click]]
+tick = 160
+widget = "key_galley"
+
+[[click]]
+tick = 193
+widget = "speaker.core.lantern_cook"
+
+[[click]]
+tick = 208
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 223
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 238
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 253
+widget = "speaker.core.lantern_cook"
+
+[[click]]
+tick = 268
+widget = "talk.core.greenhouse_ask"
+
+[[click]]
+tick = 283
+widget = "talk.core.greenhouse_ask"
+
+[[click]]
+tick = 298
+widget = "talk.core.greenhouse_ask"
+
+[[note]]
+tick = 306
+text = "Ines asks for a greenhouse, with Accept and Not now."
+
+[[click]]
+tick = 313
+widget = "choice.core.greenhouse_ask_yes"
+
+[[click]]
+tick = 328
+widget = "talk.core.greenhouse_ask"
+
+[[click]]
+tick = 343
+widget = "close"
+
+# At Cinder Kiln with 8 glassite: Sefa introduces herself, then takes the glassite.
+
+[[click]]
+tick = 376
+widget = "launch"
+
+[[edit]]
+tick = 416
+entity = "core.ship"
+component = "engine.position"
+set = { x = 200, y = -249 }
+
+[[edit]]
+tick = 416
+entity = "core.ship"
+component = "engine.motion"
+set = { vx = 0.0, vy = 0.0 }
+
+[[edit]]
+tick = 416
+entity = "core.ship"
+component = "core.hold"
+set = { glassite = 8 }
+
+[[input]]
+tick = 417
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[click]]
+tick = 545
+widget = "sign_exchange"
+
+[[click]]
+tick = 578
+widget = "speaker.core.kiln_trader"
+
+[[click]]
+tick = 593
+widget = "talk.core.kiln_trader_intro"
+
+[[click]]
+tick = 608
+widget = "talk.core.kiln_trader_intro"
+
+[[click]]
+tick = 623
+widget = "talk.core.kiln_trader_intro"
+
+[[click]]
+tick = 638
+widget = "speaker.core.kiln_trader"
+
+[[click]]
+tick = 653
+widget = "talk.core.greenhouse_glassite"
+
+[[note]]
+tick = 661
+text = "Sefa asks for 8 glassite for the panes."
+
+[[click]]
+tick = 668
+widget = "choice.core.greenhouse_glassite_yes"
+
+[[click]]
+tick = 683
+widget = "talk.core.greenhouse_glassite"
+
+[[click]]
+tick = 698
+widget = "talk.core.greenhouse_glassite"
+
+[[note]]
+tick = 713
+text = "Glassite handed over: Sefa fires Ines's panes."
+
+[[click]]
+tick = 728
+widget = "close"
+
+# Back at the Kiln after a trip away: the panes are ready; Sefa loads them.
+
+[[click]]
+tick = 761
+widget = "launch"
+
+[[edit]]
+tick = 801
+entity = "core.ship"
+component = "engine.position"
+set = { x = 200, y = -249 }
+
+[[edit]]
+tick = 801
+entity = "core.ship"
+component = "engine.motion"
+set = { vx = 0.0, vy = 0.0 }
+
+[[edit]]
+tick = 801
+entity = "core.ship"
+component = "core.pilot"
+set = { away = true }
+
+[[input]]
+tick = 802
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+[[click]]
+tick = 930
+widget = "sign_exchange"
+
+[[click]]
+tick = 963
+widget = "speaker.core.kiln_trader"
+
+[[click]]
+tick = 978
+widget = "talk.core.greenhouse_panes"
+
+[[note]]
+tick = 986
+text = "Sefa offers to load the panes."
+
+[[click]]
+tick = 993
+widget = "choice.core.greenhouse_panes_yes"
+
+[[click]]
+tick = 1008
+widget = "talk.core.greenhouse_panes"
+
+[[note]]
+tick = 1023
+text = "Loaded: the hold shows Ines's 8 panes."
+
+[[click]]
+tick = 1038
+widget = "close"
+
+# At Lantern Dock, Ines takes her panes: the scaffold goes up.
+
+[[click]]
+tick = 1071
+widget = "launch"
+
+[[edit]]
+tick = 1111
+entity = "core.ship"
+component = "engine.position"
+set = { x = -178, y = -197 }
+
+[[edit]]
+tick = 1111
+entity = "core.ship"
+component = "engine.motion"
+set = { vx = 0.0, vy = 0.0 }
+
+[[input]]
+tick = 1112
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+
+[[click]]
+tick = 1245
+widget = "key_galley"
+
+[[click]]
+tick = 1278
+widget = "speaker.core.lantern_cook"
+
+[[click]]
+tick = 1293
+widget = "talk.core.greenhouse_deliver"
+
+[[note]]
+tick = 1301
+text = "Ines asks for her panes."
+
+[[click]]
+tick = 1308
+widget = "choice.core.greenhouse_deliver_yes"
+
+[[click]]
+tick = 1323
+widget = "talk.core.greenhouse_deliver"
+
+[[click]]
+tick = 1338
+widget = "talk.core.greenhouse_deliver"
+
+[[click]]
+tick = 1353
+widget = "close"
+
+[[note]]
+tick = 1393
+text = "The scaffold goes up, and two glaziers work by it."
+
+# One ice short of the greenhouse, with one ice aboard: sold, it builds it.
+
+[[edit]]
+tick = 1400
+entity = "core.lantern_greenhouse"
+component = "core.build"
+set = { given = 29 }
+
+[[edit]]
+tick = 1400
+entity = "core.ship"
+component = "core.hold"
+set = { ice = 1 }
+
+[[click]]
+tick = 1410
+widget = "sign_exchange"
+
+[[click]]
+tick = 1443
+widget = "sell_ice"
+
+[[note]]
+tick = 1451
+text = "The thirtieth ice: the greenhouse is built."
+
+[[click]]
+tick = 1465
+widget = "close"
+
+[[note]]
+tick = 1505
+text = "The greenhouse stands, and lamp strings hang on the deck for the lamp night."
+
+[[click]]
+tick = 1515
+widget = "key_galley"
+
+[[click]]
+tick = 1548
+widget = "speaker.core.lantern_cook"
+
+[[click]]
+tick = 1563
+widget = "talk.core.lantern_cook_thanks"
+
+[[click]]
+tick = 1578
+widget = "talk.core.lantern_cook_thanks"
+
+[[click]]
+tick = 1593
+widget = "talk.core.lantern_cook_thanks"
+
+[[note]]
+tick = 1608
+text = "Ines has thanked me."
+
+[[click]]
+tick = 1615
+widget = "close"
+
+[[click]]
+tick = 1648
+widget = "key_greenhouse"
+
+[[click]]
+tick = 1681
+widget = "speaker.core.lantern_grower"
+
+[[click]]
+tick = 1696
+widget = "talk.core.lantern_grower_intro"
+
+[[click]]
+tick = 1711
+widget = "talk.core.lantern_grower_intro"
+
+[[click]]
+tick = 1726
+widget = "talk.core.lantern_grower_intro"
+
+[[note]]
+tick = 1741
+text = "Noor Hale, the grower, in her greenhouse."
+
+[[click]]
+tick = 1748
+widget = "close"

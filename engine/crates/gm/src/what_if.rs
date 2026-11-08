@@ -84,18 +84,19 @@ pub fn run(path: &Path, modules_dir: &Path, all: bool) -> Result<Output, Failure
     let mut run = Replay::new(&new)
         .map_err(|e| at(format!("the changed modules can't run this recording: {e}")))?;
 
-    let notes: BTreeMap<u64, &String> = rec
-        .events
-        .iter()
-        .filter_map(|e| match e {
-            RecEvent::Note {
-                tick,
-                hash: Some(h),
-                ..
-            } => Some((*tick, h)),
-            _ => None,
-        })
-        .collect();
+    // The first note of each tick: the world a step ends on (edits made after it on its
+    // tick wait for the next step).
+    let mut notes: BTreeMap<u64, &String> = BTreeMap::new();
+    for e in &rec.events {
+        if let RecEvent::Note {
+            tick,
+            hash: Some(h),
+            ..
+        } = e
+        {
+            notes.entry(*tick).or_insert(h);
+        }
+    }
     let mut baseline_diverged = None;
     let mut check_baseline = |w: &World| {
         let recorded = notes

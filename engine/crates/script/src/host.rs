@@ -87,10 +87,20 @@ pub struct ScriptSet {
 impl ScriptSet {
     /// Loads the module's entry scripts. Every problem is reported, not just the first.
     pub fn load(module: &Module, registry: &Registry) -> Result<ScriptSet, Vec<Abort>> {
+        ScriptSet::load_with(module, registry, &Code::default())
+    }
+
+    /// [`ScriptSet::load`], compiling into `code`, which other sets may share
+    /// ([`Code`]): the same set, whatever `code` already holds.
+    pub fn load_with(
+        module: &Module,
+        registry: &Registry,
+        code: &Code,
+    ) -> Result<ScriptSet, Vec<Abort>> {
         let mut set = ScriptSet {
             module: module.id().to_owned(),
             files: Rc::new(module.files.clone()),
-            code: Code::default(),
+            code: code.clone(),
             limits: LIMITS,
             scripts: Vec::new(),
         };

@@ -36,6 +36,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use galaxy_module::module::ModuleFiles;
 use mlua::{
@@ -421,16 +422,19 @@ pub(crate) fn script_location(lua: &Lua) -> Option<Location> {
 
 /// Bytecode for a module's sources, compiled once and shared by every fresh state of the
 /// module. Keyed by the source text, so a file always runs the code it was loaded as.
+/// Compiling is a pure function of the text, so one `Code` may serve sessions of several
+/// module sets, on several threads (`galaxy-gm test` compiles a run's scripts once for all
+/// its scenarios): a state shares nothing with another through it but bytecode.
 #[derive(Clone, Default)]
-pub struct Code(Rc<RefCell<BTreeMap<String, Rc<[u8]>>>>);
+pub struct Code(Arc<Mutex<BTreeMap<String, Arc<[u8]>>>>);
 
 impl Code {
     /// The bytecode of `src` with every generic `for` loop's iterator wrapped
     /// ([`crate::iteration`]). `Ok(None)` if `src` isn't valid Luau: loading the source then
     /// reports Luau's own error. Fails, in `path` and at the loop's line where known, if a
     /// loop can't be wrapped or the compiled code doesn't confirm that every loop was.
-    fn of(&self, path: &str, src: &str) -> mlua::Result<Option<Rc<[u8]>>> {
-        if let Some(b) = self.0.borrow().get(src) {
+    fn of(&self, path: &str, src: &str) -> mlua::Result<Option<Arc<[u8]>>> {
+        if let Some(b) = self.compiled().get(src) {
             return Ok(Some(b.clone()));
         }
         let compiler = compiler();
@@ -444,8 +448,8 @@ impl Code {
         });
         match wrapped {
             Ok(b) => {
-                let b: Rc<[u8]> = b.into();
-                self.0.borrow_mut().insert(src.to_owned(), b.clone());
+                let b: Arc<[u8]> = b.into();
+                self.compiled().insert(src.to_owned(), b.clone());
                 Ok(Some(b))
             }
             Err(_) if !compiles(src) => Ok(None),
@@ -454,6 +458,14 @@ impl Code {
                 None => format!("{path}: {}", p.message),
             })),
         }
+    }
+
+    /// The compiled sources. Each entry is written whole, so a panic elsewhere leaves the
+    /// map usable.
+    fn compiled(&self) -> std::sync::MutexGuard<'_, BTreeMap<String, Arc<[u8]>>> {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 

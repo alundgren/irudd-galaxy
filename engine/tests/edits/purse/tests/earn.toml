@@ -1,0 +1,73 @@
+# The state this test needs is set, not played: the buyer starts with the coins and one
+# job short of the work, is refused, gets the last job, and buys the tool.
+seed = 1
+ticks = 4
+
+[[edit]]
+entity = "buyer"
+component = "wallet"
+set = { coins = 150, work = 9 }
+
+[[input]]
+tick = 1
+name = "buy"
+[[expect]]
+tick = 1
+entity = "tool"
+component = "goods"
+field = "owned"
+equals = false
+[[expect]]
+tick = 1
+facts = "refused"
+equals = 1
+
+[[edit]]
+tick = 1
+entity = "buyer"
+component = "wallet"
+set = { work = 10 }
+
+[[input]]
+tick = 2
+name = "buy"
+[[expect]]
+tick = 2
+entity = "tool"
+component = "goods"
+field = "owned"
+equals = true
+[[expect]]
+tick = 2
+entity = "buyer"
+component = "wallet"
+field = "coins"
+equals = 50
+
+# The script heard both edits, each on the tick after it.
+[[expect]]
+facts = "engine.edited"
+equals = 2
+[[expect]]
+entity = "book"
+component = "ledger"
+field = "edits"
+equals = 2
+[[expect]]
+entity = "book"
+component = "ledger"
+field = "last"
+equals = "scenario"
+
+# A debug event goes through the script's rule: paid in, capped at 1000.
+[[input]]
+tick = 3
+name = "grant"
+source = "debug"
+payload = { coins = 5000 }
+[[expect]]
+tick = 3
+entity = "buyer"
+component = "wallet"
+field = "coins"
+equals = 1000

@@ -29,7 +29,7 @@ use galaxy_module::module::Module;
 use galaxy_render::glam::Vec2;
 use galaxy_render::{Renderer, RgbaImage};
 use galaxy_sim::keys::{Hand, Keys, key_input};
-use galaxy_sim::scenario::{Click, InputsFile, Pointer};
+use galaxy_sim::scenario::{Click, DueEdits, InputsFile, Pointer};
 use galaxy_sim::step::FixedStep;
 use galaxy_sim::watch::ModuleWatcher;
 use galaxy_sim::{BuildStamp, Input, Session, save};
@@ -318,6 +318,9 @@ struct App {
     pending: Vec<Input>,
     /// Scripted inputs by tick (`--inputs`): the bot.
     scripted: BTreeMap<u64, Vec<Input>>,
+    /// Scripted edits of the world (`[[edit]]` in `--inputs`), made once their tick has
+    /// run.
+    scripted_edits: DueEdits,
     scripted_clicks: BTreeMap<u64, Vec<Click>>,
     scripted_pointers: BTreeMap<u64, Vec<Pointer>>,
     /// The tick a scripted `[[key]] key = "escape"` quits on, when no module binds it.
@@ -938,6 +941,9 @@ impl App {
             inputs.push(input);
         }
         self.session.step(&inputs).map_err(Failure::runtime)?;
+        self.scripted_edits
+            .apply(&mut self.session)
+            .map_err(Failure::bad_input)?;
         let mut sounds = self.audio.update(&self.session.world);
         if self.fast {
             // Loops, music and ambience follow the world; a burst of one-shots would not.
@@ -1152,6 +1158,18 @@ impl galaxy_live::Host for App {
     fn write_recording(&mut self) -> Option<PathBuf> {
         App::write_recording(self);
         Some(self.dir.join("recording.json"))
+    }
+
+    fn edit(&mut self, edits: &[galaxy_sim::edit::Edit]) -> Result<(), String> {
+        self.session.edit("live", edits)?;
+        eprintln!("galaxy: edited the world (galaxy-gm live edit)");
+        Ok(())
+    }
+
+    fn debug(&mut self, input: Input) -> Result<(), String> {
+        eprintln!("galaxy: debug event {} (galaxy-gm live debug)", input.name);
+        self.pending.push(input);
+        Ok(())
     }
 
     fn refuses_input(&self) -> Option<String> {
@@ -1456,6 +1474,7 @@ struct Script {
     zooms: BTreeMap<u64, Vec<f32>>,
     resizes: BTreeMap<u64, Vec<(u32, u32)>>,
     keys: Vec<(u64, String)>,
+    edits: DueEdits,
 }
 
 impl Script {
@@ -1500,7 +1519,17 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
     for (tick, size) in &script.resizes {
         resizes.entry(*tick).or_default().push(*size);
     }
+    let from = if options.load.is_some() {
+        session.world.tick
+    } else {
+        0
+    };
+    let edits = DueEdits::new(&script.edits, from, "inputs", session).map_err(|e| {
+        Failure::bad_input(format!("{}: {e}", path.display()))
+            .with("path", path.display().to_string())
+    })?;
     let mut result = Script {
+        edits,
         keys: script
             .keys
             .iter()
@@ -1523,6 +1552,7 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
         result.notes.retain(|t, _| *t <= to);
         result.zooms.retain(|t, _| *t <= to);
         result.resizes.retain(|t, _| *t <= to);
+        result.edits.until(to);
     }
     if options.load.is_some() {
         let tick = session.world.tick;
@@ -1603,6 +1633,11 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         None
     };
     session.start_recording(BuildStamp::current());
+    // Edits on the tick the session starts on are made before it plays, and recorded.
+    script
+        .edits
+        .apply(&mut session)
+        .map_err(Failure::bad_input)?;
     let ids: Vec<&str> = session.modules().map(Module::id).collect();
     let root = galaxy_module::install::sessions_dir();
     let dir = notes::session_dir(&root, &ids).map_err(|e| {
@@ -1660,6 +1695,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         modifiers: ModifiersState::empty(),
         pending: Vec::new(),
         scripted: script.inputs,
+        scripted_edits: script.edits,
         scripted_clicks: script.clicks,
         scripted_quit,
         hand: false,
@@ -1743,6 +1779,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "headless": headless,
         "tick": app.session.world.tick,
         "hash": app.session.world.hash(),
+        "edited": galaxy_sim::edit::edits(&app.session.world),
         "frames": app.frames,
         "wall_ms": wall_ms.round(),
         "speed": (game_seconds / (wall_ms / 1000.0).max(1e-3) * 10.0).round() / 10.0,
@@ -1890,12 +1927,16 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
         .ok_or_else(|| usage("shot needs a file to write: --out <file.png>"))?;
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
-    let script = scripted_inputs(&session, &options)?;
+    let mut script = scripted_inputs(&session, &options)?;
     if script.needs_window() {
         return Err(Failure::bad_input(
             "clicks, drags and key presses ([[click]], [[pointer]], [[key]]) are resolved against a played screen: run them with galaxy play --headless --ticks <n> (no window, fast), then galaxy-gm film <session>/recording.json draws them",
         ));
     }
+    script
+        .edits
+        .apply(&mut session)
+        .map_err(Failure::bad_input)?;
     let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);
     let mut renderer = Renderer::new_headless(w, h)
         .map_err(|e| Failure::runtime(format!("no GPU for the shot: {e}")))?;
@@ -1908,6 +1949,10 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
         session
             .step(script.inputs.get(&tick).map_or(&[][..], Vec::as_slice))
             .map_err(Failure::runtime)?;
+        script
+            .edits
+            .apply(&mut session)
+            .map_err(Failure::bad_input)?;
     }
     for steps in script
         .zooms

@@ -197,6 +197,7 @@ pub fn cause_text(cause: &Cause) -> String {
         Cause::HotLoad {
             module, version, ..
         } => format!("hot-load of {module} {version}"),
+        Cause::Edit { source } => format!("edit from {source}"),
     }
 }
 

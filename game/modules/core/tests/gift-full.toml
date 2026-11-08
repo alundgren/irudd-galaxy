@@ -1,192 +1,109 @@
 # Ines's gift waits while the hold is full: a full hold has no room for it, so her
 # everyday line comes instead, and the offer stays unanswered for later.
-# The route is trade.toml's, up to the galley being built and its room opened.
+#
+# Starts on Lantern Dock's berth with the galley one plate short, that plate aboard and
+# credits for a hold of rations (set, not played through the trade route); the sale in
+# the exchange builds the galley, and her room is opened.
 seed = 7
-ticks = 6336
+ticks = 65
+
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = -184, y = -203, angle = -2.601173153319209 }
+[[edit]]
+entity = "ship"
+component = "hold"
+set = { plate = 1 }
+[[edit]]
+entity = "ship"
+component = "pilot"
+set = { credits = 1000 }
+[[edit]]
+entity = "lantern_galley"
+component = "build"
+set = { given = 39 }
 
 [[input]]
 tick = 1
-name = "core.ahead"
-payload = { down = true }
-[[input]]
-tick = 11
-name = "core.ahead"
-payload = { down = false }
-[[input]]
-tick = 60
-name = "core.mine"
-[[input]]
-tick = 960
-name = "core.dock"
-payload = { station = "core.kiln" }
-[[input]]
-tick = 1737
-name = "core.open"
-[[input]]
-tick = 1742
-name = "core.buy"
-payload = { ware = "plate", units = 0 }
-[[input]]
-tick = 1747
-name = "core.sell"
-[[input]]
-tick = 1757
-name = "core.buy"
-payload = { ware = "plate", units = 0 }
-[[input]]
-tick = 1777
-name = "core.launch"
-[[input]]
-tick = 1787
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2638
+tick = 8
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 2 }
+
+[[input]]
+tick = 15
 name = "core.open"
 [[input]]
-tick = 2648
+tick = 25
 name = "core.sell"
 [[input]]
-tick = 2658
-name = "core.launch"
-[[input]]
-tick = 2663
-name = "core.dock"
-payload = { station = "core.lantern" }
-[[input]]
-tick = 2708
+tick = 45
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 2713
-name = "core.buy"
-payload = { ware = "rations", units = 0 }
-[[input]]
-tick = 2718
-name = "core.close"
-[[input]]
-tick = 2778
-name = "core.launch"
-[[input]]
-tick = 2788
-name = "core.dock"
-payload = { station = "core.kiln" }
-[[input]]
-tick = 3626
-name = "core.open"
-[[input]]
-tick = 3636
-name = "core.buy"
-payload = { ware = "plate", units = 0 }
-[[input]]
-tick = 3656
-name = "core.launch"
-[[input]]
-tick = 3666
-name = "core.dock"
-payload = { station = "core.lantern" }
-[[input]]
-tick = 4517
-name = "core.open"
-[[input]]
-tick = 4527
-name = "core.sell"
-[[input]]
-tick = 4547
-name = "core.launch"
-[[input]]
-tick = 4557
-name = "core.dock"
-payload = { station = "core.kiln" }
-[[input]]
-tick = 5395
-name = "core.open"
-[[input]]
-tick = 5405
-name = "core.buy"
-payload = { ware = "plate", units = 0 }
-[[input]]
-tick = 5425
-name = "core.launch"
-[[input]]
-tick = 5435
-name = "core.dock"
-payload = { station = "core.lantern" }
-[[input]]
-tick = 6286
-name = "core.open"
-[[input]]
-tick = 6296
-name = "core.sell"
-[[input]]
-tick = 6316
-name = "core.open"
-payload = { facility = "core.lantern_galley" }
-[[input]]
-tick = 6126
+tick = 48
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 6059 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 45 }
 [[input]]
-tick = 6319
-name = "engine.place_arrived"
-source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 6316 }
-[[input]]
-tick = 6321
+tick = 50
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_cook_intro" }
 [[input]]
-tick = 6322
+tick = 51
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
 [[input]]
-tick = 6323
+tick = 52
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
 [[input]]
-tick = 6324
+tick = 53
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
 [[input]]
-tick = 6326
+tick = 55
 name = "core.buy"
 payload = { ware = "rations", units = 0 }
 [[expect]]
-tick = 6326
+tick = 55
 entity = "ship"
 component = "hold"
 field = "rations"
 equals = 24
 [[expect]]
-tick = 6326
+tick = 55
 entity = "lantern_cook_gift"
 component = "engine.talk"
 field = "enabled"
 equals = false
 [[expect]]
-tick = 6326
+tick = 55
 entity = "lantern_cook_talk"
 component = "engine.talk"
 field = "enabled"
 equals = true
 [[expect]]
-tick = 6326
+tick = 55
 entity = "lantern_cook_gift"
 component = "gift"
 field = "answered"
 equals = false
 [[input]]
-tick = 6328
+tick = 57
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_cook_gift" }
 [[expect]]
-tick = 6328
+tick = 57
 entity = "lantern_cook_gift"
 component = "engine.talk"
 field = "active"
