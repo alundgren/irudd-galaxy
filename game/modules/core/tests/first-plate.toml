@@ -2,144 +2,124 @@
 # (scripts/station.luau, voices.luau, talk.luau). The sale's log entry has it, but a
 # player who goes to the site and clicks her heard only the plate still to come ("27
 # plate to go"). Now her everyday line leads with it until it is heard, then counts on
-# alone. The route is ines.toml's: she is met at the bare site, 13 plate are sold into
-# the galley, and the player comes back to the site and clicks her.
+# alone.
+#
+# Starts on Lantern Dock's berth with 13 plate aboard (set, not mined and bought): she is
+# met at the bare site, the 13 plate are sold into the galley, and after a quick launch
+# and redock the player comes back to the site and clicks her.
 seed = 7
-ticks = 2790
+ticks = 135
+
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = -184, y = -203, angle = -2.601173153319209 }
+[[edit]]
+entity = "ship"
+component = "hold"
+set = { plate = 13 }
 
 [[input]]
 tick = 1
-name = "core.ahead"
-payload = { down = true }
-[[input]]
-tick = 11
-name = "core.ahead"
-payload = { down = false }
-[[input]]
-tick = 60
-name = "core.mine"
-[[input]]
-tick = 960
-name = "core.dock"
-payload = { station = "core.kiln" }
-[[input]]
-tick = 1737
-name = "core.open"
-[[input]]
-tick = 1742
-name = "core.buy"
-payload = { ware = "plate", units = 0 }
-[[input]]
-tick = 1747
-name = "core.sell"
-[[input]]
-tick = 1757
-name = "core.buy"
-payload = { ware = "plate", units = 0 }
-[[input]]
-tick = 1777
-name = "core.launch"
-[[input]]
-tick = 1787
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2638
+tick = 10
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
-tick = 2641
+tick = 13
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2638 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 10 }
 [[input]]
-tick = 2648
+tick = 20
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_cook_intro" }
 [[input]]
-tick = 2649
+tick = 21
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
 [[input]]
-tick = 2650
+tick = 22
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
 [[input]]
-tick = 2651
+tick = 23
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
 [[input]]
-tick = 2658
+tick = 30
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_cook_talk" }
 [[input]]
-tick = 2659
+tick = 31
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_talk", line = "core.lantern_cook_now" }
 [[input]]
-tick = 2668
+tick = 40
 name = "core.close"
 [[input]]
-tick = 2698
+tick = 50
 name = "core.open"
 [[input]]
-tick = 2708
+tick = 60
 name = "core.sell"
 [[input]]
-tick = 2718
+tick = 70
 name = "core.launch"
 [[input]]
-tick = 2723
+tick = 75
 name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
-tick = 2768
+tick = 120
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 
 [[input]]
-tick = 2771
+tick = 123
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2768 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 120 }
 # Back at the site after the first plate: her word comes first.
 [[expect]]
-tick = 2779
+tick = 131
 entity = "lantern_galley"
 component = "build"
 field = "first_due"
 equals = true
 [[expect]]
-tick = 2779
+tick = 131
 entity = "lantern_cook_now"
 component = "engine.talk_line"
 field = "text"
 equals = "That's the first of it! I can almost hear the stove. 27 plate to go, and the crews eat hot."
 [[input]]
-tick = 2780
+tick = 132
 name = "engine.talk_start"
 source = "talk"
 payload = { talk = "core.lantern_cook_talk" }
 [[input]]
-tick = 2781
+tick = 133
 name = "engine.talk_next"
 source = "ui"
 payload = { talk = "core.lantern_cook_talk", line = "core.lantern_cook_now" }
 # Heard once, it gives way to the count alone.
 [[expect]]
-tick = 2783
+tick = 135
 entity = "lantern_galley"
 component = "build"
 field = "first_due"
 equals = false
 [[expect]]
-tick = 2783
+tick = 135
 entity = "lantern_cook_now"
 component = "engine.talk_line"
 field = "text"

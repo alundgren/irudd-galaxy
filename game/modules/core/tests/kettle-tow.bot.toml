@@ -1,0 +1,10 @@
+# Cold Kettle's line by real clicks and keys (tests/kettle-tow.inputs), from Noor's
+# ask accepted in a set greenhouse: a click on the barge passes the line, a hand swing
+# slips it on the ice, and towed in she is moored with Bram's gold button.
+# size is physical pixels. 7 notes.
+inputs = "tests/kettle-tow.inputs"
+ticks = 1060
+size = [1280, 720]
+# The UI scale the route was written at: 125% display scaling, on any machine.
+scale = 1.25
+seed = 7

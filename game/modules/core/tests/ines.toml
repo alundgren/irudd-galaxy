@@ -4,234 +4,31 @@
 # her word into the sale's log entry and her everyday line, and once the galley stands
 # she isn't introduced again: her introduction keeps the words she said, and her thanks
 # are on offer.
-# The route is trade.inputs', with a visit to the site before the first plate is sold.
+#
+# Starts on Lantern Dock's berth with 13 plate aboard and the plate market where two
+# counted dockings leave it (set, not mined and bought). She is met at the site, the 13
+# plate are sold into the galley, then the galley is set one plate short with that plate
+# aboard, and its last plate is sold.
 seed = 7
-ticks = 6389
+ticks = 90
+
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = -184, y = -203, angle = -2.601173153319209 }
+[[edit]]
+entity = "ship"
+component = "hold"
+set = { plate = 13 }
+[[edit]]
+entity = "lantern_plate"
+component = "market"
+set = { stock = 60 }
 
 [[input]]
 tick = 1
-name = "core.ahead"
-payload = { down = true }
-
-[[input]]
-tick = 11
-name = "core.ahead"
-payload = { down = false }
-
-[[input]]
-tick = 60
-name = "core.mine"
-
-[[input]]
-tick = 960
-name = "core.dock"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 1737
-name = "core.open"
-
-[[input]]
-tick = 1742
-name = "core.buy"
-payload = { ware = "plate", units = 0 }
-
-[[input]]
-tick = 1747
-name = "core.sell"
-
-[[input]]
-tick = 1757
-name = "core.buy"
-payload = { ware = "plate", units = 0 }
-
-[[input]]
-tick = 1777
-name = "core.launch"
-
-[[input]]
-tick = 1787
 name = "core.dock"
 payload = { station = "core.lantern" }
-
-[[input]]
-tick = 2638
-name = "core.open"
-payload = { facility = "core.lantern_galley" }
-
-[[input]]
-tick = 2641
-name = "engine.place_arrived"
-source = "travel"
-payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2638 }
-
-[[input]]
-tick = 2648
-name = "engine.talk_start"
-source = "talk"
-payload = { talk = "core.lantern_cook_intro" }
-
-[[input]]
-tick = 2649
-name = "engine.talk_next"
-source = "ui"
-payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
-
-[[input]]
-tick = 2650
-name = "engine.talk_next"
-source = "ui"
-payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
-
-[[input]]
-tick = 2651
-name = "engine.talk_next"
-source = "ui"
-payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
-
-[[input]]
-tick = 2658
-name = "engine.talk_start"
-source = "talk"
-payload = { talk = "core.lantern_cook_talk" }
-
-[[input]]
-tick = 2659
-name = "engine.talk_next"
-source = "ui"
-payload = { talk = "core.lantern_cook_talk", line = "core.lantern_cook_now" }
-
-[[input]]
-tick = 2668
-name = "core.close"
-
-[[input]]
-tick = 2698
-name = "core.open"
-
-[[input]]
-tick = 2708
-name = "core.sell"
-
-[[input]]
-tick = 2718
-name = "core.launch"
-
-[[input]]
-tick = 2723
-name = "core.dock"
-payload = { station = "core.lantern" }
-
-[[input]]
-tick = 2768
-name = "core.open"
-payload = { facility = "core.lantern_galley" }
-
-[[input]]
-tick = 2773
-name = "core.buy"
-payload = { ware = "rations", units = 0 }
-
-[[input]]
-tick = 2778
-name = "core.close"
-
-[[input]]
-tick = 2838
-name = "core.launch"
-
-[[input]]
-tick = 2848
-name = "core.dock"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 3686
-name = "core.open"
-
-[[input]]
-tick = 3696
-name = "core.buy"
-payload = { ware = "plate", units = 0 }
-
-[[input]]
-tick = 3716
-name = "core.launch"
-
-[[input]]
-tick = 3726
-name = "core.dock"
-payload = { station = "core.lantern" }
-
-[[input]]
-tick = 4577
-name = "core.open"
-
-[[input]]
-tick = 4587
-name = "core.sell"
-
-[[input]]
-tick = 4607
-name = "core.launch"
-
-[[input]]
-tick = 4617
-name = "core.dock"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 5455
-name = "core.open"
-
-[[input]]
-tick = 5465
-name = "core.buy"
-payload = { ware = "plate", units = 0 }
-
-[[input]]
-tick = 5485
-name = "core.launch"
-
-[[input]]
-tick = 5495
-name = "core.dock"
-payload = { station = "core.lantern" }
-
-[[input]]
-tick = 6346
-name = "core.open"
-
-[[input]]
-tick = 6356
-name = "core.sell"
-
-[[input]]
-tick = 6376
-name = "core.open"
-payload = { facility = "core.lantern_galley" }
-
-[[input]]
-tick = 6386
-name = "core.buy"
-payload = { ware = "rations", units = 0 }
-
-[[input]]
-tick = 6406
-name = "core.launch"
-
-[[input]]
-tick = 6416
-name = "core.dock"
-payload = { station = "core.kiln" }
-
-[[input]]
-tick = 7254
-name = "core.open"
-
-[[input]]
-tick = 7264
-name = "core.sell"
 
 # At the bare site from the start.
 [[expect]]
@@ -241,62 +38,131 @@ component = "engine.location"
 field = "place"
 equals = "core.lantern_galley_room"
 
+[[input]]
+tick = 10
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 13
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 10 }
+[[input]]
+tick = 20
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_intro" }
+[[input]]
+tick = 21
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
+[[input]]
+tick = 22
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
+[[input]]
+tick = 23
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
+[[input]]
+tick = 30
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_talk" }
+[[input]]
+tick = 31
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_talk", line = "core.lantern_cook_now" }
+
 # Her introduction, in the log.
 [[expect]]
-tick = 2663
-entity = "log10"
+tick = 35
+entity = "log2"
 component = "entry"
 field = "text"
 equals = "Ines Varga at Lantern Dock: “I'm Ines. This scaffold is going to be my galley.” “The crews here eat cold tins between shifts. I want them at a table, eating hot.” “Every plate you sell to Tova goes into it. I'll be counting.”"
 
 # Her everyday line counts what is still to come, and her thanks wait on the galley.
 [[expect]]
-tick = 2663
+tick = 35
 entity = "lantern_cook_now"
 component = "engine.talk_line"
 field = "text"
 equals = "40 plate, and I can light the stove."
 
 [[expect]]
-tick = 2663
+tick = 35
 entity = "lantern_cook_gift"
 component = "engine.talk"
 field = "enabled"
 equals = false
 
+[[input]]
+tick = 40
+name = "core.close"
+[[input]]
+tick = 50
+name = "core.open"
+[[input]]
+tick = 60
+name = "core.sell"
+
 # The first plate in: her word joins the sale's entry, and leads her everyday line until
 # it is heard (first-plate.toml).
 [[expect]]
-tick = 2710
-entity = "log12"
+tick = 62
+entity = "log4"
 component = "entry"
 field = "text"
 equals = "Sold 13 plate to Lantern Dock for 455 cr. 13 plate went into the galley: 13 of 40. Ines Varga, from the site: “That's the first of it! I can almost hear the stove.”"
 
 [[expect]]
-tick = 2710
+tick = 62
 entity = "lantern_cook_now"
 component = "engine.talk_line"
 field = "text"
 equals = "That's the first of it! I can almost hear the stove. 27 plate to go, and the crews eat hot."
 
+# One plate short, with it aboard: the sale builds the galley.
+[[edit]]
+tick = 65
+entity = "lantern_galley"
+component = "build"
+set = { given = 39 }
+[[edit]]
+tick = 65
+entity = "ship"
+component = "hold"
+set = { plate = 1 }
+[[input]]
+tick = 70
+name = "core.sell"
+[[input]]
+tick = 75
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+
 # Built: no second introduction, and her thanks are on offer.
 [[expect]]
-tick = 6381
+tick = 85
 entity = "lantern_cook_intro"
 component = "engine.talk"
 field = "seen"
 equals = true
 
 [[expect]]
-tick = 6381
+tick = 85
 entity = "lantern_cook_intro1"
 component = "engine.talk_line"
 field = "text"
 equals = "I'm Ines. This scaffold is going to be my galley."
 
 [[expect]]
-tick = 6381
+tick = 85
 entity = "lantern_cook_gift"
 component = "engine.talk"
 field = "enabled"
