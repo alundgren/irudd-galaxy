@@ -1,0 +1,5 @@
+# Working renders and intermediate images stay on the machine that made them;
+# the checkpoint sheets in renders/ are the evidence.
+renders/work/
+*.blend1
+__pycache__/

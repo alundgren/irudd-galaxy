@@ -1,0 +1,75 @@
+{
+ "objects": {
+  "Bram_Head": {
+   "with_ink_shell": 50064,
+   "without_ink_shell": 25032,
+   "base_vertices": 12950,
+   "materials": [
+    "M_Face_Cel",
+    "M_Ink"
+   ]
+  },
+  "Bram_Eye_L": {
+   "with_ink_shell": 960,
+   "without_ink_shell": 960,
+   "base_vertices": 482,
+   "materials": [
+    "M_Eye_Cel"
+   ]
+  },
+  "Bram_Eye_R": {
+   "with_ink_shell": 960,
+   "without_ink_shell": 960,
+   "base_vertices": 482,
+   "materials": [
+    "M_Eye_Cel"
+   ]
+  }
+ },
+ "images": {
+  "T_Bram_Eye": {
+   "size": [
+    512,
+    512
+   ],
+   "packed": true,
+   "fake_user": true
+  },
+  "T_Face_Paint": {
+   "size": [
+    1024,
+    1024
+   ],
+   "packed": true,
+   "fake_user": true
+  },
+  "T_Face_Paint_C": {
+   "size": [
+    1024,
+    1024
+   ],
+   "packed": true,
+   "fake_user": true
+  },
+  "T_Face_Proj_Raw": {
+   "size": [
+    1024,
+    1024
+   ],
+   "packed": true,
+   "fake_user": true
+  },
+  "T_Face_Proj_Raw_C": {
+   "size": [
+    1024,
+    1024
+   ],
+   "packed": true,
+   "fake_user": true
+  }
+ },
+ "shape_keys": [
+  "Basis",
+  "Fit_Concept"
+ ]
+}

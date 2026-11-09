@@ -1,0 +1,72 @@
+{
+ "eye_R_inner": [
+  "aperture",
+  "R",
+  "inner"
+ ],
+ "eye_R_outer": [
+  "aperture",
+  "R",
+  "outer"
+ ],
+ "lid_R_upper": [
+  "aperture",
+  "R",
+  "upper"
+ ],
+ "lid_R_lower": [
+  "aperture",
+  "R",
+  "lower"
+ ],
+ "eye_L_inner": [
+  "aperture",
+  "L",
+  "inner"
+ ],
+ "eye_L_outer": [
+  "aperture",
+  "L",
+  "outer"
+ ],
+ "lid_L_upper": [
+  "aperture",
+  "L",
+  "upper"
+ ],
+ "lid_L_lower": [
+  "aperture",
+  "L",
+  "lower"
+ ],
+ "mouth_R": 251,
+ "mouth_L": 1793,
+ "nose_tip": 8547,
+ "subnasale": 3106,
+ "lip_upper": 3104,
+ "stomion": [
+  3100,
+  3084
+ ],
+ "lip_lower": 3838,
+ "chin": 3073,
+ "nasion": 3118,
+ "alar_R": 8738,
+ "ear_top": 12568,
+ "ear_lobe": 12686,
+ "ear_back": 7808,
+ "tragus": 7384,
+ "brow_R_inner": 732,
+ "brow_R_peak": 10663,
+ "brow_R_outer": 8740,
+ "brow_L_inner": 2274,
+ "brow_L_outer": 8021,
+ "pupil_R": [
+  "eye",
+  "Bram_Eye_R"
+ ],
+ "pupil_L": [
+  "eye",
+  "Bram_Eye_L"
+ ]
+}

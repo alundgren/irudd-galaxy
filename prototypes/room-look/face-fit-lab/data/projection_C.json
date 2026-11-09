@@ -1,0 +1,14 @@
+{
+ "texture_size": 1024,
+ "uv_map": "UVMap_HBM",
+ "covered_texels": 504509,
+ "seen_texels_w>0.5": 69810,
+ "mirror_filled_w>0.5": 40303,
+ "skin_ref_srgb": [
+  0.567,
+  0.289,
+  0.189
+ ],
+ "delight_sigma_px": 22.0,
+ "delight_strength": 0.8
+}
