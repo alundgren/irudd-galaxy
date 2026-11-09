@@ -1,0 +1,5 @@
+# inputs and outputs stay local: the concept painting, every render, bake and export
+concept/
+pieces/
+export/
+__pycache__/
