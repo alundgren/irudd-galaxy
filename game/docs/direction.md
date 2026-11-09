@@ -323,6 +323,12 @@ still exploring it with Andreas, and writes its verdict here when he picks one.
 - **Room content belongs to things in the room.** The board on the wall, the ledger on the
   desk and the ship in the cradle are what the player acts on (3.4, 5).
 
+**Ruled out: projecting a concept painting as the room.** It holds only near the painter's
+camera; about half of every view past 25° or a 0.8 m step was never painted, and generated paint
+re-invents the room per view. Rooms are modelled; projection stays for what lies beyond a room
+(skies, views through windows), fixed shots and starting textures on modelled objects
+(`prototypes/room-look/concept-first`). Source: Andreas, 2026-11-09.
+
 **Where the look is heading, not final.** The style being explored has:
 
 - saturated, exaggerated colour;

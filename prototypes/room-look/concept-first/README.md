@@ -10,10 +10,20 @@ camera 25°, leaves the painting, and Bram becomes a stretched cut-out. The proc
 every step is a script, and `scripts/room.py` reruns the whole chain.
 
 It ran in parallel with a modelled track (a cel-shading kit, on the room-look branch), and the two
-swapped findings during the day. The modelled room holds from every angle but is less painterly. Both
-tracks recommend a hybrid: modelled form, with projected paint for the main conversation view and for
-content no kit invents (the board's cards, the view through a porthole). The room-look lab owns the
-verdict in `game/docs/direction.md`; this folder doesn't change it.
+swapped findings during the day. The modelled room holds from every angle but is less painterly.
+
+## Verdict: not the method for walkable rooms
+
+Rooms in the rework are walked through over the player's shoulder (`game/docs/direction.md` 1.6).
+A follow-up measured how much of each view the painting covers. About half of every view past 25° of
+yaw or a 0.8 m step was never painted: it lies off the painting's edge or behind Bram and the lamp.
+A trusted matte and stand-ins carved to it fixed the tearing along Bram's outline but moved those
+shares by only 1-4 points, because no cut-out can add paint that doesn't exist. Generated paint can
+fill in what Bram hid, but an image generator re-invents the room when asked to extend it (the desk
+became a stage), so it can't supply consistent paint for a moving camera.
+
+So rooms are modelled. Projection stays useful for what lies beyond a room (skies, views through
+windows: the porthole layers here), for fixed shots, and as a starting texture on a modelled object.
 
 ![concept, frame 1, end of push-in](evidence/05-room-after-matte.jpg)
 
