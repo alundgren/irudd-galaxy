@@ -35,6 +35,39 @@ slice's content. The core can use other names; the look and the rules carry over
 
 ## 1. The look
 
+### Blender asset experiment, 2026-11-09
+
+**Experiment verdict, pending Andreas's review.** The room-look study tested
+editable authored geometry and painted materials against the selected
+[room and face concept](visual-upgrade/references/room-and-face.png).
+This records an experiment result, not approval to restyle core or select a new
+renderer. The existing decisions below remain in force until the owner approves
+replacements.
+
+The bounded board section reached provisional agent scores of 4/5 for look and
+graphical quality. Deliberate painted edge marks, local colour relationships and
+constructed thickness mattered more than general procedural wear. Its
+[goal comparison](../../prototypes/room-look/blender-board-lab/renders/cp5_goal_comparison.png)
+and [editable source and export notes](../../prototypes/room-look/blender-board-lab/README.md)
+are the evidence. Reimport matches only after restoring outline shadow culling;
+default glTF import does not preserve that Blender setting.
+
+The adult bust did not reach the target: provisional look, character and graphics
+scores remain 2/5. An authored CC0 head improved anatomy, but the attempted scripted
+edits did not establish the mature expression, hair, garment construction or
+painted finish. The [final comparison](../../prototypes/room-look/blender-bram-lab/renders/final_goal_comparison.png)
+and [study notes](../../prototypes/room-look/blender-bram-lab/README.md) preserve the
+result and its limitations. A faithful glTF reimport proves asset transfer, not
+visual success. The exported bust has 982,704 triangles and has not been tested in
+the game. The orbit video demonstrates static geometry from several angles, not
+character animation or real-time performance.
+
+**Next gate.** Review the board with Andreas. For beings, prove one convincing
+head and expression at conversation size using a materially different authoring
+workflow before extending the room or committing to renderer work. The study does
+not establish a limitation of Blender itself. No production engine or core content
+changed, and no owner appearance acceptance is implied.
+
 ### 1.1 Art style: low-poly, cel shading, ink outlines
 
 **Decision.**

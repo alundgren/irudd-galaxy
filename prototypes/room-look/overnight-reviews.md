@@ -11,8 +11,8 @@
 
 ## Asset and final change review
 
-No acceptance or final review has been recorded yet. Preserve each actual round,
-its reviewed revision, findings and disposition here as evidence arrives.
+Owner acceptance is pending. Asset appearance reviews and technical delivery
+checks below are agent assessments; the integrated change still needs review.
 
 ## Board asset review
 
@@ -61,3 +61,30 @@ external images or private folder bytes. Exit 0, VALIDATION PASSED. Repaired sou
 SHA-256: `bee10cec728bb2efd44276a7fd7f9ac101e5725352d8eca05f2fd1e1ce7ab03c`.
 The export hash is unchanged. The author reports an identical reference render
 after repair; final review will cover the packaging helpers and delivery evidence.
+
+## Bram study
+
+Appearance round 1, checkpoint 5: CHANGES REQUESTED, provisional look 2/5,
+character 2/5 and graphics 2/5. Four findings: reserved immature expression;
+solid beard and repeated hair; inflated cap and incorrect garment construction;
+smooth finish and weak lighting contrast.
+
+Appearance round 2, checkpoint 7: CHANGES REQUESTED, scores unchanged. The solid
+beard cup was resolved and warm lighting improved. Expression, temple hair,
+garment construction and painted finish remained below target. A replacement
+collar introduced a cape-like construction. The coordinator stopped the appearance
+review loop, rejected a further facial diagnostic because of pinched mouth corners,
+and retained checkpoint 7's face. The final delivery corrects the collar regression
+and records the failed appearance target. It is not an accepted character asset.
+
+Technical delivery review round 1: fresh-load, privacy, official source hashes,
+CC0 metadata, preserved original geometry, export and reimport checks passed.
+A fresh GLB was byte-identical: 23,785,004 bytes, 982,704 triangles, two textures,
+17 materials. The delivered reimport sheet reproduced byte-for-byte. The complete
+video decoded as 96 frames at 480 by 600, 24 fps. Source hash stayed unchanged.
+The sole packaging finding was five redundant single-view PNG allowlist entries.
+The coordinator removed them and verified every file remains locally and is
+ignored by git. No new behavior was introduced. Preservation commit: `9d9fd05`.
+
+The technical checks do not override the failed appearance result. Animation and
+runtime performance remain untested.
