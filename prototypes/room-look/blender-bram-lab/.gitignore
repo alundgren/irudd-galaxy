@@ -1,0 +1,37 @@
+# Earlier checkpoint .blend files stay on the machine that made them; the current
+# editable source is bram_bust.blend (see README).
+checkpoints/
+*.blend1
+__pycache__/
+
+# Renders: only the selected comparisons below go into git; the rest stay local.
+renders/*
+!renders/cp1_goal_comparison.png
+!renders/cp2_goal_comparison.png
+!renders/cp3_clay_before_after.png
+!renders/cp3_goal_angle_comparison.png
+!renders/cp4_hbm_original_clay_sheet.png
+!renders/cp4_clay_cp3_original_cp4.png
+!renders/cp4_original_vs_bram_four_views.png
+!renders/cp4_goal_angle_comparison.png
+!renders/cp5_goal_comparison.png
+!renders/cp5_bald_clay_cp4_vs_cp5.png
+!renders/cp5_dressed_neutral_sheet.png
+!renders/cp6_goal_comparison.png
+!renders/cp6_bald_clay_cp5_vs_cp6.png
+!renders/cp6_talk_size_row.png
+!renders/cp6_dressed_neutral_sheet.png
+!renders/final_goal_comparison.png
+!renders/final_talk_size_row.png
+!renders/final_dressed_neutral_sheet.png
+!renders/final_turntable_24fps.mp4
+!renders/final_turntable_24fps_contact_sheet.png
+!renders/final_export_reimport_comparison.png
+!renders/cp7_goal_comparison.png
+!renders/cp7_talk_size_row.png
+!renders/cp7_dressed_neutral_sheet.png
+!renders/cp7_dressed_goal_view_goallit.png
+!renders/cp7_cp6_vs_cp7_goallit.png
+!renders/diag_face_goal_view_570.png
+!renders/diag_face_talk_size_240.png
+!renders/diag_face_front_and_goal_close.png
