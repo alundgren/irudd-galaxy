@@ -12,7 +12,7 @@
 ## Asset and final change review
 
 Owner acceptance is pending. Asset appearance reviews and technical delivery
-checks below are agent assessments; the integrated change still needs review.
+checks below are agent assessments; the integrated delivery review is recorded below.
 
 ## Board asset review
 
@@ -88,3 +88,16 @@ ignored by git. No new behavior was introduced. Preservation commit: `9d9fd05`.
 
 The technical checks do not override the failed appearance result. Animation and
 runtime performance remain untested.
+
+## Integrated delivery review
+
+Round 1: APPROVE at `8d1f374093bfea1863eb5e0acd23e4d4b9b60a3a`.
+No concrete delivery defects remained. The independent reviewer checked board
+helpers and embedded paint scripts, confirmed source and GLB hashes, decoded all
+96 board video frames at 880 by 560 and 24 fps, resolved local Markdown links,
+and checked that handoff images match the committed comparisons. Privacy checks
+passed. Bram's prior independent technical validation was reused.
+
+This approval covers delivery of the experiments, not owner acceptance of their
+appearance. The board remains provisionally 4/5 and Bram remains unsuccessful at
+2/5. No production changes, runtime performance or character animation are claimed.
