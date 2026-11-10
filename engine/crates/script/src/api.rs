@@ -54,6 +54,11 @@ pub const CTX: &[Member] = &[
         doc: "The entities that have the component, in ID order.",
     },
     Member {
+        name: "explored",
+        ty: "(entity: Id, x: number, y: number) -> boolean",
+        doc: "Whether the point (x, y), in the memory's place (empty: the open plane), lies in a cell the entity's engine.explored memory holds. False when it has no memory. Things with engine.explorer record memory as they move.",
+    },
+    Member {
         name: "put",
         ty: "(entity: Id, component: Id, fields: Fields?) -> ()",
         doc: "Sets a whole component; fields left out get their defaults. Creates the entity \
@@ -180,6 +185,13 @@ export type ScreenCtx = {
 --- underline). spans = { "plain ", { text = "bold", look = "name" } } replaces text on
 --- text and button. icon on text or button sits beside it, or above with icon_at = "top".
 --- cue = "count" (delta: counts up to a new value) or "flash" (briefly flashes a change).
+--- ui.map { width, height, span, memory?, follow | center, marks? } shows the followed thing's place
+--- span world units across, centred on follow (drawn as a heading marker) or center =
+--- { x, y }, with cells memory's engine.explored holds clear and the rest under fog;
+--- Rust paints it every frame. A mark { entity, icon?, text?, look?, always? } shows
+--- only where explored unless always. Colours: [screen] map_fog, map_clear, map_edge,
+--- map_self, map_mark.
+export type MapMark = { entity: Id, icon: string?, text: string?, look: string?, always: boolean? }
 export type Span = { text: string, look: string? }
 export type Widget = {
     kind: string?, id: string?, text: string?, hover: string?, resting: string?,
@@ -190,6 +202,8 @@ export type Widget = {
     columns: number?, value: any?, icon: string?, accepts: {[string]: string}?,
     notes: {[string]: string}?, look: string?, spans: {string | Span}?,
     icon_at: string?, cue: string?,
+    memory: Id?, follow: Id?, center: { x: number, y: number }?, span: number?,
+    marks: {MapMark}?,
 }
 export type Ui = {
     hover: (Widget) -> Widget, target: (Widget) -> Widget,
@@ -199,5 +213,6 @@ export type Ui = {
     grid: (Widget) -> Widget, scroll: (Widget) -> Widget,
     delta: (Widget) -> Widget, icon: (Widget) -> Widget,
     drag_source: (Widget) -> Widget, drop_target: (Widget) -> Widget,
+    map: (Widget) -> Widget,
 }
 "#;

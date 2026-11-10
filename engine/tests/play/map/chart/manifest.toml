@@ -1,0 +1,27 @@
+# A generic test module for maps and explored memory: a ship flies a long route by
+# itself, remembering every place it passes within 24 units (engine.explorer), and a
+# chart in the top-right corner (ui.map) follows it, with the remembered ground clear and
+# the rest under fog. Rocks are marks that show only once flown near; the hub is always
+# shown. All of it is inside one place, the reach; a crate in another place, the dock,
+# never shows on the chart. M hides and shows the chart (it fades); the arrows fly the
+# ship by hand.
+id = "chart"
+version = "0.1.0"
+min_engine_version = "0.9.0"
+scripts = ["scripts/chart.luau"]
+events = ["chart", "thrust_ahead", "turn_left", "turn_right"]
+writes = [
+    "engine.position", "engine.motion", "engine.model", "engine.camera", "engine.flight",
+    "engine.helm", "engine.steer", "engine.waypoint", "engine.body", "engine.explorer",
+    "engine.explored", "engine.location", "engine.place",
+]
+
+# Whether the chart is fitted and shown.
+[components.chart]
+open = { type = "bool", default = true }
+
+[keys]
+m = "chart"
+up = "thrust_ahead"
+left = "turn_left"
+right = "turn_right"

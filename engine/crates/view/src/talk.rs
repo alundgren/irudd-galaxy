@@ -53,6 +53,7 @@ fn part(kind: &str, path: String, text: &str, size: f32) -> Widget {
         icon: None,
         icon_at: None,
         cue: None,
+        map: None,
         resting: None,
     }
 }

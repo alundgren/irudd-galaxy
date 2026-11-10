@@ -298,6 +298,31 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
     ),
     (
         "screen",
+        "map_fog",
+        "opaque colour",
+        "ui.map cells not explored yet; needs 1.5:1 against map_clear",
+    ),
+    (
+        "screen",
+        "map_clear",
+        "opaque colour",
+        "ui.map explored cells, and the halo round marks and the heading marker",
+    ),
+    ("screen", "map_edge", "opaque colour", "ui.map frame"),
+    (
+        "screen",
+        "map_self",
+        "opaque colour",
+        "ui.map heading marker of the followed thing; needs 3:1 on map_clear",
+    ),
+    (
+        "screen",
+        "map_mark",
+        "opaque colour",
+        "ui.map mark dots and icons without a look; needs 3:1 on map_clear",
+    ),
+    (
+        "screen",
         "highlight_px",
         "2 to 12",
         "width of that outline, logical pixels",

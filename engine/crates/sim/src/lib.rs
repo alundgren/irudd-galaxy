@@ -2,6 +2,7 @@
 //!
 //! - [`world`]: entities, components, facts and causes; batches applied whole;
 //! - [`services`]: per-tick engine work (motion, the floor height under things);
+//! - [`explore`]: explored memory marked around explorers each tick;
 //! - [`session`]: modules, scripts and the world, stepped one fixed tick at a time, and
 //!   hot-loading;
 //! - [`edit`]: editing the world from outside its rules (tests, agents, live), recorded;
@@ -16,6 +17,7 @@
 pub mod changes;
 pub mod collide;
 pub mod edit;
+pub mod explore;
 pub mod flight;
 pub mod keys;
 pub mod life;

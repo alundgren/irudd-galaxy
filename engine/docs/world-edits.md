@@ -44,7 +44,11 @@ a line of text.
 | remove a component, or the whole thing | `remove = true` [, `component`] | `remove <entity> [<component>]` |
 | move a located thing to a place at once (a teleport) | `place = "..."` [, `spot = "..."`] | `place <entity> <place> [<spot>]` |
 
-Moving within a place is a `set` of `engine.position`. Text values read as TOML (`99`,
+Moving within a place is a `set` of `engine.position`. Explored memory is ordinary
+state: `put <ship> engine.explored` clears it (the explorer marks round itself again on
+the next tick, in the place it is in), and `set <ship> engine.explored
+cells="0:0+4;1:0+4" place=<place>` sets it, in the canonical text `map-and-fog.md`
+describes; a malformed text, or a place that isn't one, is refused with the reason. Text values read as TOML (`99`,
 `true`, `"two words"`, `[1, 2]`); a bare word is text. Within one list, a later edit sees
 what earlier ones put: `put` a new thing's location, then `place` it.
 

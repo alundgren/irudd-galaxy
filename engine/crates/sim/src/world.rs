@@ -158,6 +158,7 @@ impl World {
                 crate::places::validate(self)
                     .and_then(|()| crate::talk::validate(self))
                     .and_then(|()| crate::life::validate(self))
+                    .and_then(|()| crate::explore::validate_batch(self, batch))
             }
         });
         if let Err(e) = result {

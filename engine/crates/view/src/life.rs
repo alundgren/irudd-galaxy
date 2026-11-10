@@ -88,6 +88,7 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 icon: None,
                 icon_at: None,
                 cue: None,
+                map: None,
                 resting: None,
             })
         })

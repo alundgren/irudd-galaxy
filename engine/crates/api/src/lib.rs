@@ -3,6 +3,7 @@
 //! - [`command`]: the put, patch, remove and record commands and their [`Cause`];
 //! - [`registry`]: component schemas, event kinds and capabilities from the loaded modules;
 //! - [`engine`]: the tick rate, the slow cadence and the engine's own component types;
+//! - [`explored`]: the canonical text of explored memory (`engine.explored`);
 //! - [`view`]: what a script reads;
 //! - [`ui`]: UI sound cues, presentation the view hands the game and recordings keep;
 //! - [`rng`] and [`geom`]: seeded randomness and portable maths, so the sim is
@@ -13,6 +14,7 @@
 
 pub mod command;
 pub mod engine;
+pub mod explored;
 pub mod geom;
 pub mod registry;
 pub mod rng;

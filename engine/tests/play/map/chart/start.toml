@@ -1,0 +1,76 @@
+# Everything flies inside one place, the reach, as a game's open area would: memory and
+# the chart are in the reach's coordinates. The dock is another place; its crate never
+# shows on the reach's chart, though its coordinates fall inside the explored ground.
+[entities.reach]
+"engine.place" = { width = 2000, depth = 1500 }
+
+# The ship starts at the origin and follows the route w1 to w4 at once. The camera shows
+# 60 units; the chart shows 240 across, so it sees well past the camera.
+[entities.ship]
+"engine.location" = { place = "chart.reach" }
+chart = {}
+"engine.position" = { x = 0.0, y = 0.0 }
+"engine.motion" = {}
+"engine.flight" = { speed = 18.0 }
+"engine.helm" = {}
+"engine.steer" = { mode = "follow", target = "chart.w1" }
+"engine.body" = { mass = 1.0 }
+"engine.model" = { model = "chart.ship" }
+"engine.camera" = { tilt = 30.0, view = 60.0 }
+"engine.explorer" = { radius = 24.0 }
+"engine.explored" = { cell = 8.0 }
+
+[entities.hub]
+"engine.location" = { place = "chart.reach" }
+"engine.position" = { x = -40.0, y = -30.0 }
+"engine.model" = { model = "chart.hub" }
+"engine.body" = { fixed = true }
+
+[entities.beacon]
+"engine.location" = { place = "chart.reach" }
+"engine.position" = { x = 70.0, y = 70.0 }
+"engine.model" = { model = "chart.beacon" }
+"engine.body" = { fixed = true }
+
+[entities.rock1]
+"engine.location" = { place = "chart.reach" }
+"engine.position" = { x = 20.0, y = 50.0, angle = 0.4 }
+"engine.model" = { model = "chart.rock", scale = 1.6 }
+
+[entities.rock2]
+"engine.location" = { place = "chart.reach" }
+"engine.position" = { x = 90.0, y = 20.0, angle = 2.1 }
+"engine.model" = { model = "chart.rock", scale = 1.2 }
+
+[entities.rock3]
+"engine.location" = { place = "chart.reach" }
+"engine.position" = { x = -60.0, y = 60.0, angle = 4.0 }
+"engine.model" = { model = "chart.rock", scale = 2.0 }
+
+[entities.w1]
+"engine.location" = { place = "chart.reach" }
+"engine.position" = { x = 0.0, y = 70.0 }
+"engine.waypoint" = { next = "chart.w2" }
+
+[entities.w2]
+"engine.location" = { place = "chart.reach" }
+"engine.position" = { x = 70.0, y = 40.0 }
+"engine.waypoint" = { next = "chart.w3" }
+
+[entities.w3]
+"engine.location" = { place = "chart.reach" }
+"engine.position" = { x = 80.0, y = -20.0 }
+"engine.waypoint" = { next = "chart.w4" }
+
+[entities.w4]
+"engine.location" = { place = "chart.reach" }
+"engine.position" = { x = 20.0, y = -40.0 }
+"engine.waypoint" = {}
+
+[entities.dock]
+"engine.place" = { width = 40, depth = 40 }
+
+[entities.crate]
+"engine.location" = { place = "chart.dock" }
+"engine.position" = { x = 4.0, y = 4.0 }
+"engine.model" = { model = "chart.rock", scale = 0.5 }

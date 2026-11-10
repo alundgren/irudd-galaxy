@@ -541,6 +541,25 @@ features screens don't use. Glyph icons were the earlier route, but the bundled 
 lacks most symbols. Animating in Luau would put frame work in scripts and into
 recordings. A wall clock would break notes and films.
 
+## Maps
+
+`ui.map { id, width, height, span, memory, follow | center = { x, y }, marks }` shows
+`span` world units across, north up, centred on the `follow` entity (drawn as a heading
+marker) or a fixed `center`, in the followed thing's place (else the memory's, else the
+open plane); things in other places are not drawn. Cells in `memory`'s `engine.explored`
+are drawn clear, the rest under fog; with no `memory` it is all clear. A mark
+`{ entity, text?, icon?, look?, always? }` is a dot (or a module icon) with an optional
+short label, shown only on explored ground unless `always`, which clamps it to the edge
+when outside. Height defaults to the width. The screen's Luau returns the widget once;
+`crates/view/src/screens/map.rs` reads positions and memory from the world every frame
+and paints into one layer clipped to the map, so moving things never call the screen
+again. Colours are `[screen]` `map_fog`, `map_clear`, `map_edge`, `map_self` and
+`map_mark`; mark labels use `paper`/`text` or their look. Problems name the widget path:
+a `memory` entity with neither `engine.explored` nor `engine.explorer`, a mark or `follow`
+entity without a position, a missing icon, and at parse time a bad `span`, both or neither
+of `follow`/`center`, and unknown mark keys. Clicks on a map do nothing. How the memory
+is kept and why: [map-and-fog.md](map-and-fog.md).
+
 ## Edges instead of a viewport size
 
 `align` was chosen over passing the window size to `ctx`: a size in the context would be a

@@ -37,6 +37,8 @@ The engine owns only the component types its own services act on:
 | `engine.steer` | `mode`, `target`, `x`, `y`, `range`, `done` | modules give orders; the flight service sets `done`, moves `target` along a route and clears `mode` when the helm takes over |
 | `engine.waypoint` | `next` | modules |
 | `engine.body` | `radius`, `mass`, `fixed`, `drag` | modules; the collide service moves `x`, `y` and `vx`, `vy` to push things apart |
+| `engine.explorer` | `radius` | modules; the explore service reads it (`map-and-fog.md`) |
+| `engine.explored` | `cell`, `cells` (explored memory as canonical text), `place` | the explore service adds cells; modules and edits may set or clear it |
 
 Places, spots, doors, locations, beings, walks and clocks are also ordinary engine
 components; [places-and-beings.md](places-and-beings.md) describes their fields and
@@ -99,7 +101,9 @@ The sim runs at a fixed 30 ticks per second of game time and reads no clock. Eac
 4. engine services run: flight, motion, spin, walking, collide, then ground (`flight-and-collision.md`);
 5. every 30th tick (once a second), each script's `cadence` handler runs;
 6. a `hold` that got there is settled back onto its target's surface, whatever changed
-   the target this tick (`flight-and-collision.md`).
+   the target this tick (`flight-and-collision.md`);
+7. explore: each `engine.explorer` marks the cells within its radius into its
+   `engine.explored`, in its place, from its final position this tick (`map-and-fog.md`).
 
 Per-frame work runs in Rust services, never in Luau: scripts run only on events and the
 slow cadence (`script-host.md`).

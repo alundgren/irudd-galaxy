@@ -467,6 +467,13 @@ pub enum PanelShape {
     /// A triangle pointing up the screen, its base the rectangle's bottom edge (corner
     /// radius rounds it).
     Triangle,
+    /// A square-cornered box whose edges the renderer moves to the nearest whole physical
+    /// pixel, so it has hard edges: tiles that share an edge meet without a seam or an
+    /// overlap, at any display scale and any opacity. Radius and rotation are ignored.
+    Tile,
+    /// An arrowhead pointing up the screen: a triangle whose base is cut by a notch a
+    /// quarter of its length deep, so which end leads reads at a glance even when small.
+    Dart,
 }
 
 impl Panel {

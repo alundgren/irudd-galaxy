@@ -83,6 +83,10 @@ hash moves by its fact even when no module handles it; the tests in
 and the generic module `tests/modules/resume` shows a cue coming back
 (`tune.luau`: `play` marks it playing, `engine.resumed` records the theme again).
 
+Explored memory (`engine.explored`, `map-and-fog.md`) is an ordinary component, so it
+is saved, loaded and hashed with the world; the decoded copy the explore service keeps is
+not saved and is rebuilt from the text after a load.
+
 ## Recordings
 
 A recording is one JSON file that holds everything needed to run a session again:

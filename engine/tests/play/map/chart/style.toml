@@ -1,0 +1,4 @@
+# The chart fades in and out, so films show a map at partial opacity.
+[screen]
+motion_in = 0.25
+motion_out = 0.25

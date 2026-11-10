@@ -14,7 +14,7 @@ use mlua::{LuaSerdeExt, Table, Value};
 
 use crate::vm::{Code, LIMITS, Vm};
 
-pub const KINDS: [&str; 14] = [
+pub const KINDS: [&str; 15] = [
     "hover",
     "target",
     "text",
@@ -29,6 +29,7 @@ pub const KINDS: [&str; 14] = [
     "icon",
     "drag_source",
     "drop_target",
+    "map",
 ];
 
 /// Edges a widget can be placed against: `x`/`y` are margins from that edge of the
@@ -100,7 +101,41 @@ pub struct Widget {
     pub icon_at: Option<String>,
     /// A presentation cue when the shown value changes: `count` (deltas) or `flash`.
     pub cue: Option<String>,
+    /// What a `ui.map` shows; Rust paints it every frame from the world.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub map: Option<MapSpec>,
 }
+
+/// A `ui.map`: the open plane around a point, with explored memory uncovered and the
+/// rest under fog. Entity IDs are full.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MapSpec {
+    /// The entity whose `engine.explored` uncovers the map; none shows it all clear.
+    pub memory: Option<String>,
+    /// The entity the map centres on, drawn as a heading marker.
+    pub follow: Option<String>,
+    /// A fixed centre in world units, when nothing is followed.
+    pub center: Option<(f64, f64)>,
+    /// World units across the map's width.
+    pub span: f64,
+    pub marks: Vec<MapMark>,
+}
+
+/// A thing shown on a map: a dot, a module icon, or a short label beside a dot.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MapMark {
+    pub entity: String,
+    pub icon: Option<String>,
+    pub text: Option<String>,
+    pub look: Option<String>,
+    /// Shown under fog too (clamped to the map's edge when outside it).
+    pub always: bool,
+}
+
+/// The longest label a map mark may have, in characters.
+pub const MARK_TEXT_MAX: usize = 24;
+/// The widest span a map may show, world units.
+pub const SPAN_MAX: f64 = 1_000_000.0;
 
 /// One part of a text in a look of its own.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -298,7 +333,8 @@ fn read(
         if ![
             "kind", "id", "text", "width", "height", "x", "y", "size", "pad", "gap", "anchor",
             "on", "payload", "children", "columns", "value", "accepts", "notes", "icon", "hover",
-            "align", "resting", "yield", "look", "spans", "icon_at", "cue",
+            "align", "resting", "yield", "look", "spans", "icon_at", "cue", "memory", "follow",
+            "center", "span", "marks",
         ]
         .contains(&key.as_str())
         {
@@ -402,7 +438,7 @@ fn read(
     }
     if matches!(
         kind.as_str(),
-        "text" | "button" | "delta" | "icon" | "drag_source" | "hover" | "target"
+        "text" | "button" | "delta" | "icon" | "drag_source" | "hover" | "target" | "map"
     ) && !children.is_empty()
     {
         return Err(bad("leaf widgets have no children"));
@@ -621,7 +657,14 @@ fn read(
             ));
         }
     }
+    let map = map_spec(&t, &kind, module, registry).map_err(|e| bad(&e))?;
+    if kind == "map" && look.is_some() {
+        return Err(bad(
+            "a map takes its colours from [screen] map_*; give its marks a look instead",
+        ));
+    }
     Ok(Widget {
+        map,
         kind: kind.clone(),
         id,
         path: path.into(),
@@ -664,6 +707,133 @@ fn read(
         accepts,
         notes,
     })
+}
+
+/// Reads a `ui.map`'s fields; other widgets must not have them.
+fn map_spec(
+    t: &Table,
+    kind: &str,
+    module: &str,
+    registry: &Registry,
+) -> Result<Option<MapSpec>, String> {
+    if kind != "map" {
+        for key in ["memory", "follow", "center", "span", "marks"] {
+            if !t.get::<Value>(key).map_err(|e| e.to_string())?.is_nil() {
+                return Err(format!("{key} goes on a ui.map"));
+            }
+        }
+        return Ok(None);
+    }
+    let entity = |key: &str, name: Option<String>| -> Result<Option<String>, String> {
+        name.map(|n| {
+            entity_id(module, &n, registry)
+                .ok_or_else(|| format!("{key}: `{n}` is not an entity ID"))
+        })
+        .transpose()
+    };
+    let text = |key: &str| string_field(t, key).map_err(|e| e.to_string());
+    let memory = entity("memory", text("memory")?)?;
+    let follow = entity("follow", text("follow")?)?;
+    let center_rule = "center is { x = <number>, y = <number> } in world units";
+    let center = match t.get::<Value>("center").map_err(|e| e.to_string())? {
+        Value::Nil => None,
+        Value::Table(c) => {
+            let coord = |k: &str| match c.get::<Value>(k) {
+                Ok(Value::Integer(n)) => Ok(n as f64),
+                Ok(Value::Number(n)) if n.is_finite() => Ok(n),
+                _ => Err(center_rule.to_string()),
+            };
+            Some((coord("x")?, coord("y")?))
+        }
+        _ => return Err(center_rule.into()),
+    };
+    match (&follow, &center) {
+        (Some(_), Some(_)) => return Err("a map has follow or center, not both".into()),
+        (None, None) => {
+            return Err("a map needs follow = '<entity>' or center = { x =, y = }".into());
+        }
+        _ => {}
+    }
+    let span = match t.get::<Value>("span").map_err(|e| e.to_string())? {
+        Value::Integer(n) => n as f64,
+        Value::Number(n) => n,
+        Value::Nil => return Err("a map needs span, the world units across its width".into()),
+        _ => return Err("span is a number of world units".into()),
+    };
+    if !span.is_finite() || span <= 0.0 || span > SPAN_MAX {
+        return Err(format!(
+            "span must be above 0 and at most {SPAN_MAX} world units, not {span}"
+        ));
+    }
+    let list_rule = "marks is a list of { entity, icon?, text?, look?, always? } tables";
+    let mut marks = Vec::new();
+    match t.get::<Value>("marks").map_err(|e| e.to_string())? {
+        Value::Nil => {}
+        Value::Table(list) => {
+            for (i, mark) in list.clone().sequence_values::<Value>().enumerate() {
+                let at = |s: &str| format!("marks[{}]: {s}", i + 1);
+                let Ok(Value::Table(m)) = mark else {
+                    return Err(at("a mark is { entity, icon?, text?, look?, always? }"));
+                };
+                for pair in m.clone().pairs::<String, Value>() {
+                    let (key, _) = pair.map_err(|_| at("mark properties have names"))?;
+                    if !["entity", "icon", "text", "look", "always"].contains(&key.as_str()) {
+                        return Err(at(&format!("unknown property `{key}`")));
+                    }
+                }
+                let field = |k: &str| string_field(&m, k).map_err(|e| at(&e.to_string()));
+                let entity = field("entity")?
+                    .ok_or_else(|| at("a mark needs entity"))
+                    .and_then(|n| {
+                        entity_id(module, &n, registry)
+                            .ok_or_else(|| at(&format!("`{n}` is not an entity ID")))
+                    })?;
+                let icon = field("icon")?;
+                if icon.as_ref().is_some_and(|i| i.trim().is_empty()) {
+                    return Err(at("icon names a module icon"));
+                }
+                let label = field("text")?;
+                if let Some(l) = &label
+                    && (l.trim().is_empty()
+                        || l.chars().count() > MARK_TEXT_MAX
+                        || l.contains('\n'))
+                {
+                    return Err(at(&format!(
+                        "text is a short label of 1 to {MARK_TEXT_MAX} characters on one line"
+                    )));
+                }
+                let look = field("look")?;
+                if look.as_ref().is_some_and(|l| l.trim().is_empty()) {
+                    return Err(at("look names a [screen.looks] look"));
+                }
+                let always = match m.get::<Value>("always").map_err(|e| at(&e.to_string()))? {
+                    Value::Nil => false,
+                    Value::Boolean(b) => b,
+                    _ => return Err(at("always is true or false")),
+                };
+                marks.push(MapMark {
+                    entity,
+                    icon,
+                    text: label,
+                    look,
+                    always,
+                });
+            }
+            if marks.len() != list.raw_len()
+                || list.clone().pairs::<Value, Value>().count() != marks.len()
+            {
+                return Err(list_rule.into());
+            }
+        }
+        _ => return Err(list_rule.into()),
+    }
+    Ok(Some(MapSpec {
+        memory,
+        follow,
+        center,
+        span,
+        marks,
+    }))
 }
 
 fn string_field(t: &Table, key: &str) -> mlua::Result<Option<String>> {

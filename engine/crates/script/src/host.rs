@@ -403,6 +403,23 @@ fn build_ctx<'scope, 'env: 'scope>(
         })?,
     )?;
     ctx.raw_set(
+        "explored",
+        scope.create_function(|lua, (entity, x, y): (String, f64, f64)| {
+            let entity = env.entity(lua, &entity)?;
+            let Some(fields) = env.view.get(&entity, galaxy_api::engine::EXPLORED) else {
+                return Ok(false);
+            };
+            let cells = fields.get("cells").and_then(Json::as_str).unwrap_or("");
+            let cell = fields
+                .get("cell")
+                .and_then(Json::as_f64)
+                .unwrap_or(galaxy_api::explored::DEFAULT_CELL);
+            env.budget
+                .charge(lua, 1 + cells.len() as u64 / (16 * RECORDS_PER_STEP))?;
+            Ok(galaxy_api::explored::explored_at(cells, cell, x, y))
+        })?,
+    )?;
+    ctx.raw_set(
         "put",
         scope.create_function(
             |lua, (entity, component, fields): (String, String, Option<Table>)| {

@@ -444,3 +444,40 @@ fn a_loop_that_cant_be_wrapped_fails_to_load_at_its_line() {
         );
     }
 }
+
+#[test]
+fn explored_reads_a_memory_by_point() {
+    let m = module(
+        "return { cadence = function(ctx)
+            ctx.record('rang', {
+                inside = ctx.explored('one', 3, 12),
+                outside = ctx.explored('one', 20, 0),
+                none = ctx.explored('aa.two', 0, 0),
+            })
+        end }",
+    );
+    let registry = Registry::new(&[&m]).unwrap();
+    let set = ScriptSet::load(&m, &registry).unwrap();
+    let mut world = store();
+    world.0.insert(
+        ("aa.one".into(), "engine.explored".into()),
+        json!({ "cell": 8.0, "cells": "0:0+2;1:0+1" })
+            .as_object()
+            .unwrap()
+            .clone(),
+    );
+    let out = set.call(
+        0,
+        Target::Cadence,
+        &world,
+        &registry,
+        &mut SimRng::for_key(1, "t"),
+    );
+    let commands = out.result.unwrap();
+    let Command::Record { payload, .. } = &commands[0] else {
+        panic!("{commands:?}")
+    };
+    assert_eq!(payload["inside"], true);
+    assert_eq!(payload["outside"], false);
+    assert_eq!(payload["none"], false);
+}

@@ -25,6 +25,13 @@ pub struct ScreenStyle {
     pub handle_active: Color,
     /// Outline of a hovered `ui.target`'s model.
     pub highlight: Color,
+    /// `ui.map`: unexplored cells, explored cells, the map's frame, the followed thing's
+    /// heading marker and a mark's dot or icon.
+    pub map_fog: Color,
+    pub map_clear: Color,
+    pub map_edge: Color,
+    pub map_self: Color,
+    pub map_mark: Color,
     /// Fill of a resting button (one that can't act now). Unset, it is `panel`.
     pub resting: Option<Color>,
     pub radius: f32,
@@ -91,6 +98,11 @@ impl Default for ScreenStyle {
             handle: Color::hex(0x666666),
             handle_active: Color::hex(0x444444),
             highlight: Color::hex(0x2f6fdb),
+            map_fog: Color::hex(0x5f656b),
+            map_clear: Color::hex(0xe4e9ec),
+            map_edge: Color::hex(0x555555),
+            map_self: Color::hex(0x202020),
+            map_mark: Color::hex(0x2f6fdb),
             resting: None,
             radius: 8.0,
             border_px: 1.0,
@@ -217,6 +229,11 @@ impl ScreenStyle {
             ("handle_active", self.handle_active),
             ("highlight", self.highlight),
             ("flash", self.flash),
+            ("map_fog", self.map_fog),
+            ("map_clear", self.map_clear),
+            ("map_edge", self.map_edge),
+            ("map_self", self.map_self),
+            ("map_mark", self.map_mark),
         ]) {
             if color.a != 1.0 {
                 return Err(format!("[screen] {field} must be opaque"));
@@ -248,6 +265,18 @@ impl ScreenStyle {
             return Err(
                 "[screen] resting must differ from button, or set resting_dash above 0".into(),
             );
+        }
+        // Marks and the heading marker sit on a halo of map_clear, so they show on fog
+        // too; explored ground has to read apart from fog.
+        for (name, ink) in [("map_self", self.map_self), ("map_mark", self.map_mark)] {
+            if contrast(ink, self.map_clear) < 3.0 {
+                return Err(format!(
+                    "[screen] {name} on map_clear needs contrast at least 3:1"
+                ));
+            }
+        }
+        if contrast(self.map_fog, self.map_clear) < 1.5 {
+            return Err("[screen] map_fog and map_clear need contrast at least 1.5:1".into());
         }
         for (name, ink) in [
             ("handle", self.handle),
@@ -399,6 +428,20 @@ pub fn contrast(a: Color, b: Color) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn map_colours_must_read_apart() {
+        let dim = ScreenStyle {
+            map_mark: Color::hex(0xd0d8dc),
+            ..ScreenStyle::default()
+        };
+        assert!(dim.check().unwrap_err().contains("map_mark on map_clear"));
+        let flat = ScreenStyle {
+            map_fog: Color::hex(0xdde3e6),
+            ..ScreenStyle::default()
+        };
+        assert!(flat.check().unwrap_err().contains("map_fog and map_clear"));
+    }
 
     #[test]
     fn default_and_all_text_surface_pairs_are_checked() {
