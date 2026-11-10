@@ -62,7 +62,7 @@ equals = false
 # Her first line, heard at the site.
 [[expect]]
 tick = 27
-entity = "log2"
+entity = "log3"
 component = "entry"
 field = "text"
 equals = "Ines Varga at Lantern Dock: “I'm Ines. This scaffold is going to be my galley.”"
@@ -151,7 +151,7 @@ payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" 
 # The same entry goes on with the rest, said the built way: "I'm Ines" is in it once.
 [[expect]]
 tick = 94
-entity = "log2"
+entity = "log3"
 component = "entry"
 field = "text"
 equals = "Ines Varga at Lantern Dock: “I'm Ines. This scaffold is going to be my galley.” “The crews ate cold tins between shifts. Now they sit down to a hot meal.” “I cook rations for them, and Cinder Kiln pays well for them too.”"

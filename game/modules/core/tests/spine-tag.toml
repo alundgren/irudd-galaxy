@@ -1,0 +1,253 @@
+# The blueprint, found at the first cradle visit, and the chart glass made from it
+# (scripts/chart.luau, scripts/cradle.luau). The ship starts off Cinder Kiln's berth and
+# docks. Before the tag is held to the light Orrin has no drawing, and nothing else is on
+# his rack: neither the chart glass nor the cutting lens can be fitted, credits or not.
+# His introduction spots the glass tag; held to the light, it shows the drawing and
+# releases memory 3, each a line of the log, once. Then the chart glass is refused with
+# its reason while the hold is short of plate and while the credits are short, and made
+# once both are there: 20 plate out of the hold and 2500 cr. With it in, the rest of the
+# rack opens, and the lens can be fitted. None of it needs the galley.
+seed = 7
+ticks = 200
+
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = 200, y = -249 }
+[[edit]]
+entity = "ship"
+component = "pilot"
+set = { credits = 5000 }
+
+[[input]]
+tick = 1
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+
+# The new world opened on memory 1, the log's first line.
+[[expect]]
+tick = 1
+entity = "log1"
+component = "entry"
+field = "text"
+equals = "The hospital ship's card said: from the reach, found in the ice, no kin recorded. This is the reach."
+
+[[expect]]
+tick = 50
+facts = "core.docked"
+equals = 1
+
+[[input]]
+tick = 50
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 53
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_cradle_room", start_tick = 50 }
+
+# No drawing yet: the chart glass can't be made, and the lens waits behind it.
+[[input]]
+tick = 55
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.chart" }
+[[input]]
+tick = 56
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+[[expect]]
+tick = 58
+entity = "chart"
+component = "part"
+field = "owned"
+equals = false
+[[expect]]
+tick = 58
+entity = "lens"
+component = "part"
+field = "owned"
+equals = false
+[[expect]]
+tick = 58
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 5000
+
+# Orrin's introduction: his name, then the tag. Held to the light, it gives the drawing.
+[[input]]
+tick = 60
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.kiln_fitter_intro" }
+[[input]]
+tick = 63
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_fitter_intro", line = "core.kiln_fitter_intro1" }
+[[expect]]
+tick = 64
+entity = "chart"
+component = "part"
+field = "found"
+equals = false
+[[input]]
+tick = 66
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.kiln_fitter_intro", line = "core.kiln_fitter_intro2", choice = "core.kiln_fitter_hold" }
+[[expect]]
+tick = 68
+entity = "chart"
+component = "part"
+field = "found"
+equals = true
+[[expect]]
+tick = 68
+facts = "core.drawn"
+equals = 1
+[[expect]]
+tick = 68
+entity = "log5"
+component = "entry"
+field = "text"
+equals = "A small chart glowing in front of a child's face, a way drawn on it, fading."
+[[expect]]
+tick = 68
+entity = "log4"
+component = "entry"
+field = "text"
+equals = "Under the light, lines show in the tag's glass: the drawing of a chart glass. Orrin can make it from 20 plate and 2500 cr."
+# Left before he finishes, his talk picks up after the tag: it is never held up twice.
+[[expect]]
+tick = 68
+entity = "kiln_fitter_intro"
+component = "engine.talk"
+field = "first"
+equals = "core.kiln_fitter_intro3"
+# What he says it costs is what it costs.
+[[expect]]
+tick = 68
+entity = "kiln_fitter_intro5"
+component = "engine.talk_line"
+field = "text"
+equals = "Bring me 20 plate from Sefa and 2500 cr, and I'll make it for your cockpit."
+
+# Short of plate: refused, nothing changes.
+[[input]]
+tick = 80
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.chart" }
+[[expect]]
+tick = 82
+entity = "chart"
+component = "part"
+field = "owned"
+equals = false
+
+# The plate aboard but the credits short: refused, nothing changes.
+[[edit]]
+tick = 85
+entity = "ship"
+component = "hold"
+set = { plate = 20 }
+[[edit]]
+tick = 85
+entity = "ship"
+component = "pilot"
+set = { credits = 2499 }
+[[input]]
+tick = 90
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.chart" }
+[[expect]]
+tick = 92
+entity = "chart"
+component = "part"
+field = "owned"
+equals = false
+[[expect]]
+tick = 92
+entity = "ship"
+component = "hold"
+field = "plate"
+equals = 20
+
+# Both there: made and fitted, the plate and the credits spent.
+[[edit]]
+tick = 95
+entity = "ship"
+component = "pilot"
+set = { credits = 2500 }
+[[input]]
+tick = 100
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.chart" }
+[[expect]]
+tick = 102
+entity = "chart"
+component = "part"
+field = "fitted"
+equals = true
+[[expect]]
+tick = 102
+entity = "ship"
+component = "hold"
+field = "plate"
+equals = 0
+[[expect]]
+tick = 102
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 0
+[[expect]]
+tick = 102
+entity = "ship"
+component = "pilot"
+field = "deal"
+equals = "Made and fitted the chart glass."
+[[expect]]
+tick = 102
+facts = "core.fitted"
+equals = 1
+# Orrin says what comes next on the next click: the galley, Sefa's glassite, the tag's
+# second drawing.
+[[expect]]
+tick = 104
+entity = "kiln_fitter_next"
+component = "engine.talk"
+field = "enabled"
+equals = true
+
+# Now the rest of the rack is his to offer: the lens goes on.
+[[edit]]
+tick = 110
+entity = "ship"
+component = "pilot"
+set = { credits = 3000 }
+[[input]]
+tick = 115
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+[[expect]]
+tick = 118
+entity = "lens"
+component = "part"
+field = "fitted"
+equals = true
+
+# None of it waited on the galley.
+[[expect]]
+entity = "lantern_galley"
+component = "build"
+field = "done"
+equals = false

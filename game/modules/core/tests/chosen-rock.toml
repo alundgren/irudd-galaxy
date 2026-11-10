@@ -80,7 +80,7 @@ equals = 8
 
 [[expect]]
 tick = 1050
-entity = "log3"
+entity = "log4"
 component = "entry"
 field = "text"
 equals = "The rig stops with the rock you picked."

@@ -122,7 +122,7 @@ field = "enabled"
 equals = true
 [[expect]]
 tick = 57
-entity = "log4"
+entity = "log5"
 component = "entry"
 field = "text"
 equals = "Ines Varga at Lantern Dock: \u201CHear them? Crews at my table, eating hot. Your plate did that.\u201D \u201CWill you take a ration, on the house?\u201D You: No, thanks."
@@ -131,7 +131,7 @@ tick = 57
 entity = "ship"
 component = "pilot"
 field = "logged"
-equals = 4
+equals = 5
 # A late second answer to the same line is stale: it changes nothing.
 [[input]]
 tick = 58

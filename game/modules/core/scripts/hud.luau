@@ -60,19 +60,18 @@ end
 -- glance tells them apart (direction doc 1.5; the looks are style.toml's). From the top:
 --   the latest message: a person on the radio (the radio's look, their name on the amber
 --     tag before their words) or what just happened (a lighter plum card, the ship's icon)
---   the goal it gives, with its WANTED tag, and a lesson about the game (a paper card)
---   where the stations off screen lie (a small dark label, like their names), and the
---     one key that fits now (the gold-framed pill, the key standing out)
+--   the goal it gives, with its GOAL tag, and a lesson about the game (a paper card)
+--   the one key that fits now (the gold-framed pill, the key standing out)
+-- Nothing in it points anywhere: no station off screen is named, and no way to it is
+-- given (direction doc 2.2). The way is found by sight and by what people say.
 -- The message and its goal and lesson are notice.luau's; a hint with no key in it is a
 -- lesson too. Each line is centred under the ship. A short line's surface is only as
--- wide as its words, and two short ones share a line (the goal and the lesson, the
--- bearings and the key) when both fit, so the stack covers no more of the reach than one
--- panel holding them all.
+-- wide as its words, and the goal and the lesson share a line when both fit, so the stack
+-- covers no more of the reach than one panel holding them all.
 -- Small print runs at most SMALL px a character and body text BODY; a surface's own
--- frame and icon add NOTE (a note), ICON (the bearings), GOAL (its tag), PAD (a lesson)
--- or PILL (the key pill's rounder ends). Two surfaces side by side are as tall as each
--- other: the goal and the lesson ASIDE, the bearings and the key WAYS.
-local GAP, SMALL, BODY, NOTE, ICON, GOAL, PAD, PILL, ASIDE, WAYS = 6, 7.5, 9.4, 48, 36, 24, 26, 16, 30, 28
+-- frame and icon add NOTE (a note), GOAL (its tag), PAD (a lesson) or PILL (the key
+-- pill's rounder ends). The goal and the lesson side by side are both ASIDE tall.
+local GAP, SMALL, BODY, NOTE, GOAL, PAD, PILL, ASIDE = 6, 7.5, 9.4, 48, 24, 26, 16, 30
 
 local function span(text, per, extra)
     return math.ceil((utf8.len(text) or #text) * per + extra)
@@ -136,18 +135,15 @@ local function bottom(ctx, ui, pilot)
         key = nil
     end
     local wanted = goal ~= "" and { ui.text { id = "goal", look = kit.LOOK.goal, size = kit.SIZE.small,
-        spans = { { text = "WANTED", look = kit.LOOK.kind }, "  " .. goal } },
-        math.min(wide, span("WANTED  " .. goal, SMALL, GOAL)) } or nil
+        spans = { { text = "GOAL", look = kit.LOOK.kind }, "  " .. goal } },
+        math.min(wide, span("GOAL  " .. goal, SMALL, GOAL)) } or nil
     local taught = lesson ~= "" and { ui.text { id = "lesson", look = kit.LOOK.lesson, size = kit.SIZE.small, text = lesson },
         math.min(wide, span(lesson, SMALL, PAD)) } or nil
     pair(ui, "aside", stack, wanted, taught, ASIDE)
-    -- The stations off screen and the way each lies: no arrows, but the way home is never
-    -- lost in a reach several screens across.
-    local ways = pilot.bearings ~= "" and { kit.label(ui, { id = "bearings", icon = "station", text = pilot.bearings,
-        size = kit.SIZE.small }), span(pilot.bearings, SMALL, ICON) } or nil
-    local keys = key and { ui.text { id = "hints", look = kit.LOOK.pill, pad = 4, spans = kit.hint(key), size = kit.SIZE.small },
-        math.min(layout.BOTTOM, span(key, SMALL, PILL)) } or nil
-    pair(ui, "ways", stack, ways, keys, WAYS)
+    if key then
+        table.insert(stack, line(ui, "keys", { { ui.text { id = "hints", look = kit.LOOK.pill, pad = 4, spans = kit.hint(key),
+            size = kit.SIZE.small }, math.min(layout.BOTTOM, span(key, SMALL, PILL)) } }))
+    end
     return ui.column { id = "bottom", align = "bottom", y = layout.M, width = layout.BOTTOM, gap = GAP, children = stack }
 end
 

@@ -94,10 +94,10 @@ field = "name"
 equals = "Bram Okafor"
 [[expect]]
 tick = 172
-entity = "log2"
+entity = "log3"
 component = "entry"
 field = "text"
-equals = "Bram Okafor at Lantern Dock: “Welcome to Lantern Dock.” “I'm Bram. I keep the berth and lamps.” “Cinder Kiln is out east. We both buy ore.” “Each of us pays less as our stock fills, so spread your loads.” “Our galley wants plate: sheet the Kiln fires from ore.”"
+equals = "Bram Okafor at Lantern Dock: “Welcome to Lantern Dock.” “I'm Bram. I keep the berth and lamps.” “Cinder Kiln is out east, a touch south. We both buy ore.” “Each of us pays less as our stock fills, so spread your loads.” “Our galley wants plate: sheet the Kiln fires from ore.”"
 
 # Tova's introduction, with a sale after her first line.
 [[input]]
@@ -127,7 +127,7 @@ tick = 207
 entity = "ship"
 component = "pilot"
 field = "logged"
-equals = 4
+equals = 5
 [[input]]
 tick = 211
 name = "engine.talk_next"
@@ -140,7 +140,7 @@ source = "talk"
 payload = { talk = "core.lantern_trader_intro", line = "core.lantern_trader_intro3" }
 [[expect]]
 tick = 217
-entity = "log3"
+entity = "log4"
 component = "entry"
 field = "text"
 equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the exchange.” “I buy ore, and plate for our galley: sheet the Kiln fires from ore.” “My prices drop as my stock fills.”"
@@ -150,7 +150,7 @@ tick = 217
 entity = "ship"
 component = "pilot"
 field = "logged"
-equals = 4
+equals = 5
 
 # Her next conversation is a new entry, not more of the finished introduction.
 [[input]]
@@ -165,7 +165,7 @@ source = "talk"
 payload = { talk = "core.lantern_trader_talk", line = "core.lantern_trader_now" }
 [[expect]]
 tick = 232
-entity = "log5"
+entity = "log6"
 component = "entry"
 field = "text"
 equals = "Tova Reyes at Lantern Dock: “Thanks. It's all on the pile already.”"

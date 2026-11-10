@@ -73,14 +73,49 @@ function fit.verdict(p, target, parts, credits, load, hull_hold)
     end
     if p.socket ~= target then return "it goes in the " .. string.lower(fit.socket_name(p.socket)) end
     if p.fitted then return "it's fitted here" end
+    if not p.owned then
+        -- A part made from a drawing waits for the drawing; the rest of the rack waits
+        -- for the part that comes first (`after`).
+        if p.blueprint and not p.found then return "Orrin has no drawing for it" end
+        local first = fit.waits_on(p, parts)
+        if first then return "Orrin: \"The " .. string.lower(first.name) .. " first.\"" end
+    end
     -- Power first: without it the part couldn't go on even once paid for.
     local free = fit.POWER - fit.totals(parts).power
-    if p.power > free then return "it needs " .. p.power .. " power; " .. free .. " is free" end
+    if (p.power or 0) > free then return "it needs " .. p.power .. " power; " .. free .. " is free" end
     if not p.owned and (p.holds or 0) > (p.brought or 0) then
         return "Orrin: \"Bring in " .. p.holds .. " full holds and I'll fit it.\" You've brought " .. (p.brought or 0)
     end
+    -- What it is made from comes out of the hold: `have` is how much of it is aboard.
+    if not p.owned and (p.units or 0) > 0 and (p.have or 0) < p.units then
+        return "it needs " .. p.units .. " " .. p.ware .. " in your hold; you carry " .. (p.have or 0)
+    end
     if not p.owned and credits < p.price then return "it costs " .. p.price .. " cr; you have " .. credits end
     return ""
+end
+
+-- The part `p` waits on (`after`) while that one isn't fitted, or nil.
+function fit.waits_on(p, parts)
+    if (p.after or "") == "" then return nil end
+    for _, q in parts do
+        if q.id == p.after then return (not q.fitted) and q or nil end
+    end
+    return nil
+end
+
+-- Whether the fitter offers `p` on his rack: a part made from a drawing once the drawing
+-- is found, a part that comes after another once that one is fitted, and always a part
+-- that is already yours.
+function fit.offered(p, parts)
+    if p.owned or p.fitted then return true end
+    if p.blueprint and not p.found then return false end
+    return fit.waits_on(p, parts) == nil
+end
+
+-- What making `p` takes, in words: "20 plate and 2500 cr", or its price alone.
+function fit.price_text(p)
+    if (p.units or 0) > 0 then return p.units .. " " .. p.ware .. " and " .. p.price .. " cr" end
+    return p.price .. " cr"
 end
 
 -- What fitting `p` (or taking it off, when it is fitted) would change, before it
@@ -91,6 +126,9 @@ function fit.change_list(p, parts, hull, hull_hold)
     local before = fit.totals(parts, nil, nil, hull, hull_hold)
     local after = p.fitted and fit.totals(parts, p.id, nil, hull, hull_hold) or fit.totals(parts, nil, p.id, hull, hull_hold)
     local list = {}
+    if not p.fitted and not p.owned and (p.units or 0) > 0 then
+        table.insert(list, { text = p.units .. " " .. p.ware .. " from your hold" })
+    end
     if not p.fitted then table.insert(list, { text = p.owned and "from your locker, free" or p.price .. " cr" }) end
     local function moved(name, a, b, unit)
         if fit.num(a) ~= fit.num(b) then

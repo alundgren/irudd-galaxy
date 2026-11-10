@@ -12,6 +12,7 @@ local log = { KEEP = 60, SHORT = 38 }
 local places = require("./places")
 local project = require("./project")
 local notice = require("./notice")
+local chart = require("./chart")
 
 -- Where an entry belongs: the station the ship is at, on its deck or in one of its
 -- rooms, or "" in flight. The docking's own entry is written on the tick the ship
@@ -168,13 +169,14 @@ function log.summary(ctx, visit)
     return who, line
 end
 
--- What is still waiting: offers made and not answered, buildings under way at a
+-- What is still waiting: the pilot's own goal while it is open (chart.pins), offers
+-- made and not answered, buildings under way at a
 -- station you have been to, and the next step of a job someone gave you. Each is
 -- { kind, who, text }. An offer stays pinned once heard (its gift or offer is marked
 -- heard), and a building once its station has been docked at, however much older
 -- history the log has dropped since.
 function log.pinned(ctx, list)
-    local pins = {}
+    local pins = chart.pins(ctx)
     for _, talk in ctx.query("gift") do
         local gift = ctx.get(talk, "gift")
         if not gift.answered and (gift.heard or heard(list, talk)) then

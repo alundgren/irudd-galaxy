@@ -26,15 +26,25 @@
 # The view widens a little at speed and looks a quarter second ahead; mining beats kick
 # it (scripts/main.luau keeps the same values).
 "engine.camera_feel" = { speed_zoom = 0.12, lead = 0.25 }
-# Bram's welcome, with the goal it gives and what the log does with it, each on its own
-# (scripts/notice.luau): the parts show while his line does.
-pilot = { message = "Bram on Lantern Dock's radio: “Welcome, pilot. Our galley needs plate: the Kiln fires it from ore.”", goal = "Lantern Dock's galley: 40 plate", lesson = "Your log keeps every WANTED.", aside = "Bram on Lantern Dock's radio: “Welcome, pilot. Our galley needs plate: the Kiln fires it from ore.”" }
+# A new world opens on who the pilot is: the reach releases the first memory, plain facts
+# (beings/player.md, memory 1), already the log's first line (log1, below). Bram's welcome
+# comes over the radio once the pilot flies by hand (scripts/spine.luau).
+pilot = { message = "The hospital ship's card said: from the reach, found in the ice, no kin recorded. This is the reach.", aside = "The hospital ship's card said: from the reach, found in the ice, no kin recorded. This is the reach.", logged = 1 }
 hold = {}
 held = {}
 taught = {}
 fit = { hull_speed = 20.0, hull_hold = 24, hold = 24 }
 # The radio finds the strongest station on its first second out (scripts/radio.luau).
 radio = {}
+# The ship remembers where it has flown from the first tick: every 8-unit cell within 48
+# units of it, about as far as the flight view shows round the ship (64 tall, some 114
+# across). Nothing shows the memory until the chart glass is fitted (scripts/chart.luau).
+"engine.explorer" = { radius = 48 }
+"engine.explored" = {}
+
+# The log's first line: memory 1, released by the reach as the game opens.
+[entities.log1]
+entry = { n = 1, text = "The hospital ship's card said: from the reach, found in the ice, no kin recorded. This is the reach." }
 
 # The field: rocks turn slowly where they float, never drifting, so every mining spot
 # stays put. Space mines the nearest rock with anything left, whatever it holds.
@@ -507,7 +517,7 @@ keeper = { name = "Bram Okafor", greeting = "core.lantern_master_intro1" }
 "engine.talk_line" = { text = "I'm Bram. I keep the berth and lamps.", next = "core.lantern_master_intro3" }
 
 [entities.lantern_master_intro3]
-"engine.talk_line" = { text = "Cinder Kiln is out east. We both buy ore.", next = "core.lantern_master_intro4" }
+"engine.talk_line" = { text = "Cinder Kiln is out east, a touch south. We both buy ore.", next = "core.lantern_master_intro4" }
 
 [entities.lantern_master_intro4]
 "engine.talk_line" = { text = "Each of us pays less as our stock fills, so spread your loads.", next = "core.lantern_master_intro5" }
@@ -1256,10 +1266,13 @@ keeper = { name = "Mags Ferrow", greeting = "core.kiln_master_intro1" }
 "engine.talk_line" = { text = "I'm Mags. I watch the field from here.", next = "core.kiln_master_intro3" }
 
 [entities.kiln_master_intro3]
-"engine.talk_line" = { text = "Lantern Dock is out west. We both buy ore.", next = "core.kiln_master_intro4" }
+"engine.talk_line" = { text = "Lantern Dock is out west, a touch north. We both buy ore.", next = "core.kiln_master_intro4" }
 
 [entities.kiln_master_intro4]
-"engine.talk_line" = { text = "Each of us pays less as our stock fills, so spread your loads." }
+"engine.talk_line" = { text = "Each of us pays less as our stock fills, so spread your loads.", next = "core.kiln_master_intro5" }
+
+[entities.kiln_master_intro5]
+"engine.talk_line" = { text = "Orrin at our cradle fits out new tugs." }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.kiln_master_talk]
@@ -1304,7 +1317,9 @@ keeper = { name = "Orrin Vale" }
 
 
 
-# Said once: the first click introduces the keeper.
+# Said once: the first click introduces the keeper, and he spots the glass tag on the
+# canopy frame (beings/player.md). Held to the light, it releases memory 3 and shows the
+# chart glass's drawing (scripts/chart.luau): the blueprint, found at the first visit.
 [entities.kiln_fitter_intro]
 "engine.talk" = { speaker = "core.kiln_fitter", first = "core.kiln_fitter_intro1", width = 420, x = -150, story = true, title = "Orrin Vale", subtitle = "Fitter" }
 
@@ -1312,17 +1327,46 @@ keeper = { name = "Orrin Vale" }
 "engine.talk_line" = { text = "I'm Orrin. I fit parts to ships.", next = "core.kiln_fitter_intro2" }
 
 [entities.kiln_fitter_intro2]
-"engine.talk_line" = { text = "Drag a part onto its socket, or Choose it and click Fit here.", next = "core.kiln_fitter_intro3" }
+"engine.talk_line" = { text = "See the glass tag on your canopy frame? That tag's no charm. Hold it to the light." }
+
+[entities.kiln_fitter_hold]
+"engine.talk_choice" = { line = "core.kiln_fitter_intro2", text = "Hold it to the light", next = "core.kiln_fitter_intro3", order = 1 }
 
 [entities.kiln_fitter_intro3]
-"engine.talk_line" = { text = "Power caps what runs; weight slows you." }
+"engine.talk_line" = { text = "Lines in the glass, fine as hair. That's a drawing.", next = "core.kiln_fitter_intro4" }
+
+[entities.kiln_fitter_intro4]
+"engine.talk_line" = { text = "A chart glass: it shows where you've flown, and fog where you haven't.", next = "core.kiln_fitter_intro5" }
+
+[entities.kiln_fitter_intro5]
+"engine.talk_line" = { text = "Bring me 20 plate from Sefa and 2500 cr, and I'll make it for your cockpit." }
+
+# Once the chart glass is in, he says what the rack and the reach hold next, once: the
+# galley, Sefa's glassite and the tag's second drawing (scripts/spine.luau).
+[entities.kiln_fitter_next]
+"engine.talk" = { speaker = "core.kiln_fitter", first = "core.kiln_fitter_next1", width = 420, x = -150, story = true, enabled = false, title = "Orrin Vale", subtitle = "Fitter" }
+
+[entities.kiln_fitter_next1]
+"engine.talk_line" = { text = "There. She keeps her own chart now: every place you fly near.", next = "core.kiln_fitter_next2" }
+
+[entities.kiln_fitter_next2]
+"engine.talk_line" = { text = "The rest of my rack's open to you. Power caps what runs; weight slows you.", next = "core.kiln_fitter_next3" }
+
+[entities.kiln_fitter_next3]
+"engine.talk_line" = { text = "Ines at Lantern Dock wants plate for her galley.", next = "core.kiln_fitter_next4" }
+
+[entities.kiln_fitter_next4]
+"engine.talk_line" = { text = "Sefa knows where glassite grows. Ask her.", next = "core.kiln_fitter_next5" }
+
+[entities.kiln_fitter_next5]
+"engine.talk_line" = { text = "And that tag holds a second drawing: a full chart. Not one I can make yet." }
 
 # After that, one short line about the last fit (scripts/cradle.luau).
 [entities.kiln_fitter_talk]
 "engine.talk" = { speaker = "core.kiln_fitter", first = "core.kiln_fitter_now", width = 420, x = -150, title = "Orrin Vale", subtitle = "Fitter" }
 
 [entities.kiln_fitter_now]
-"engine.talk_line" = { text = "Bring me credits and I'll fit you out." }
+"engine.talk_line" = { text = "Bring me the plate and the credits, and I'll make your chart glass." }
 
 # Inside Cinder Kiln: staged rooms, as at Lantern Dock.
 # Sefa's exchange: a counter, shelves of ingots and the kiln's glowing hatch.
@@ -1389,26 +1433,34 @@ keeper = { name = "Orrin Vale" }
 [entities.kiln_cradle_room_rack]
 "engine.spot" = { place = "core.kiln_cradle_room", name = "rack" }
 
-# The parts on Orrin's rack. The hull has 3 power and carries 3 mass freely, so the
-# lens and the thrusters can't run together, and the pods with anything else slow you.
+# The chart glass, the first thing Orrin makes: a minimap, from the drawing in the glass
+# tag (`blueprint`, `found` once the tag is held to the light). He makes it from 20 plate
+# out of the hold and 2500 cr, and it sits in the control rack, so it draws no power,
+# weighs nothing and never comes off (scripts/chart.luau shows it in flight).
+[entities.chart]
+part = { name = "Chart glass", socket = "rack", price = 2500, ware = "plate", units = 20, blueprint = true, order = 0, effect = "a minimap in the cockpit: every place you've flown near shows clear, the rest under fog", said = "Fly her out and watch the glass fill in." }
+
+# The parts on Orrin's rack, offered once the chart glass is in (`after`). The hull has 3
+# power and carries 3 mass freely, so the lens and the thrusters can't run together, and
+# the pods with anything else slow you.
 [entities.lens]
-part = { name = "Cutting lens", socket = "drill", price = 3000, power = 2, mass = 1, mine = 1, order = 1, effect = "your beam cuts 2 ore a second instead of 1", said = "That lens cuts twice as quick." }
+part = { name = "Cutting lens", socket = "drill", price = 3000, power = 2, mass = 1, mine = 1, order = 1, effect = "your beam cuts 2 ore a second instead of 1", said = "That lens cuts twice as quick.", after = "core.chart" }
 
 [entities.pods]
-part = { name = "Hold pods", socket = "hold", price = 3500, mass = 3, hold = 12, order = 2, model = "core.ship_pods", effect = "your hold carries 36 instead of 24", said = "Room for twelve more. She's heavier, mind." }
+part = { name = "Hold pods", socket = "hold", price = 3500, mass = 3, hold = 12, order = 2, model = "core.ship_pods", effect = "your hold carries 36 instead of 24", said = "Room for twelve more. She's heavier, mind.", after = "core.chart" }
 
 [entities.thrusters]
-part = { name = "Tuned thrusters", socket = "engine", price = 9000, power = 2, mass = 1, speed = 5, order = 3, effect = "your top speed goes from 20 to 25", said = "Open her up out there. She'll run." }
+part = { name = "Tuned thrusters", socket = "engine", price = 9000, power = 2, mass = 1, speed = 5, order = 3, effect = "your top speed goes from 20 to 25", said = "Open her up out there. She'll run.", after = "core.chart" }
 
 # Two controls take over work the pilot does by hand (scripts/cutter.luau). They sit in
 # the control rack: no power or mass, and once bought they never come off. The reach rig
 # aims the beam itself, cuts from far off and flies the ship out to a rock; the docking
 # jets fly it into a berth from anywhere.
 [entities.rig]
-part = { name = "Reach rig", socket = "rack", price = 15000, holds = 100, order = 4, effect = "click a rock, or press Space, and she flies out and cuts it from 16 units off, aiming herself, her beam held steady: no rock runs warm or glazes under it", said = "She'll stand off now and pull the stone in herself. Steady, mind: a good hand on a warm rock still cuts faster." }
+part = { name = "Reach rig", socket = "rack", price = 15000, holds = 100, order = 4, effect = "click a rock, or press Space, and she flies out and cuts it from 16 units off, aiming herself, her beam held steady: no rock runs warm or glazes under it", said = "She'll stand off now and pull the stone in herself. Steady, mind: a good hand on a warm rock still cuts faster.", after = "core.chart" }
 
 [entities.jets]
-part = { name = "Docking jets", socket = "rack", price = 30000, holds = 200, order = 5, effect = "press E or click a station, and they fly her into its berth from anywhere", said = "Point her home and let the jets do the berthing." }
+part = { name = "Docking jets", socket = "rack", price = 30000, holds = 200, order = 5, effect = "press E or click a station, and they fly her into its berth from anywhere", said = "Point her home and let the jets do the berthing.", after = "core.chart" }
 
 # Traffic: traders fly their own routes, moor for a while, then fly back
 # (scripts/traffic.luau). Their routes keep clear of the
@@ -1739,7 +1791,7 @@ rumour = { thing = "core.glassite_ring", near = 40, found_model = "core.stone_ri
 "engine.talk" = { speaker = "core.kiln_trader", first = "core.glassite_lead1", width = 420, x = -150, story = true, enabled = false, title = "Sefa Lind", subtitle = "Exchange keeper" }
 
 [entities.glassite_lead1]
-"engine.talk_line" = { text = "Glassite for Ines's panes? Pell's Luck brings me mine.", next = "core.glassite_lead2" }
+"engine.talk_line" = { text = "Glassite? Pell's Luck brings me mine.", next = "core.glassite_lead2" }
 
 [entities.glassite_lead2]
 "engine.talk_line" = { text = "Fly north from our berth, a touch east. It's far.", next = "core.glassite_lead3" }

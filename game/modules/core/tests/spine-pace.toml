@@ -1,0 +1,294 @@
+# pace-numbers for the navigation spine: a new world played along the spine with scripted
+# orders, as `galaxy sim run` plays it (30 ticks a second). Seed 7, the bare hull, scripted
+# Mine and Dock orders (a little better than a hand flies, the steady beam), two seconds
+# between clicks. W by hand first (Bram's welcome); the first full hold goes to Cinder
+# Kiln, where Orrin's introduction finds the tag and the chart glass's drawing; then the
+# holds go to the other station each time, and at the first Kiln visit with the credits
+# for it, the plate is bought from Sefa and the chart glass made and fitted. Headless,
+# nothing draws the glide into the cradle room, so its arrival is given two seconds after
+# the click, as the view sends it in play.
+#
+# The drawing is found 1.1 minutes in (tick 2003), the chart glass fitted 10.3 minutes in
+# (tick 18453), after the 9th hold. By hand the README's route ratio (about 1.33) makes
+# that about 1.5 and 14 minutes. These ticks guard the price against drift; they are a
+# measurement, not a target.
+seed = 7
+ticks = 18460
+
+[[expect]]
+tick = 2002
+facts = "core.drawn"
+equals = 0
+[[expect]]
+tick = 2003
+facts = "core.drawn"
+equals = 1
+[[expect]]
+tick = 18452
+facts = "core.fitted"
+equals = 0
+[[expect]]
+tick = 18453
+facts = "core.fitted"
+equals = 1
+[[expect]]
+tick = 18453
+facts = "core.hold_full"
+equals = 9
+
+[[input]]
+tick = 1
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 901
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1583
+name = "core.open"
+[[input]]
+tick = 1643
+name = "core.sell"
+[[input]]
+tick = 1703
+name = "core.close"
+[[input]]
+tick = 1763
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 1823
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_cradle_room", start_tick = 1763 }
+[[input]]
+tick = 1883
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.kiln_fitter_intro" }
+[[input]]
+tick = 1943
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_fitter_intro", line = "core.kiln_fitter_intro1" }
+[[input]]
+tick = 2003
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.kiln_fitter_intro", line = "core.kiln_fitter_intro2", choice = "core.kiln_fitter_hold" }
+[[input]]
+tick = 2063
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_fitter_intro", line = "core.kiln_fitter_intro3" }
+[[input]]
+tick = 2123
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_fitter_intro", line = "core.kiln_fitter_intro4" }
+[[input]]
+tick = 2183
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.kiln_fitter_intro", line = "core.kiln_fitter_intro5" }
+[[input]]
+tick = 2243
+name = "core.close"
+[[input]]
+tick = 2303
+name = "core.launch"
+[[input]]
+tick = 2333
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 3241
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 3832
+name = "core.open"
+[[input]]
+tick = 3892
+name = "core.sell"
+[[input]]
+tick = 3952
+name = "core.close"
+[[input]]
+tick = 4012
+name = "core.launch"
+[[input]]
+tick = 4042
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 5131
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 5860
+name = "core.open"
+[[input]]
+tick = 5920
+name = "core.sell"
+[[input]]
+tick = 5980
+name = "core.close"
+[[input]]
+tick = 6040
+name = "core.launch"
+[[input]]
+tick = 6070
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 7171
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 7766
+name = "core.open"
+[[input]]
+tick = 7826
+name = "core.sell"
+[[input]]
+tick = 7886
+name = "core.close"
+[[input]]
+tick = 7946
+name = "core.launch"
+[[input]]
+tick = 7976
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 8971
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 9730
+name = "core.open"
+[[input]]
+tick = 9790
+name = "core.sell"
+[[input]]
+tick = 9850
+name = "core.close"
+[[input]]
+tick = 9910
+name = "core.launch"
+[[input]]
+tick = 9940
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 11161
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 11745
+name = "core.open"
+[[input]]
+tick = 11805
+name = "core.sell"
+[[input]]
+tick = 11865
+name = "core.close"
+[[input]]
+tick = 11925
+name = "core.launch"
+[[input]]
+tick = 11955
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 13381
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 13973
+name = "core.open"
+[[input]]
+tick = 14033
+name = "core.sell"
+[[input]]
+tick = 14093
+name = "core.close"
+[[input]]
+tick = 14153
+name = "core.launch"
+[[input]]
+tick = 14183
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 15451
+name = "core.dock"
+source = "script"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 16028
+name = "core.open"
+[[input]]
+tick = 16088
+name = "core.sell"
+[[input]]
+tick = 16148
+name = "core.close"
+[[input]]
+tick = 16208
+name = "core.launch"
+[[input]]
+tick = 16238
+name = "core.mine"
+source = "script"
+[[input]]
+tick = 17401
+name = "core.dock"
+source = "script"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 18093
+name = "core.open"
+[[input]]
+tick = 18153
+name = "core.sell"
+[[input]]
+tick = 18213
+name = "core.buy"
+payload = { ware = "plate", units = 20 }
+[[input]]
+tick = 18273
+name = "core.close"
+[[input]]
+tick = 18333
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 18393
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln_cradle_room", start_tick = 18333 }
+[[input]]
+tick = 18453
+name = "core.fit"
+source = "ui"
+payload = { socket = "rack", value = "core.chart" }

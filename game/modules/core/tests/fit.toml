@@ -10,6 +10,11 @@
 # each phase, and the mining runs start beside rock5.
 seed = 7
 ticks = 800
+# The chart glass is in: Orrin offers the rest of his rack only after it.
+[[edit]]
+entity = "chart"
+component = "part"
+set = { found = true, owned = true, fitted = true }
 [[edit]]
 entity = "ship"
 component = "pilot"

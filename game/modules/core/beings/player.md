@@ -60,8 +60,9 @@ Not written, on purpose. These are the human's.
 ## Secrets
 
 The character remembers things the human doesn't know yet. Each memory is released by a
-place, a person or an object, once, and goes into the log as plain lines. None is in the
-core yet; the draft lines below are for whoever writes them in.
+place, a person or an object, once, and goes into the log as plain lines. Memories 1 and
+3 are in the core (the lines below as they play); the other lines are drafts for whoever
+writes them in.
 
 **The rule for every memory: facts and things seen, heard or smelled, never feelings.**
 No "you feel", "you remember fondly", "something pulls at you", "you have to", no word
@@ -71,7 +72,7 @@ connects them, or doesn't.
 
 | # | Released by | What is remembered (draft log line) |
 | --- | --- | --- |
-| 1 | **The reach**, on the first flight (place) | "The card said: found in the ice, out in the reach. This is the reach." |
+| 1 | **The reach**, as a new game opens (place) | "The hospital ship's card said: from the reach, found in the ice, no kin recorded. This is the reach." |
 | 2 | **Hessa's voice**, her hail on the radio (person) | "That voice once sang four lines while ice came up on a hoist. The tune, not the words." |
 | 3 | **The tag held to the light** at the cradle, once Orrin points at it (object) | "A small chart glowing in front of a child's face, a way drawn on it, fading." |
 | 4 | **Mags's office**, her chart on the wall (place) | "A red pencil. Being lifted up to a chart, and a finger on a circle with no name." |
@@ -107,8 +108,9 @@ Facts on the player's side only; what they make of anyone is the human's.
 
 **The glass tag.** Lilac glass on a cord, from the boat. It holds the blueprints of the
 map, which is the first upgrade the player earns: the minimap first, then the full map,
-each a named ship upgrade Orrin builds (proposed names: the chart glass and the chart
-table). When and how the full map's blueprint is read is left to the map's own work.
+each a named ship upgrade Orrin builds: the chart glass (in the core) and the full map
+(proposed name: the chart table). Orrin knows the tag holds a second drawing he can't
+make yet; when and how the full map's blueprint is read is left to the map's own work.
 
 ## Arc beats
 
@@ -116,11 +118,12 @@ The player's present is the human's. What the world does around their past, in o
 
 | Beat | State | Trigger |
 | --- | --- | --- |
-| Bram's welcome on the radio, "Welcome, pilot." | plays (`start.toml`, `pilot`) | the first second |
-| Memory 1 | to be written | the first flight |
+| Memory 1 | plays (`start.toml`, `log1` and the pilot's first message) | a new game opening |
+| Bram's welcome on the radio, "Welcome, pilot.", and the goal it gives, a way to chart the reach | plays (`scripts/spine.luau`, `chart.WELCOME`) | the first flight by hand |
 | Hessa's hail, "New tug? ..." | plays (`traffic.luau`, `trader.hail`) | the first or second flight out |
 | Memory 2 | to be written | the hail |
-| Orrin spots the tag; memory 3; the minimap built from its blueprint | to be written | the first cradle visit |
+| Orrin spots the tag; memory 3; the chart glass's drawing | plays (`start.toml`, `kiln_fitter_intro`; `scripts/chart.luau`) | the first cradle visit |
+| The chart glass made from its drawing and fitted | plays (`scripts/cradle.luau`, `scripts/spine.luau`) | 20 plate and 2500 cr at Orrin's cradle |
 | Memory 4 | to be written | Mags's office, once she is met |
 | The ring lights | plays (`rumour.luau`) | flying within 40 units of it |
 | Memory 5 | to be written | the ring lighting |
@@ -153,8 +156,15 @@ What the game never puts in the player's mouth, on a talk button or in the log:
 - **The ring wakes once, when the ship comes within 40 units, and lights for no one
   else**: Pell's route keeps clear and Pell hears it hum without it lighting (Sefa:
   "Pell won't cut near your ring. She says it hums."). True.
-- **Not yet reconciled, waiting on implementation:** the README makes the cutting lens
-  the first part a player can buy and names off-screen stations in the bottom stack
-  (`rules.bearings`). The new direction (`../../../docs/direction.md`, 2.2) makes the map
-  the first earned upgrade and replaces direction hints with fog of war, a minimap and a
-  map. The core changes when the map is built.
+- **Memory 1 beside "Welcome, pilot."**: the card says where the child was found, and
+  Bram welcomes a new pilot, not someone coming home. Nobody in the reach knows the
+  pilot's past. True.
+- **Nothing points the way** (`../../../docs/direction.md`, 2.2): no bearings, edge
+  markers or arrows; people say where places lie, vague but true and with no numbers
+  (README, "Finding the way"), and the chart glass shows only where the ship has flown.
+  The chart glass is the first named upgrade; the lens and the other parts come after it.
+  True.
+- **The tag**: Orrin spots it at the first cradle visit ("That tag's no charm. Hold it to
+  the light."); held to the light it shows the chart glass's drawing and releases memory
+  3, once. Orrin makes the chart glass and says the tag holds a second drawing, a full
+  chart, that he can't make yet. True.

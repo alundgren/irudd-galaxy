@@ -1,3 +1,9 @@
+# The chart glass is already in, so Orrin's rack is open to the lens and the pods.
+[[edit]]
+entity = "core.chart"
+component = "core.part"
+set = { found = true, owned = true, fitted = true }
+
 [[input]]
 tick = 10
 name = "core.mine"

@@ -11,6 +11,11 @@ seed = 7
 ticks = 420
 
 # One hold short of the rig's hundred, with credits for both controls.
+# The chart glass is in: Orrin offers the rest of his rack only after it.
+[[edit]]
+entity = "chart"
+component = "part"
+set = { found = true, owned = true, fitted = true }
 [[edit]]
 entity = "ship"
 component = "pilot"

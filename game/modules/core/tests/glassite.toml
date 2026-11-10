@@ -68,7 +68,7 @@ equals = 1.0
 
 [[expect]]
 tick = 1000
-entity = "log1"
+entity = "log2"
 component = "entry"
 field = "text"
 equals = "Lilac rocks by a lone buoy: the glassite drift. Beside them lies a ring of old stone, and its groove lights as you pass."
@@ -82,7 +82,7 @@ equals = "core.stone_ring_lit"
 
 [[expect]]
 tick = 1000
-entity = "log2"
+entity = "log3"
 component = "entry"
 field = "text"
 equals = "Rock cut down to pebbles. 3 more rocks hold glassite."

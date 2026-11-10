@@ -31,7 +31,7 @@ field = "ore"
 equals = 24
 [[expect]]
 tick = 100
-entity = "log1"
+entity = "log2"
 component = "entry"
 field = "text"
 equals = "Hold full: 24 ore aboard."
@@ -54,13 +54,13 @@ payload = { station = "core.lantern" }
 # The docking's entry, written on the tick she arrives, belongs to the station.
 [[expect]]
 tick = 256
-entity = "log2"
+entity = "log3"
 component = "entry"
 field = "text"
 equals = "Docked at Lantern Dock."
 [[expect]]
 tick = 256
-entity = "log2"
+entity = "log3"
 component = "entry"
 field = "at"
 equals = "core.lantern"
@@ -74,21 +74,21 @@ tick = 297
 entity = "ship"
 component = "logbook"
 field = "seen"
-equals = 2
+equals = 3
 [[input]]
 tick = 306
 name = "core.log_visit"
-payload = { first = 1 }
+payload = { first = 2 }
 [[expect]]
 tick = 307
 entity = "ship"
 component = "logbook"
 field = "visit"
-equals = 1
+equals = 2
 [[input]]
 tick = 316
 name = "core.log_visit"
-payload = { first = 1 }
+payload = { first = 2 }
 [[expect]]
 tick = 317
 entity = "ship"

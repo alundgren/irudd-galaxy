@@ -1,0 +1,230 @@
+# Every way people tell before the chart glass is fitted, flown as said (direction doc 2.2:
+# found by sight and by vague but correct directions, never by numbers or markers). Each
+# leg starts the ship at rest where the line is said (the ore drift, or a station's
+# berth) on the plain compass heading the words give, W held, and checks that the place
+# named comes into the flight view on the way: the ship's position at its closest pass
+# lies within the view's half-width (50) and half-height (28) of the place. The ore drift
+# counts as in view anywhere over its rocks' spread, which reaches 92 west and 82 east of
+# the drift's heart and 42 south and 34 north of it.
+seed = 7
+ticks = 3135
+
+[[input]]
+tick = 1
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+
+# Bram, Mags: Cinder Kiln is south-east of the ore drift. In view of Cinder Kiln.
+[[edit]]
+entity = "ship"
+component = "engine.position"
+set = { x = 0, y = 0, angle = -0.7854 }
+[[edit]]
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0, vy = 0 }
+[[expect]]
+tick = 526
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = 166
+[[expect]]
+tick = 526
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = 266
+[[expect]]
+tick = 526
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = -293
+[[expect]]
+tick = 526
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_most = -237
+
+# Mags: Lantern Dock is south-west of the drift. In view of Lantern Dock.
+[[edit]]
+tick = 530
+entity = "ship"
+component = "engine.position"
+set = { x = 0, y = 0, angle = -2.3562 }
+[[edit]]
+tick = 530
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0, vy = 0 }
+[[expect]]
+tick = 965
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = -244
+[[expect]]
+tick = 965
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = -144
+[[expect]]
+tick = 965
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = -237
+[[expect]]
+tick = 965
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_most = -181
+
+# Bram: Cinder Kiln is out east, a touch south. In view of Cinder Kiln.
+[[edit]]
+tick = 970
+entity = "ship"
+component = "engine.position"
+set = { x = -184, y = -203, angle = -0.1745 }
+[[edit]]
+tick = 970
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0, vy = 0 }
+[[expect]]
+tick = 1585
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = 166
+[[expect]]
+tick = 1585
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = 266
+[[expect]]
+tick = 1585
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = -293
+[[expect]]
+tick = 1585
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_most = -237
+
+# Mags: Lantern Dock is out west, a touch north. In view of Lantern Dock.
+[[edit]]
+tick = 1590
+entity = "ship"
+component = "engine.position"
+set = { x = 206, y = -255, angle = 2.9671 }
+[[edit]]
+tick = 1590
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0, vy = 0 }
+[[expect]]
+tick = 2205
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = -244
+[[expect]]
+tick = 2205
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = -144
+[[expect]]
+tick = 2205
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = -237
+[[expect]]
+tick = 2205
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_most = -181
+
+# Tova: the ore floats north-east of us. In view of the ore drift.
+[[edit]]
+tick = 2210
+entity = "ship"
+component = "engine.position"
+set = { x = -184, y = -203, angle = 0.7854 }
+[[edit]]
+tick = 2210
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0, vy = 0 }
+[[expect]]
+tick = 2645
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = -149
+[[expect]]
+tick = 2645
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = 139
+[[expect]]
+tick = 2645
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = -74
+[[expect]]
+tick = 2645
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_most = 66
+
+# Sefa: the ore floats north-west of us. In view of the ore drift.
+[[edit]]
+tick = 2650
+entity = "ship"
+component = "engine.position"
+set = { x = 206, y = -255, angle = 2.3562 }
+[[edit]]
+tick = 2650
+entity = "ship"
+component = "engine.motion"
+set = { vx = 0, vy = 0 }
+[[expect]]
+tick = 3130
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = -149
+[[expect]]
+tick = 3130
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = 139
+[[expect]]
+tick = 3130
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = -74
+[[expect]]
+tick = 3130
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_most = 66

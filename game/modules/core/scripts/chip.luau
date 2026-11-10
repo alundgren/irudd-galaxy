@@ -1,11 +1,13 @@
 -- The status chip's widgets (status.luau shows it): credits, then the hold and what is
--- in it, each with its icon and a count (direction doc 1.5: dark ink with a
--- lantern-gold border). A changed number flashes briefly, so a sale or a cut is seen.
+-- in it, each with its icon and a count, and in flight the chart glass's map once it is
+-- fitted (direction doc 1.5: dark ink with a lantern-gold border). A changed number
+-- flashes briefly, so a sale or a cut is seen.
 local rules = require("./rules")
 local layout = require("./layout")
 local kit = require("./kit")
 local fit = require("./fit")
 local project = require("./project")
+local chart = require("./chart")
 
 -- The chip's width inside its padding (style.toml's chip pad is 12). Each widget has
 -- its own width, so nothing is squeezed: credits (CREDITS, room for five digits) and
@@ -62,6 +64,9 @@ function chip.build(ctx, ui)
         count,
     } } }
     if #wares > 0 then table.insert(children, ui.row { id = "cargo", gap = chip.CARGO_GAP, children = wares }) end
+    -- In flight with the chart glass in, its map below (scripts/chart.luau).
+    local map = chart.map(ctx, ui)
+    if map then table.insert(children, map) end
     return kit.chip(ui, { id = "status", align = "top-right", x = layout.M, y = layout.M, width = layout.CHIP, gap = 4, children = children })
 end
 

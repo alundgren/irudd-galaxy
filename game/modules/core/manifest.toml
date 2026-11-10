@@ -1,13 +1,13 @@
 # The core module: the base game. It is written through the GM (game/AGENTS.md).
 id = "core"
 version = "0.1.0"
-min_engine_version = "0.8.0"
-scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau", "scripts/tow.luau", "scripts/discover.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit", "bump", "drive_on", "beam_on", "hitch", "hand", "slipped", "hitched", "heard", "facing"]
+min_engine_version = "0.9.0"
+scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau", "scripts/tow.luau", "scripts/discover.luau", "scripts/spine.luau"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit", "bump", "drive_on", "beam_on", "hitch", "hand", "slipped", "hitched", "heard", "facing", "drawn"]
 # Bodies that start touching at least this fast (units a second) record engine.contact,
 # which sound.luau turns into a bump on the hull when the ship is one of them.
 contact_speed = 2.0
-writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin", "engine.beam", "engine.emitter", "engine.burst", "engine.camera_feel"]
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin", "engine.beam", "engine.emitter", "engine.burst", "engine.camera_feel", "engine.explorer", "engine.explored"]
 
 [components.pilot]
 credits = "int"
@@ -65,9 +65,12 @@ cut_work = "int"
 gained = "int"
 # What the ship is near, for the hint strip: "ring:<station>", "aim", "reach" or "".
 near = "text"
-# The stations off screen and the way each lies, for the bottom strip: the reach is
-# several screens across, so the way home is always named (rules.bearings).
-bearings = "text"
+# Bram's welcome on the radio has been heard: it gives the pilot's own goal, a way to
+# chart the reach, which the log pins until the chart glass is fitted (scripts/chart.luau).
+welcomed = "bool"
+# Mags has said on the radio where both buyers lie, as the pilot flew off with the first
+# full hold (scripts/traffic.luau).
+directed = "bool"
 # Out of the last berth's ring since launching: flying into a ring docks only then.
 cleared = "bool"
 
@@ -206,6 +209,15 @@ order = "int"
 # Full holds the pilot must have cut before the fitter will fit it: the earned controls
 # wait on demonstrated work as well as credits.
 holds = "int"
+# A part the fitter makes ("Make", direction doc 5): from a drawing (`blueprint`), once
+# the drawing is `found`, out of `units` of `ware` from the hold as well as its price.
+blueprint = "bool"
+found = "bool"
+ware = "text"
+units = "int"
+# Offered only once this part is fitted (the chart glass comes first): until then the
+# fitter keeps it off his rack, unless it is already yours.
+after = "id"
 
 # What the ship's fitted parts add up to: its hold, the ore a second its beam cuts,
 # and the power and mass in use. Set whenever a part goes on or comes off.

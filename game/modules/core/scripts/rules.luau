@@ -261,39 +261,6 @@ function rules.worked_out(load, cargo, buyers)
     return field .. " You carry " .. cargo .. ": " .. table.concat(buyers, " and ") .. verb .. " it."
 end
 
--- Where a point `dx`, `dy` off lies, in one of eight words (north is +y). Slopes, not
--- trigonometry, so every machine gives the same word.
-function rules.compass(dx, dy)
-    local ax, ay = math.abs(dx), math.abs(dy)
-    local slope = 0.41421356 -- tan 22.5 degrees
-    local ns = dy >= 0 and "north" or "south"
-    local ew = dx >= 0 and "east" or "west"
-    if ay <= slope * ax then return ew end
-    if ax <= slope * ay then return ns end
-    return ns .. "-" .. ew
-end
-
--- A station inside this box round the ship (half-width, half-height) is well on screen at
--- the starting view (64 units tall, so 32 up and down and at least 42 across in a 4:3 or
--- wider window) and wears its own name; outside it the bottom strip names it with the way
--- it lies. The box is kept inside the view, so a station is never both off screen and
--- unnamed; near the box's edge it may be on screen and named twice, which does no harm.
-rules.ON_SCREEN = { x = 40, y = 24 }
-
--- "Lantern Dock south-west · Cinder Kiln south-east": each station in `stations`
--- ({ name, x, y }, in order) not well on screen from `at`, and the way it lies; "" when
--- every station is on screen.
-function rules.bearings(at, stations)
-    local parts = {}
-    for _, s in stations do
-        local dx, dy = s.x - at.x, s.y - at.y
-        if math.abs(dx) > rules.ON_SCREEN.x or math.abs(dy) > rules.ON_SCREEN.y then
-            table.insert(parts, s.name .. " " .. rules.compass(dx, dy))
-        end
-    end
-    return table.concat(parts, " · ")
-end
-
 -- A counted visit eases a line back towards its target by its rate.
 function rules.settle(line)
     if line.stock < line.target then return math.min(line.target, line.stock + line.rate) end

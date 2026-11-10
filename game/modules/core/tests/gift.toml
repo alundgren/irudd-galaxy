@@ -173,10 +173,10 @@ tick = 59
 entity = "ship"
 component = "pilot"
 field = "logged"
-equals = 5
+equals = 6
 [[expect]]
 tick = 59
-entity = "log4"
+entity = "log5"
 component = "entry"
 field = "text"
 equals = "Ines Varga at Lantern Dock: \u201CHear them? Crews at my table, eating hot. Your plate did that.\u201D \u201CWill you take a ration, on the house?\u201D You: Take it. \u201CThere. It's in your hold.\u201D"

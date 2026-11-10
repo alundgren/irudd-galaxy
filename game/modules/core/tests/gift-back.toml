@@ -177,7 +177,7 @@ tick = 63
 name = "core.launch"
 [[expect]]
 tick = 63
-entity = "log5"
+entity = "log6"
 component = "entry"
 field = "leaves"
 equals = true
@@ -292,10 +292,10 @@ tick = 133
 entity = "ship"
 component = "pilot"
 field = "logged"
-equals = 7
+equals = 8
 [[expect]]
 tick = 133
-entity = "log4"
+entity = "log5"
 component = "entry"
 field = "text"
 equals = "Ines Varga at Lantern Dock: “Hear them? Crews at my table, eating hot. Your plate did that.” “Will you take a ration, on the house?” You: Take it. “There. It's in your hold.”"

@@ -832,6 +832,13 @@ hover_lift = 1.5
 press_sink = 1.5
 cue_time = 0.5
 flash = "#ffe9a6"
+# The chart glass's map (scripts/chart.luau, in the status chip): where the ship has flown
+# is parchment, the rest a deep ink fog; marks and the ship's heading are ink.
+map_clear = "#f7e8c8"
+map_fog = "#4a3a55"
+map_edge = "#c9963a"
+map_mark = "#2a1a2e"
+map_self = "#000000"
 
 # Status: the HUD chip, top right. Dark ink, lantern-gold border.
 [screen.looks.chip]
