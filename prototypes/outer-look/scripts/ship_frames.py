@@ -20,6 +20,7 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 OUT = argv[0]
 N = int(argv[1]) if len(argv) > 1 else 64
 PX = int(argv[2]) if len(argv) > 2 else 256
+DESIGN = argv[3] if len(argv) > 3 else "tug"  # tug: the concept's ship; hauler: a second design with no concept
 
 # colours sampled from the concept ship (palette.py boxes), sRGB
 PAL = {
@@ -195,18 +196,33 @@ def box(name, loc, scale, mat, rot=(0, 0, 0), ink=0.03):
     return add(o, mat, ink)
 
 
-# the ship, nose toward +X, about 2.6 units long
-sphere("hull", (0.15, 0, 0), (1.25, 0.5, 0.48), "hull")
-sphere("canopy", (0.62, 0, 0.2), (0.55, 0.36, 0.3), "canopy_glass", ink=0.025)
-box("stripe", (0.0, 0, 0.42), (0.7, 0.07, 0.06), "trim", ink=0.015)
-for s in (-1, 1):
-    cyl("engine%d" % s, (-1.05, 0.26 * s, -0.02), 0.24, 0.6, "nozzle")
-    cyl("ring%d" % s, (-1.32, 0.26 * s, -0.02), 0.2, 0.08, "dark", ink=0.0)
-    cyl("flame%d" % s, (-1.38, 0.26 * s, -0.02), 0.15, 0.04, "glow", ink=0.0)
-    box("wing%d" % s, (-0.35, 0.72 * s, -0.12), (0.5, 0.36, 0.05), "wing", rot=(0, 0, -0.35 * s))
-    sphere("mark%d" % s, (-0.35, 0.8 * s, -0.06), (0.14, 0.14, 0.03), "dark", ink=0.0, seg=16)
-box("fin", (-0.7, 0, 0.62), (0.42, 0.04, 0.32), "fin", rot=(0, -0.45, 0))
-box("fintip", (-0.82, 0, 0.92), (0.3, 0.05, 0.04), "wing", rot=(0, -0.2, 0), ink=0.015)
+if DESIGN == "tug":
+    # the ship, nose toward +X, about 2.6 units long
+    sphere("hull", (0.15, 0, 0), (1.25, 0.5, 0.48), "hull")
+    sphere("canopy", (0.62, 0, 0.2), (0.55, 0.36, 0.3), "canopy_glass", ink=0.025)
+    box("stripe", (0.0, 0, 0.42), (0.7, 0.07, 0.06), "trim", ink=0.015)
+    for s in (-1, 1):
+        cyl("engine%d" % s, (-1.05, 0.26 * s, -0.02), 0.24, 0.6, "nozzle")
+        cyl("ring%d" % s, (-1.32, 0.26 * s, -0.02), 0.2, 0.08, "dark", ink=0.0)
+        cyl("flame%d" % s, (-1.38, 0.26 * s, -0.02), 0.15, 0.04, "glow", ink=0.0)
+        box("wing%d" % s, (-0.35, 0.72 * s, -0.12), (0.5, 0.36, 0.05), "wing", rot=(0, 0, -0.35 * s))
+        sphere("mark%d" % s, (-0.35, 0.8 * s, -0.06), (0.14, 0.14, 0.03), "dark", ink=0.0, seg=16)
+    box("fin", (-0.7, 0, 0.62), (0.42, 0.04, 0.32), "fin", rot=(0, -0.45, 0))
+    box("fintip", (-0.82, 0, 0.92), (0.3, 0.05, 0.04), "wing", rot=(0, -0.2, 0), ink=0.015)
+
+else:
+    # a boxy cargo hauler: cab at the nose, a cargo frame with three crates, one big engine
+    box("cab", (0.95, 0, 0.1), (0.35, 0.38, 0.32), "fin")
+    sphere("window", (1.22, 0, 0.22), (0.12, 0.3, 0.14), "canopy_glass", ink=0.015)
+    box("spine", (-0.1, 0, -0.05), (0.85, 0.16, 0.12), "nozzle")
+    for k, x in enumerate((0.35, -0.15, -0.65)):
+        box("crate%d" % k, (x, 0, 0.18), (0.22, 0.42, 0.2), ("wing", "hull", "wing")[k])
+    cyl("engine", (-1.1, 0, 0.0), 0.32, 0.5, "nozzle")
+    cyl("ring", (-1.37, 0, 0.0), 0.27, 0.06, "dark", ink=0.0)
+    cyl("flame", (-1.42, 0, 0.0), 0.2, 0.04, "glow", ink=0.0)
+    for s in (-1, 1):
+        box("strut%d" % s, (-0.9, 0.42 * s, -0.05), (0.25, 0.2, 0.05), "trim")
+        cyl("thruster%d" % s, (-0.9, 0.62 * s, -0.05), 0.1, 0.3, "nozzle", ink=0.02)
 
 pod = []
 for s in (-1, 1):

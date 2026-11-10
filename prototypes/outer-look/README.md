@@ -13,6 +13,49 @@ joins (see "What breaks").
 Everything here is offscreen: a Python compositor draws what the engine would draw. No
 game window was opened, and nothing in `engine/` or `game/` changed.
 
+## Does it scale? The test with only new art
+
+The first pass used the concept's own pixels. The scale test made everything new, from
+short text briefs, with the image tool that made the concepts (Codex's built-in
+`image_gen`). The tool's output was used as returned: no retouching, no upscaling, no
+shapes traced by hand. The pass rules were set before the run.
+
+| What was made | Tries | Time | Result |
+|---|---|---|---|
+| 3 stations, one per faction (round pier, square toll ring, lamp spire) | 3, no retries | 4 min 21 s with their room maps | same style, light and camera as the concept; factions read apart (Wharf leans on the reference's layout) |
+| Room maps for the 3 stations | 3, no retries | (above) | after snapping to 7 colours, outline overlap 0.94–0.95 and every room on the right building: click-shapes with no tracing |
+| 9 rocks (3 iron, 3 ice, 3 glassite) | 3 sheets, no retries | 1 min 45 s | three kinds read apart at a glance |
+| A second ship with no concept painting (a hauler), 16 views over a block model | 16, 2 retries | 12 min | outline overlap 0.87–0.97; the same details repeat in every view |
+
+![New stations beside the concept (top left)](evidence/scale-new-stations.jpg)
+![Room shapes from the tool's room maps](evidence/scale-room-maps.jpg)
+![New rocks](evidence/scale-new-rocks.jpg)
+![Hauler renders and paint-over](evidence/scale-hauler-renders-and-paintover.jpg)
+
+`scripts/region.py` builds a region from only this new art: the three stations along a
+lane, 28 rocks in four fields, the tug flying the lane, mining the nearest rock to pebbles,
+then docking at the Tollway station while a pointer moves over it and the room under it
+(from the room map) lights up.
+
+![Region from new art](evidence/clip-region.gif)
+![Region stills](evidence/scale-region-stills.jpg)
+![Dock hover from the room map](evidence/scale-region-dock-hover.jpg)
+
+**Measured cost for a galaxy:** about 1.5 minutes of tool time per station (with its room
+map), about 35 seconds per rock kind of three shapes, and about 12 minutes per ship or
+fitted part plus a block model (minutes of script). A reach of ten stations, ten rock
+kinds and six ships is about 1.5 hours of generation.
+
+**Limits found:**
+- **Size.** The tool always returns 1672×941. That is the size the docking demo used, so
+  docking zoom holds to about 2× flight size and no further without an upscaler (untested).
+- **Layout copying.** Given the concept as a reference, the tool can lean on its layout
+  (Wharf did). Briefs should say what the layout must not copy.
+- **Ships need a block model each.** The painting follows the model's outline, so the
+  ship's design lives in the model (minutes per ship by script).
+- **Not in the game yet.** The engine can't draw painted sprites; that is a separate
+  engine PR.
+
 ![Concept, prototype, game today](evidence/frames-concept-prototype-today.jpg)
 
 ## The routes
@@ -47,6 +90,7 @@ can take later for moving light. F adds nothing a fixed-angle plate needs.
   rooms light up on hover.
 - `scripts/station_parts.py` rebuilds a different station from parts cut out of the plate.
 - `scripts/judge.py` scores pictures against the concept and makes the sheets below.
+- `scripts/region.py` builds the scale test's region from new art only (see above).
 
 ## What it looks like
 
