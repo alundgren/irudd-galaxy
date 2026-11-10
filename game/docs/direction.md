@@ -38,7 +38,7 @@ slice's content. The core can use other names; the look and the rules carry over
 
 ### 1.1 Art style: low-poly, cel shading, ink outlines
 
-*The rework in 1.6 will replace this look once it is built.*
+*The outer-world rework in 1.6 will replace this look once it is built.*
 
 **Decision.**
 
@@ -305,44 +305,49 @@ known-changes items.*
 
 ---
 
-### 1.6 The coming rework: a new look, walkable 3D rooms
+### 1.6 The look rework: the outer world first; 3D rooms paused
 
-**Target, not yet built, and still being explored.** A big graphics rework is coming, and
-this is where it aims. Until it lands, 1.1 to 1.5 and 3.2 describe the game as it is, and
-new work keeps its visuals plain and readable so the rework throws nothing away (see "Until
-the rework" below).
+**Target, not yet built.** A graphics rework is coming for the outer world: flight in
+space and the station seen from outside. Until it lands, 1.1 to 1.5 describe the game as
+it is, and new work keeps its visuals plain and readable so the rework throws nothing away
+(see "Until the rework" below).
 
-**Decision.** These points are settled. The look itself is not: the room-look track is
-still exploring it with Andreas, and writes its verdict here when he picks one.
+**Decision.**
 
 - **The outer world stays 2.5D.** Ships and rocks move on one plane.
-- **Rooms become full 3D places you walk around,** seen over the player's shoulder. The
-  player has a body in the room.
-- **Beings are 3D and move:** they turn, speak and reach, and they walk about their day.
-  Motion is part of the look. A still that can't be animated isn't a target.
+- **Its new look is being explored without true 3D rendering,** in the outer-look lab
+  (`prototype/outer-look`). The lab writes its verdict here when Andreas picks a route.
+- **3D rooms and beings are paused.** Walkable 3D rooms seen over the player's shoulder,
+  and 3D beings that move, were tried in the room-look labs. No approach reached the
+  concepts. Rooms stay as 3.2 describes them, and walking is parked again (11). Don't
+  start 3D room or being work unless Andreas reopens it.
 - **Room content belongs to things in the room.** The board on the wall, the ledger on the
   desk and the ship in the cradle are what the player acts on (3.4, 5).
 
 **Where the look is heading, not final.** The style being explored has:
 
 - saturated, exaggerated colour;
-- strong ink outlines with fine drawn marks on faces, cloth and hardware;
-- real depth and lighting, and small detail up close.
+- strong ink outlines with fine drawn marks and small detail;
+- scruffy, adapted structures that are a little alien: a lost civilisation's old
+  structures, adapted by people over time;
+- warm lit windows.
 
-It is techy and spacey, a little alien: a lost civilisation's old structures, adapted by
-people over time. No concept so far is the pick. That includes the two images below,
-the station designs and the flight camera angle.
+No concept so far is the pick. That includes the two images below, the station designs and
+the flight camera angle.
 
-**Source.** Andreas, 2026-11-08, with Galaxy Lead: the outer world in 2.5D, walkable 3D
-rooms over the player's shoulder and moving 3D beings, with the images below as hints of
-the style. The style is being explored in the room-look track (`prototype/room-look`).
+**Source.**
+
+- The outer world in 2.5D and the style hints: Andreas, 2026-11-08, with Galaxy Lead.
+- 3D rooms and beings paused: Andreas, 2026-11-10.
+- The lab's finding that projecting a concept painting onto a room holds only near the
+  painter's camera: PR #164, closed with the pause. The labs' full record is kept outside
+  the repo.
 
 **Until the rework.** Story and gameplay come first (Andreas, 2026-11-08):
 
 - New screens, the minimap and fog use the engine's neutral default and the module's
   existing style.
-- Room work is built as data and talk the new rooms can present, not as staging in
-  today's rooms.
+- Room work is built as data and talk, not as new staging.
 - No new art, models or look polish that the rework would replace.
 
 **In a screenshot.** Nothing to compare yet. The two images below are hints of the
@@ -360,22 +365,15 @@ kinds on one plane.*
 ![Bram at his desk in the Lantern Dock office, writing in the arrivals ledger in front of
 the posted board, and a close study of his face and jacket](direction/hint-room-and-being.jpg)
 
-*`hint-room-and-being.jpg`, a hint, not the pick: a room and a being. Bram writes in the
-arrivals ledger, the station's record of who came and went (3.4).*
+*`hint-room-and-being.jpg`, a style hint only, since 3D rooms are paused: a room and a
+being. Bram writes in the arrivals ledger, the station's record of who came and went (3.4).*
 
-**Overrides, once built.**
-
-- 1.1's look, by whatever look the rework picks.
-- 3.2's `cut` and fixed `staged` camera, which become walking over the shoulder in a 3D
-  room. 3.2 already asked for walking to be a change to the camera and travel, not a
-  rebuild of rooms. `bubble` and `states` carry over.
+**Overrides, once built.** 1.1's look, by the route the outer-look lab's verdict picks.
 
 **Open.**
 
-- The look itself, the station designs and the flight camera angle.
+- The outer world's look, the station designs and the flight camera angle.
 - How the player looks. Their being sheet leaves it unwritten.
-- Whether the rooms extend Galaxy's renderer or use another engine. The room-look track
-  tests this first; the boundary rule in `AGENTS.md` applies either way.
 
 ---
 
@@ -624,8 +622,6 @@ and the status chip at the top right. Not the reference for the camera angle: th
 docked view is tilted about 40° (3.3).*
 
 ### 3.2 Rooms are places: `cut · staged · bubble · states` (the places lab)
-
-*The rework in 1.6 replaces `cut` and `staged` with walkable 3D rooms once it is built.*
 
 **Decision.** Andreas played the combinations and picked `cut · staged · bubble · states`.
 
@@ -1174,8 +1170,9 @@ roles beside them are how the slice, issue #47 and the ui-lab used them.
 Each item is described in its area above.
 
 - **Messaging:** B, the leads board, and C, letters plus a chronicle (4).
-- **Places:** sound in rooms. Walking is no longer parked: it is the rework's target
-  (1.6). The non-picked variants are recorded in the places-lab README (3.2).
+- **Places:** walking (first person or over the shoulder) and 2.5D corridors to replace
+  the cut, and sound in rooms. 3D rooms and beings were tried and paused (1.6). The
+  non-picked variants are recorded in the places-lab README (3.2).
 - **The station:**
   - hub quarters, sign pins and the "To let" lot (3.1)
   - the hullwright as a working yard, and a visible personal history (3.3)
